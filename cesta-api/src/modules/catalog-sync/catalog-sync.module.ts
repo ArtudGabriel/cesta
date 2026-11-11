@@ -1,5 +1,6 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
+import { PRICE_ALERTS_QUEUE } from '../alerts/alerts.processor';
 import { MercadonaAdapter } from './adapters/mercadona.adapter';
 import { CatalogSyncController } from './catalog-sync.controller';
 import {
@@ -10,7 +11,12 @@ import { CatalogSyncRepository } from './catalog-sync.repository';
 import { CatalogSyncService } from './catalog-sync.service';
 
 @Module({
-  imports: [BullModule.registerQueue({ name: CATALOG_SYNC_QUEUE })],
+  imports: [
+    BullModule.registerQueue(
+      { name: CATALOG_SYNC_QUEUE },
+      { name: PRICE_ALERTS_QUEUE },
+    ),
+  ],
   controllers: [CatalogSyncController],
   providers: [
     CatalogSyncService,

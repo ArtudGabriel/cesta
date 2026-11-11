@@ -44,6 +44,17 @@ export class EnvironmentVariables {
 
   @IsString()
   REDIS_URL: string;
+
+  @IsString()
+  @MinLength(1)
+  VAPID_PUBLIC_KEY: string = 'disabled';
+
+  @IsString()
+  @MinLength(1)
+  VAPID_PRIVATE_KEY: string = 'disabled';
+
+  @IsString()
+  VAPID_SUBJECT: string = 'mailto:contact@cesta.app';
 }
 
 export function validateEnv(raw: Record<string, unknown>) {

@@ -35,6 +35,8 @@ model User {
   familyBaskets      FamilyBasket[]
   receipts           Receipt[]
   priceDiscrepancies PriceDiscrepancy[]
+  alerts             Alert[]
+  pushSubscriptions  PushSubscription[]
 
   @@index([deletedAt])
   @@map("users")
@@ -84,6 +86,7 @@ model Supermarket {
   prices    ProductPrice[]
   snapshots PriceSnapshot[]
   receipts  Receipt[]
+  alerts    Alert[]
 
   @@map("supermarkets")
 }
@@ -151,6 +154,7 @@ model Product {
   reviews      Review[]
   basketItems  FamilyBasketItem[]
   receiptItems ReceiptItem[]
+  alerts       Alert[]
 
   @@index([normalizedName])
   @@index([categoryId, deletedAt])
@@ -435,6 +439,63 @@ model PriceDiscrepancy {
 
   @@index([productPriceId, resolved])
   @@map("price_discrepancies")
+}
+
+// ──────────────────────────────────────────────
+// Alerts + notifications push
+// ──────────────────────────────────────────────
+
+model Alert {
+  id              String    @id @default(cuid())
+  userId          String    @map("user_id")
+  productId       String    @map("product_id")
+  supermarketId   String?   @map("supermarket_id")
+  type            String    // "promotion" | "target_price" | "promotion_ending" | "back_in_stock"
+  targetPrice     Decimal?  @db.Decimal(10, 2) @map("target_price")
+  isActive        Boolean   @default(true) @map("is_active")
+  lastTriggeredAt DateTime? @map("last_triggered_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product     Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supermarket Supermarket?   @relation(fields: [supermarketId], references: [id])
+  triggers    AlertTrigger[]
+
+  @@index([userId, isActive, deletedAt])
+  @@index([productId, isActive])
+  @@map("alerts")
+}
+
+model AlertTrigger {
+  id            String    @id @default(cuid())
+  alertId       String    @map("alert_id")
+  reason        String    // "price_drop" | "promotion_started" | "target_reached" | ...
+  priceSnapshot Decimal   @db.Decimal(10, 2) @map("price_snapshot")
+  notifiedAt    DateTime? @map("notified_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  alert Alert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+
+  @@index([alertId, createdAt])
+  @@map("alert_triggers")
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  endpoint  String   @unique @db.Text
+  p256dh    String
+  auth      String
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 model SyncRun {

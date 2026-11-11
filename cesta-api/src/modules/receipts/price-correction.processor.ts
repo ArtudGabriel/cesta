@@ -1,7 +1,11 @@
-import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
-import { Job } from 'bullmq';
+import { Job, Queue } from 'bullmq';
 import { Prisma } from '@prisma/client';
+import {
+  PRICE_ALERTS_QUEUE,
+  PriceAlertCheckJob,
+} from '../alerts/alerts.processor';
 import { PrismaService } from '../../database/prisma.service';
 
 export const PRICE_CORRECTION_QUEUE = 'price-correction';
@@ -24,7 +28,11 @@ const AUTO_UPDATE_WINDOW_DAYS = 7;
 export class PriceCorrectionProcessor extends WorkerHost {
   private readonly logger = new Logger(PriceCorrectionProcessor.name);
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    @InjectQueue(PRICE_ALERTS_QUEUE)
+    private readonly alertsQueue: Queue<PriceAlertCheckJob>,
+  ) {
     super();
   }
 
@@ -119,6 +127,16 @@ export class PriceCorrectionProcessor extends WorkerHost {
         data: { resolved: true },
       }),
     ]);
+
+    await this.alertsQueue.add(
+      'check',
+      { productId, supermarketId },
+      {
+        jobId: `${productId}:${supermarketId}`,
+        removeOnComplete: 100,
+        removeOnFail: 50,
+      },
+    );
 
     this.logger.log(
       `Price auto-updated for product ${productId} @ ${supermarketId}: €${current} → €${avg.toFixed(2)} (${recent.length} confirmações)`,

@@ -6,6 +6,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { validateEnv } from './config/env.validation';
 import { PrismaModule } from './database/prisma.module';
+import { AlertsModule } from './modules/alerts/alerts.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
@@ -14,6 +15,7 @@ import { CategoriesModule } from './modules/categories/categories.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { FamilyBasketsModule } from './modules/family-baskets/family-baskets.module';
 import { FamilyProfilesModule } from './modules/family-profiles/family-profiles.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ProductsModule } from './modules/products/products.module';
 import { ReceiptsModule } from './modules/receipts/receipts.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
@@ -59,6 +61,8 @@ import { UsersModule } from './modules/users/users.module';
     ReviewsModule,
     FamilyProfilesModule,
     FamilyBasketsModule,
+    AlertsModule,
+    NotificationsModule,
     CatalogSyncModule,
     ReceiptsModule,
     ExpensesModule,

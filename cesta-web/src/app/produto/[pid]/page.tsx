@@ -4,14 +4,18 @@ import { ArrowLeft, Leaf, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { CreateAlertButton } from "@/features/alerts/components/create-alert-button";
 import { PriceComparisonGrid } from "@/features/catalog/components/price-comparison-grid";
-import { useProduct } from "@/features/catalog/hooks/use-catalog";
+import { useProduct, useSupermarkets } from "@/features/catalog/hooks/use-catalog";
 import { ReviewsSection } from "@/features/reviews/components/reviews-section";
 import { formatPrice } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth.store";
 
 export default function ProductDetailPage() {
   const params = useParams<{ pid: string }>();
   const { data: product, isLoading, isError } = useProduct(params.pid);
+  const supermarkets = useSupermarkets();
+  const user = useAuthStore((s) => s.user);
 
   if (isLoading) {
     return (
@@ -98,6 +102,15 @@ export default function ProductDetailPage() {
         </h3>
         <PriceComparisonGrid prices={product.prices} />
       </section>
+
+      {user && (
+        <section className="px-4 py-2">
+          <CreateAlertButton
+            productId={product.id}
+            supermarkets={supermarkets.data}
+          />
+        </section>
+      )}
 
       <section className="px-4 py-4">
         <h3 className="mb-3 font-display text-lg font-bold text-ink">

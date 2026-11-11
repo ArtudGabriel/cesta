@@ -1,5 +1,6 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
+import { PRICE_ALERTS_QUEUE } from '../alerts/alerts.processor';
 import {
   PRICE_CORRECTION_QUEUE,
   PriceCorrectionProcessor,
@@ -14,6 +15,7 @@ import { ReceiptsService } from './receipts.service';
     BullModule.registerQueue(
       { name: RECEIPTS_QUEUE },
       { name: PRICE_CORRECTION_QUEUE },
+      { name: PRICE_ALERTS_QUEUE },
     ),
   ],
   controllers: [ReceiptsController],

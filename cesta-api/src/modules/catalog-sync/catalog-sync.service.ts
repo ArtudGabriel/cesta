@@ -1,4 +1,10 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Queue } from 'bullmq';
+import {
+  PRICE_ALERTS_QUEUE,
+  PriceAlertCheckJob,
+} from '../alerts/alerts.processor';
 import { CatalogSyncRepository } from './catalog-sync.repository';
 import { MercadonaAdapter } from './adapters/mercadona.adapter';
 import type {
@@ -26,6 +32,8 @@ export class CatalogSyncService {
   constructor(
     private readonly repo: CatalogSyncRepository,
     mercadona: MercadonaAdapter,
+    @InjectQueue(PRICE_ALERTS_QUEUE)
+    private readonly alertsQueue: Queue<PriceAlertCheckJob>,
   ) {
     this.adapters = new Map<string, SupermarketAdapter>([
       [mercadona.slug, mercadona],
@@ -88,6 +96,17 @@ export class CatalogSyncService {
 
           if (created) stats.itemsCreated += 1;
           else stats.itemsUpdated += 1;
+
+          // Enfileira verificação de alertas (dedupe via jobId)
+          await this.alertsQueue.add(
+            'check',
+            { productId: product.id, supermarketId: supermarket.id },
+            {
+              jobId: `${product.id}:${supermarket.id}`,
+              removeOnComplete: 100,
+              removeOnFail: 50,
+            },
+          );
         } catch (error) {
           stats.itemsFailed += 1;
           const message = error instanceof Error ? error.message : String(error);
