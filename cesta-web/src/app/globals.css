@@ -57,9 +57,6 @@
   --duration-toast:  320ms;
 }
 
-/* Font loading — Fontshare (dev); substituir por next/font/local em produção */
-@import url("https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@700,800&display=swap");
-
 body {
   background: var(--color-background);
   color: var(--color-foreground);
