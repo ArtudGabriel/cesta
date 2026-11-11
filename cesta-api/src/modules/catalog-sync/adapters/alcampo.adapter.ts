@@ -1,18 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { politeFetch } from '../utils/polite-fetch';
+import { pickUserAgent } from '../utils/user-agents';
 import type {
   RawPackageUnit,
   RawProduct,
   SupermarketAdapter,
 } from './supermarket-adapter.interface';
 
-// Alcampo (grupo Auchan) tem API de busca em alcampo.es. Pode ser protegida
-// por CDN; adapter é defensivo e retorna [] se bloqueado.
-// Endpoint observado: alcampo.es/api/v1/search?q=<query>
-// A estrutura pode variar — normaliza campos conhecidos com fallback.
-
+// Alcampo (grupo Auchan) — protegido por CDN. Estratégia polite-fetch:
+// UA rotativo, jitter 3-7s, backoff em 429/403, defensivo.
 const BASE_URL = 'https://www.alcampo.es/api/v1/search';
-const USER_AGENT = 'Cesta-App/0.1 (+contact: gabriel.augusto@vonex.com.br)';
-const FETCH_DELAY_MS = 2000;
 const MAX_PER_QUERY = 50;
 
 const SEED_QUERIES = [
@@ -51,10 +48,6 @@ interface AlcampoResponse {
   items?: AlcampoProduct[];
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 @Injectable()
 export class AlcampoAdapter implements SupermarketAdapter {
   readonly slug = 'alcampo';
@@ -80,7 +73,6 @@ export class AlcampoAdapter implements SupermarketAdapter {
         const msg = error instanceof Error ? error.message : String(error);
         this.logger.warn(`Alcampo query "${query}" falhou: ${msg}`);
       }
-      await sleep(FETCH_DELAY_MS);
     }
 
     this.logger.log(`Alcampo: ${products.length} produtos coletados`);
@@ -90,18 +82,19 @@ export class AlcampoAdapter implements SupermarketAdapter {
   private async search(query: string): Promise<AlcampoResponse | null> {
     const url = `${BASE_URL}?q=${encodeURIComponent(query)}&limit=${MAX_PER_QUERY}`;
     try {
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': USER_AGENT,
-          Accept: 'application/json',
-          'Accept-Language': 'es-ES,es;q=0.9',
+      return await politeFetch<AlcampoResponse>(url, {
+        userAgent: pickUserAgent(),
+        referer: 'https://www.alcampo.es/',
+        minJitterMs: 3000,
+        maxJitterMs: 7000,
+        maxRetries: 3,
+        initialBackoffMs: 4000,
+        onRetry: (attempt, status) => {
+          this.logger.warn(
+            `Alcampo retry ${attempt} (status=${status ?? 'network'}) query=${query}`,
+          );
         },
       });
-      if (!response.ok) {
-        this.logger.warn(`Alcampo ${query} → ${response.status}`);
-        return null;
-      }
-      return (await response.json()) as AlcampoResponse;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Alcampo fetch "${query}" falhou: ${msg}`);

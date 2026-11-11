@@ -1,17 +1,15 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { politeFetch } from '../utils/polite-fetch';
+import { pickUserAgent } from '../utils/user-agents';
 import type {
   RawPackageUnit,
   RawProduct,
   SupermarketAdapter,
 } from './supermarket-adapter.interface';
 
-// DIA (dia.es) expõe search-api interna. Resposta JSON com produtos; estrutura
-// pode mudar sem aviso. Best-effort.
-// Endpoint: dia.es/api/v1/search-engine/products/search?q=X
-
+// DIA (dia.es) — search-api interna. Estratégia polite-fetch com UA rotativo,
+// jitter 3-7s, backoff em 429/403/503. Estrutura pode mudar sem aviso.
 const BASE_URL = 'https://www.dia.es/api/v1/search-engine/products/search';
-const USER_AGENT = 'Cesta-App/0.1 (+contact: gabriel.augusto@vonex.com.br)';
-const FETCH_DELAY_MS = 2000;
 const MAX_PER_QUERY = 50;
 
 const SEED_QUERIES = [
@@ -55,10 +53,6 @@ interface DiaResponse {
   results?: DiaProduct[];
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 @Injectable()
 export class DiaAdapter implements SupermarketAdapter {
   readonly slug = 'dia';
@@ -84,7 +78,6 @@ export class DiaAdapter implements SupermarketAdapter {
         const msg = error instanceof Error ? error.message : String(error);
         this.logger.warn(`DIA query "${query}" falhou: ${msg}`);
       }
-      await sleep(FETCH_DELAY_MS);
     }
 
     this.logger.log(`DIA: ${products.length} produtos coletados`);
@@ -94,18 +87,19 @@ export class DiaAdapter implements SupermarketAdapter {
   private async search(query: string): Promise<DiaResponse | null> {
     const url = `${BASE_URL}?q=${encodeURIComponent(query)}&page_size=${MAX_PER_QUERY}&page=1`;
     try {
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': USER_AGENT,
-          Accept: 'application/json',
-          'Accept-Language': 'es-ES,es;q=0.9',
+      return await politeFetch<DiaResponse>(url, {
+        userAgent: pickUserAgent(),
+        referer: 'https://www.dia.es/',
+        minJitterMs: 3000,
+        maxJitterMs: 7000,
+        maxRetries: 3,
+        initialBackoffMs: 4000,
+        onRetry: (attempt, status) => {
+          this.logger.warn(
+            `DIA retry ${attempt} (status=${status ?? 'network'}) query=${query}`,
+          );
         },
       });
-      if (!response.ok) {
-        this.logger.warn(`DIA ${query} → ${response.status}`);
-        return null;
-      }
-      return (await response.json()) as DiaResponse;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       this.logger.warn(`DIA fetch "${query}" falhou: ${msg}`);

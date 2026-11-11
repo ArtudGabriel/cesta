@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { politeFetch } from '../utils/polite-fetch';
+import { IDENTIFIED_UA } from '../utils/user-agents';
 import type {
   RawPackageUnit,
   RawProduct,
@@ -8,10 +10,9 @@ import type {
 // Mercadona expõe uma API semi-pública em tienda.mercadona.es.
 // Preços variam por "warehouse" (wh). "mad1" cobre a maior parte da região de Madrid.
 // Documentação é observacional; o endpoint pode mudar sem aviso.
+// Mercadona é tolerante — usa UA identificado + jitter curto.
 const BASE_URL = 'https://tienda.mercadona.es/api';
 const DEFAULT_WH = 'mad1';
-const USER_AGENT = 'Cesta-App/0.1 (+contact: gabriel.augusto@vonex.com.br)';
-const FETCH_DELAY_MS = 1000;
 
 interface MercadonaCategory {
   id: number;
@@ -51,10 +52,6 @@ interface MercadonaCategoryWithProducts extends MercadonaCategory {
   products?: MercadonaProduct[];
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 @Injectable()
 export class MercadonaAdapter implements SupermarketAdapter {
   readonly slug = 'mercadona';
@@ -80,7 +77,6 @@ export class MercadonaAdapter implements SupermarketAdapter {
             const normalized = this.normalize(raw, sub.name);
             if (normalized) products.push(normalized);
           }
-          await sleep(FETCH_DELAY_MS);
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           this.logger.warn(`Mercadona cat ${sub.id} falhou: ${message}`);
@@ -226,17 +222,18 @@ export class MercadonaAdapter implements SupermarketAdapter {
 
   private async fetchJson<T>(url: string): Promise<T | null> {
     try {
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': USER_AGENT,
-          Accept: 'application/json',
+      return await politeFetch<T>(url, {
+        userAgent: IDENTIFIED_UA,
+        referer: 'https://tienda.mercadona.es/',
+        minJitterMs: 800,
+        maxJitterMs: 1800,
+        maxRetries: 2,
+        onRetry: (attempt, status) => {
+          this.logger.warn(
+            `Mercadona retry ${attempt} (status=${status ?? 'network'})`,
+          );
         },
       });
-      if (!response.ok) {
-        this.logger.warn(`Mercadona ${url} → ${response.status}`);
-        return null;
-      }
-      return (await response.json()) as T;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Mercadona fetch failed: ${message}`);

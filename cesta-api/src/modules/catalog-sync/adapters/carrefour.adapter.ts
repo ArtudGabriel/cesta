@@ -1,25 +1,25 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { politeFetch } from '../utils/polite-fetch';
+import { pickUserAgent } from '../utils/user-agents';
 import type {
   RawPackageUnit,
   RawProduct,
   SupermarketAdapter,
 } from './supermarket-adapter.interface';
 
-// Carrefour Espanha não expõe uma API pública oficial. Este adapter usa a
-// search-api interna observada no site (carrefour.es/search-api). O site tem
-// anti-bot (Akamai) que pode bloquear a partir de volumes altos; por isso:
-//  - rate-limit alto (2s entre queries)
-//  - User-Agent identificado
-//  - varredura por queries de categoria básicas (evita crawling exaustivo)
-//  - falha de query não aborta o run (defensivo)
+// Carrefour Espanha não expõe API pública. Este adapter usa a search-api
+// interna. O site tem Akamai Bot Manager; estratégia polite-fetch:
+//  - UA rotativo (pool de navegadores atuais)
+//  - Jitter aleatório 3-7s entre queries
+//  - Backoff exponencial em 429/403/503 respeitando Retry-After
+//  - Referer + Sec-Fetch-* humanizados
+//  - Falha de query não aborta o run (defensivo)
 //
 // Se Akamai bloquear, o adapter retorna [] e o run termina como "failed" ou
 // "partial" sem quebrar o sistema. Preços oficiais do Carrefour vêm por aqui;
 // caso bloqueie em produção, considerar scraping via Puppeteer com proxy.
 
 const BASE_URL = 'https://www.carrefour.es/search-api/query/v1/products';
-const USER_AGENT = 'Cesta-App/0.1 (+contact: gabriel.augusto@vonex.com.br)';
-const FETCH_DELAY_MS = 2000;
 const MAX_PER_QUERY = 50;
 
 // Queries base para varredura — cobre maioria das categorias
@@ -83,10 +83,6 @@ interface CarrefourSearchResponse {
   total?: number;
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 @Injectable()
 export class CarrefourAdapter implements SupermarketAdapter {
   readonly slug = 'carrefour';
@@ -111,7 +107,6 @@ export class CarrefourAdapter implements SupermarketAdapter {
         const message = error instanceof Error ? error.message : String(error);
         this.logger.warn(`Carrefour query "${query}" falhou: ${message}`);
       }
-      await sleep(FETCH_DELAY_MS);
     }
 
     this.logger.log(`Carrefour: ${products.length} produtos coletados`);
@@ -121,18 +116,19 @@ export class CarrefourAdapter implements SupermarketAdapter {
   private async search(query: string): Promise<CarrefourSearchResponse | null> {
     const url = `${BASE_URL}?query=${encodeURIComponent(query)}&offset=0&limit=${MAX_PER_QUERY}`;
     try {
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': USER_AGENT,
-          Accept: 'application/json',
-          'Accept-Language': 'es-ES,es;q=0.9',
+      return await politeFetch<CarrefourSearchResponse>(url, {
+        userAgent: pickUserAgent(),
+        referer: 'https://www.carrefour.es/',
+        minJitterMs: 3000,
+        maxJitterMs: 7000,
+        maxRetries: 3,
+        initialBackoffMs: 4000,
+        onRetry: (attempt, status) => {
+          this.logger.warn(
+            `Carrefour retry ${attempt} (status=${status ?? 'network'}) query=${query}`,
+          );
         },
       });
-      if (!response.ok) {
-        this.logger.warn(`Carrefour ${query} → ${response.status}`);
-        return null;
-      }
-      return (await response.json()) as CarrefourSearchResponse;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Carrefour fetch "${query}" falhou: ${message}`);
