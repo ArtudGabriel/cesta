@@ -11,9 +11,11 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
 import { CatalogSyncModule } from './modules/catalog-sync/catalog-sync.module';
 import { CategoriesModule } from './modules/categories/categories.module';
+import { ExpensesModule } from './modules/expenses/expenses.module';
 import { FamilyBasketsModule } from './modules/family-baskets/family-baskets.module';
 import { FamilyProfilesModule } from './modules/family-profiles/family-profiles.module';
 import { ProductsModule } from './modules/products/products.module';
+import { ReceiptsModule } from './modules/receipts/receipts.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { ShoppingListsModule } from './modules/shopping-lists/shopping-lists.module';
 import { SupermarketsModule } from './modules/supermarkets/supermarkets.module';
@@ -58,6 +60,8 @@ import { UsersModule } from './modules/users/users.module';
     FamilyProfilesModule,
     FamilyBasketsModule,
     CatalogSyncModule,
+    ReceiptsModule,
+    ExpensesModule,
   ],
   controllers: [AppController],
   providers: [

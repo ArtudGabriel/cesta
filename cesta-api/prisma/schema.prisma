@@ -27,12 +27,14 @@ model User {
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
 
-  refreshTokens  RefreshToken[]
-  shoppingLists  ShoppingList[]
-  reviews        Review[]
-  reviewHelpfuls ReviewHelpful[]
-  familyProfile  FamilyProfile?
-  familyBaskets  FamilyBasket[]
+  refreshTokens      RefreshToken[]
+  shoppingLists      ShoppingList[]
+  reviews            Review[]
+  reviewHelpfuls     ReviewHelpful[]
+  familyProfile      FamilyProfile?
+  familyBaskets      FamilyBasket[]
+  receipts           Receipt[]
+  priceDiscrepancies PriceDiscrepancy[]
 
   @@index([deletedAt])
   @@map("users")
@@ -81,6 +83,7 @@ model Supermarket {
 
   prices    ProductPrice[]
   snapshots PriceSnapshot[]
+  receipts  Receipt[]
 
   @@map("supermarkets")
 }
@@ -147,6 +150,7 @@ model Product {
   listItems    ShoppingListItem[]
   reviews      Review[]
   basketItems  FamilyBasketItem[]
+  receiptItems ReceiptItem[]
 
   @@index([normalizedName])
   @@index([categoryId, deletedAt])
@@ -169,8 +173,9 @@ model ProductPrice {
   lastSyncedAt    DateTime  @default(now()) @map("last_synced_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
-  supermarket Supermarket @relation(fields: [supermarketId], references: [id])
+  product       Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supermarket   Supermarket        @relation(fields: [supermarketId], references: [id])
+  discrepancies PriceDiscrepancy[]
 
   @@unique([productId, supermarketId])
   @@index([supermarketId, lastSyncedAt])
@@ -362,6 +367,74 @@ model ProductCandidate {
   @@unique([normalizedName, supermarketSlug])
   @@index([status, createdAt])
   @@map("product_candidates")
+}
+
+// ──────────────────────────────────────────────
+// Receipts (OCR de notas fiscais)
+// ──────────────────────────────────────────────
+
+model Receipt {
+  id              String    @id @default(cuid())
+  userId          String    @map("user_id")
+  supermarketId   String?   @map("supermarket_id")
+  supermarketSlug String?   @map("supermarket_slug")
+  purchaseDate    DateTime? @map("purchase_date")
+  total           Decimal?  @db.Decimal(10, 2)
+  imageUrl        String?   @map("image_url")
+  ocrRawText      String?   @map("ocr_raw_text") @db.Text
+  status          String    @default("pending") // pending|processing|ready|failed
+  errorMessage    String?   @map("error_message")
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  supermarket Supermarket?       @relation(fields: [supermarketId], references: [id])
+  items       ReceiptItem[]
+  discrepancies PriceDiscrepancy[]
+
+  @@index([userId, purchaseDate])
+  @@index([userId, deletedAt])
+  @@index([status])
+  @@map("receipts")
+}
+
+model ReceiptItem {
+  id             String   @id @default(cuid())
+  receiptId      String   @map("receipt_id")
+  rawText        String   @map("raw_text")
+  normalizedName String   @map("normalized_name")
+  quantity       Decimal  @db.Decimal(10, 3) @default(1)
+  unitPrice      Decimal  @db.Decimal(10, 2) @map("unit_price")
+  total          Decimal  @db.Decimal(10, 2)
+  productId      String?  @map("product_id")
+  categoryHint   String?  @map("category_hint")
+  position       Int      @default(0)
+
+  receipt Receipt  @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@index([receiptId])
+  @@index([productId])
+  @@map("receipt_items")
+}
+
+model PriceDiscrepancy {
+  id               String   @id @default(cuid())
+  productPriceId   String   @map("product_price_id")
+  reportedPrice    Decimal  @db.Decimal(10, 2) @map("reported_price")
+  reportedByUserId String   @map("reported_by_user_id")
+  receiptId        String?  @map("receipt_id")
+  resolved         Boolean  @default(false)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  productPrice ProductPrice @relation(fields: [productPriceId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [reportedByUserId], references: [id])
+  receipt      Receipt?     @relation(fields: [receiptId], references: [id], onDelete: SetNull)
+
+  @@index([productPriceId, resolved])
+  @@map("price_discrepancies")
 }
 
 model SyncRun {

@@ -43,7 +43,7 @@ coverage/
 .docker/
 
 # Uploads (recebimentos do usuário em dev)
-uploads/
+cesta-api/uploads/
 tmp/
 
 # Memory + local claude settings (per-dev)
