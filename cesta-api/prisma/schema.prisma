@@ -339,3 +339,44 @@ model FamilyBasketItem {
   @@index([basketId])
   @@map("family_basket_items")
 }
+
+// ──────────────────────────────────────────────
+// Catalog sync (ingestão de preços)
+// ──────────────────────────────────────────────
+
+model ProductCandidate {
+  id              String   @id @default(cuid())
+  rawName         String   @map("raw_name")
+  normalizedName  String   @map("normalized_name")
+  brand           String?
+  ean             String?
+  supermarketSlug String   @map("supermarket_slug")
+  reportedPrice   Decimal  @db.Decimal(10, 2) @map("reported_price")
+  packageHint     String?  @map("package_hint")
+  categoryHint    String?  @map("category_hint")
+  confirmations   Int      @default(1)
+  status          String   @default("pending") // pending | approved | rejected
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([normalizedName, supermarketSlug])
+  @@index([status, createdAt])
+  @@map("product_candidates")
+}
+
+model SyncRun {
+  id              String    @id @default(cuid())
+  supermarketSlug String    @map("supermarket_slug")
+  status          String    @default("running") // running | success | partial | failed
+  itemsProcessed  Int       @default(0) @map("items_processed")
+  itemsCreated    Int       @default(0) @map("items_created")
+  itemsUpdated    Int       @default(0) @map("items_updated")
+  itemsCandidate  Int       @default(0) @map("items_candidate")
+  itemsFailed     Int       @default(0) @map("items_failed")
+  errorMessage    String?   @map("error_message")
+  startedAt       DateTime  @default(now()) @map("started_at")
+  finishedAt      DateTime? @map("finished_at")
+
+  @@index([supermarketSlug, startedAt])
+  @@map("sync_runs")
+}

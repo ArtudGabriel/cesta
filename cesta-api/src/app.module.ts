@@ -9,6 +9,7 @@ import { PrismaModule } from './database/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
+import { CatalogSyncModule } from './modules/catalog-sync/catalog-sync.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { FamilyBasketsModule } from './modules/family-baskets/family-baskets.module';
 import { FamilyProfilesModule } from './modules/family-profiles/family-profiles.module';
@@ -56,6 +57,7 @@ import { UsersModule } from './modules/users/users.module';
     ReviewsModule,
     FamilyProfilesModule,
     FamilyBasketsModule,
+    CatalogSyncModule,
   ],
   controllers: [AppController],
   providers: [
