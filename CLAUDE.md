@@ -130,6 +130,21 @@ cesta/
 
 ---
 
+## Hospedagem (planejado)
+
+| Peça | Dev | Staging/Preview | Produção |
+|------|-----|-----------------|----------|
+| `cesta-web` (Next.js) | localhost | **Vercel Preview** (auto por PR) | **Vercel** |
+| `cesta-api` (NestJS) | Docker local | Railway/Render staging | Railway/Render/Fly |
+| Postgres | Docker local | Neon/Supabase staging | Neon/Supabase/Railway |
+| Redis (BullMQ) | Docker local | Upstash staging | Upstash/Railway |
+
+**Por que não Vercel pra API:** serverless tem timeout curto, cold start ruim pra Prisma, e não suporta workers BullMQ (long-running). Vercel só pro frontend.
+
+**Workflow previsto:** push em branch → Vercel abre preview automático do frontend apontando pra API de staging. Merge em `main` → deploy produção em ambas plataformas.
+
+---
+
 ## Particularidades / pegadinhas
 
 - **Diretório na raiz `OneDrive`** — OneDrive pode fazer sync agressivo. Preferir desabilitar sync em `node_modules/` via `.nosync` ou mover projeto futuramente para fora do OneDrive se der problema.

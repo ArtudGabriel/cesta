@@ -10,6 +10,7 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ProductsModule } from './modules/products/products.module';
+import { ShoppingListsModule } from './modules/shopping-lists/shopping-lists.module';
 import { SupermarketsModule } from './modules/supermarkets/supermarkets.module';
 import { UsersModule } from './modules/users/users.module';
 
@@ -33,6 +34,7 @@ import { UsersModule } from './modules/users/users.module';
     SupermarketsModule,
     CategoriesModule,
     ProductsModule,
+    ShoppingListsModule,
   ],
   controllers: [AppController],
   providers: [

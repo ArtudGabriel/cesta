@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
+import { List, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/features/catalog/components/product-card";
@@ -42,21 +42,31 @@ export default function HomePage() {
           </h1>
           <p className="text-xs text-muted">Madrid · Supermercados</p>
         </div>
-        {isHydrated &&
-          (user ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => logout.mutate()}
-              disabled={logout.isPending}
-            >
-              Salir
+        <div className="flex items-center gap-2">
+          {isHydrated && user && (
+            <Button asChild size="sm" variant="secondary" aria-label="Mi Lista">
+              <Link href="/minha-lista">
+                <List className="h-4 w-4" />
+                Mi Lista
+              </Link>
             </Button>
-          ) : (
-            <Button asChild size="sm">
-              <Link href="/login">Entrar</Link>
-            </Button>
-          ))}
+          )}
+          {isHydrated &&
+            (user ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => logout.mutate()}
+                disabled={logout.isPending}
+              >
+                Salir
+              </Button>
+            ) : (
+              <Button asChild size="sm">
+                <Link href="/login">Entrar</Link>
+              </Button>
+            ))}
+        </div>
       </header>
 
       {/* Search */}

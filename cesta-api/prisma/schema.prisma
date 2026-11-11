@@ -28,6 +28,7 @@ model User {
   deletedAt    DateTime? @map("deleted_at")
 
   refreshTokens RefreshToken[]
+  shoppingLists ShoppingList[]
 
   @@index([deletedAt])
   @@map("users")
@@ -136,9 +137,10 @@ model Product {
   updatedAt  DateTime  @updatedAt @map("updated_at")
   deletedAt  DateTime? @map("deleted_at")
 
-  category  Category?       @relation(fields: [categoryId], references: [id])
-  prices    ProductPrice[]
-  snapshots PriceSnapshot[]
+  category     Category?          @relation(fields: [categoryId], references: [id])
+  prices       ProductPrice[]
+  snapshots    PriceSnapshot[]
+  listItems    ShoppingListItem[]
 
   @@index([normalizedName])
   @@index([categoryId, deletedAt])
@@ -184,4 +186,40 @@ model PriceSnapshot {
 
   @@index([productId, supermarketId, capturedAt])
   @@map("price_snapshots")
+}
+
+// ──────────────────────────────────────────────
+// Minha Lista (listas recorrentes do usuário)
+// ──────────────────────────────────────────────
+
+model ShoppingList {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  name      String
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  user  User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items ShoppingListItem[]
+
+  @@index([userId, deletedAt])
+  @@map("shopping_lists")
+}
+
+model ShoppingListItem {
+  id        String   @id @default(cuid())
+  listId    String   @map("list_id")
+  productId String   @map("product_id")
+  quantity  Decimal  @db.Decimal(10, 3) @default(1)
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  list    ShoppingList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  product Product      @relation(fields: [productId], references: [id])
+
+  @@unique([listId, productId])
+  @@index([listId])
+  @@map("shopping_list_items")
 }
