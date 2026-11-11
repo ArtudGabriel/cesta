@@ -10,9 +10,10 @@ export interface CatalogSyncJob {
   supermarketSlug: string;
 }
 
-// Agendamento diário — cron em UTC. 03:00 Madrid ≈ 02:00 UTC (horário de inverno).
+// Agendamento diário — cron em Europe/Madrid.
 const SCHEDULE: Array<{ slug: string; cron: string }> = [
-  { slug: 'mercadona', cron: '0 2 * * *' },
+  { slug: 'mercadona', cron: '0 3 * * *' },
+  { slug: 'carrefour', cron: '30 3 * * *' },
 ];
 
 @Processor(CATALOG_SYNC_QUEUE)

@@ -1,6 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { PRICE_ALERTS_QUEUE } from '../alerts/alerts.processor';
+import { CarrefourAdapter } from './adapters/carrefour.adapter';
 import { MercadonaAdapter } from './adapters/mercadona.adapter';
 import { CatalogSyncController } from './catalog-sync.controller';
 import {
@@ -23,6 +24,7 @@ import { CatalogSyncService } from './catalog-sync.service';
     CatalogSyncRepository,
     CatalogSyncProcessor,
     MercadonaAdapter,
+    CarrefourAdapter,
   ],
   exports: [CatalogSyncService],
 })
