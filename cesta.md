@@ -105,7 +105,49 @@ O usuário pode monitorar produtos específicos e receber notificações quando 
 
 ---
 
-### 3.5 Avaliações e Comentários
+### 3.5 Minha Lista (listas de compras recorrentes)
+
+Permite ao usuário salvar listas de compras que costuma fazer com frequência e **comparar em tempo real o custo total em cada supermercado**.
+
+**Casos de uso:**
+- "Compra da semana" (itens básicos)
+- "Compra do mês"
+- "Festa de aniversário"
+- "Mercadinho rápido"
+
+**Funcionalidades:**
+- Criar múltiplas listas, cada uma com um nome
+- Adicionar produtos do catálogo com quantidade
+- Editar quantidade, remover item, reordenar
+- Duplicar lista
+- Renomear ou excluir lista
+
+**Comparativo em tempo real (CORE desta feature):**
+Para cada lista, o app calcula e exibe:
+
+- **Preço de cada item em cada supermercado** (grade de produtos × mercados)
+- **Preço total da lista por supermercado** (soma dos itens × quantidade), destacando:
+  - Mercado mais barato (verde)
+  - Mercado mais caro (coral, com economia potencial em €)
+  - Diferença percentual entre o mais barato e cada outro
+- **"Lista híbrida"** (opcional): sugere comprar cada item no mercado onde está mais barato, mostrando quanto economiza vs comprar tudo em um lugar só
+- Produtos **indisponíveis** em algum mercado são marcados visualmente (não entram na soma daquele mercado)
+- Atualização **em tempo real** conforme o usuário muda quantidade ou adiciona/remove itens
+- Datestamp de "preços atualizados em X horas" e flag `isStale` se o dado é velho
+
+**Distinção de features relacionadas:**
+
+| Feature | O que é |
+|---------|---------|
+| **Favoritos** | Marcar produtos individuais, sem quantidade, sem agrupamento |
+| **Minha Lista** | Lista manual, com quantidade, para comparar total entre mercados |
+| **Cesta Familiar** | Lista **gerada automaticamente** a partir do perfil familiar + orçamento |
+
+As três podem coexistir — favoritos podem alimentar a criação rápida de uma Lista.
+
+---
+
+### 3.6 Avaliações e Comentários
 
 Cada produto no catálogo possui uma seção de avaliações feitas pela comunidade de usuários do Cesta.
 
@@ -124,11 +166,11 @@ Cada produto no catálogo possui uma seção de avaliações feitas pela comunid
 
 ---
 
-### 3.6 Cesta Familiar (Planejamento de Orçamento)
+### 3.7 Cesta Familiar (Planejamento de Orçamento)
 
 Funcionalidade de planejamento que gera uma **cesta de compras estimada** com base no perfil da família do usuário, entregando uma média de custo mensal de mercado e uma lista de produtos sugeridos.
 
-#### 3.6.1 Configuração do Perfil Familiar
+#### 3.7.1 Configuração do Perfil Familiar
 
 O usuário preenche um formulário guiado com as seguintes informações:
 
@@ -153,7 +195,7 @@ O usuário preenche um formulário guiado com as seguintes informações:
 - Faz refeições em casa todos os dias ou come fora com frequência?
 - Tem pets em casa que consomem ração?
 
-#### 3.6.2 Cesta Gerada
+#### 3.7.2 Cesta Gerada
 
 Com base nas respostas, o app gera automaticamente:
 
@@ -162,7 +204,7 @@ Com base nas respostas, o app gera automaticamente:
 - **Variação de custo** entre supermercados (quanto custaria a mesma cesta em cada rede)
 - Destaque para produtos da cesta que estão em promoção no momento
 
-#### 3.6.3 Edição da Cesta Familiar
+#### 3.7.3 Edição da Cesta Familiar
 
 O usuário tem controle total sobre a cesta gerada:
 
@@ -206,6 +248,11 @@ A cesta familiar é atualizada automaticamente quando os preços mudam, refletin
 ├── Alertas
 │   ├── Alertas ativos
 │   └── Histórico de alertas
+│
+├── Minha Lista
+│   ├── Lista(s) do usuário
+│   ├── Comparativo em tempo real por mercado
+│   └── Lista híbrida (menor preço por item)
 │
 ├── Minha Cesta
 │   ├── Configuração familiar
@@ -434,10 +481,11 @@ model ProductCandidate {
 | Fase | Funcionalidades |
 |------|----------------|
 | **MVP (v1)** | Catálogo + comparação de preços + filtros básicos + comparação por medida |
-| **v1.1** | Alertas de preço e promoções |
-| **v1.2** | Controle de gastos (scan de nota fiscal) |
-| **v1.3** | Avaliações e comentários |
-| **v1.4** | Cesta Familiar |
+| **v1.1** | Minha Lista (listas recorrentes com comparativo total por mercado) |
+| **v1.2** | Alertas de preço e promoções |
+| **v1.3** | Controle de gastos (scan de nota fiscal) |
+| **v1.4** | Avaliações e comentários |
+| **v1.5** | Cesta Familiar |
 | **v2.0** | Expansão para outras Comunidades Autônomas da Espanha |
 
 ---

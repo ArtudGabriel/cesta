@@ -36,7 +36,7 @@ model User {
 model RefreshToken {
   id         String    @id @default(cuid())
   userId     String    @map("user_id")
-  tokenHash  String    @unique @map("token_hash") // bcrypt do refresh token
+  tokenHash  String    @unique @map("token_hash")
   expiresAt  DateTime  @map("expires_at")
   revokedAt  DateTime? @map("revoked_at")
   userAgent  String?   @map("user_agent")
@@ -47,4 +47,141 @@ model RefreshToken {
 
   @@index([userId, revokedAt])
   @@map("refresh_tokens")
+}
+
+// ──────────────────────────────────────────────
+// Catálogo
+// ──────────────────────────────────────────────
+
+enum MeasureUnit {
+  LITER        @map("liter")
+  MILLILITER   @map("milliliter")
+  KILOGRAM     @map("kilogram")
+  GRAM         @map("gram")
+  UNIT         @map("unit")
+
+  @@map("measure_unit")
+}
+
+model Supermarket {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  color     String?  // hex da marca para badges
+  logoUrl   String?  @map("logo_url")
+  website   String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  prices    ProductPrice[]
+  snapshots PriceSnapshot[]
+
+  @@map("supermarkets")
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  slug      String    @unique
+  nameEs    String    @map("name_es")
+  namePt    String    @map("name_pt")
+  parentId  String?   @map("parent_id")
+  order     Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  parent   Category?  @relation("CategoryParent", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryParent")
+  products Product[]
+
+  @@index([parentId])
+  @@map("categories")
+}
+
+model Product {
+  id             String   @id @default(cuid())
+  name           String
+  normalizedName String   @unique @map("normalized_name") // slug para matching crowdsourced
+  brand          String?
+  description    String?
+  imageUrl       String?  @map("image_url")
+  ean            String?  @unique
+
+  // Embalagem
+  packageSize   Decimal     @db.Decimal(10, 3) @map("package_size")
+  packageUnit   MeasureUnit @map("package_unit")
+
+  // Unidade de comparação (ex: azeite vendido em 0.75L → compara por LITER)
+  comparisonUnit MeasureUnit @map("comparison_unit")
+
+  // Nutrição (por 100g ou 100ml, ou por unidade)
+  nutritionPer Decimal? @db.Decimal(6, 2) @map("nutrition_per")
+  calories     Decimal? @db.Decimal(7, 2)
+  protein      Decimal? @db.Decimal(6, 2)
+  carbs        Decimal? @db.Decimal(6, 2)
+  sugar        Decimal? @db.Decimal(6, 2)
+  fat          Decimal? @db.Decimal(6, 2)
+  saturatedFat Decimal? @db.Decimal(6, 2) @map("saturated_fat")
+  fiber        Decimal? @db.Decimal(6, 2)
+  salt         Decimal? @db.Decimal(6, 2)
+
+  // Tags dietéticas
+  isVegan       Boolean @default(false) @map("is_vegan")
+  isVegetarian  Boolean @default(false) @map("is_vegetarian")
+  isGlutenFree  Boolean @default(false) @map("is_gluten_free")
+  isLactoseFree Boolean @default(false) @map("is_lactose_free")
+
+  categoryId String?   @map("category_id")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  category  Category?       @relation(fields: [categoryId], references: [id])
+  prices    ProductPrice[]
+  snapshots PriceSnapshot[]
+
+  @@index([normalizedName])
+  @@index([categoryId, deletedAt])
+  @@index([brand])
+  @@map("products")
+}
+
+model ProductPrice {
+  id              String    @id @default(cuid())
+  productId       String    @map("product_id")
+  supermarketId   String    @map("supermarket_id")
+  currentPrice    Decimal   @db.Decimal(10, 2) @map("current_price")
+  previousPrice   Decimal?  @db.Decimal(10, 2) @map("previous_price")
+  onPromotion     Boolean   @default(false) @map("on_promotion")
+  promotionEnds   DateTime? @map("promotion_ends")
+  confidenceScore Decimal   @db.Decimal(3, 2) @default(1.00) @map("confidence_score")
+  source          String    @default("seed") // official_api|scraper|crowdsourced|folleto_ocr|seed
+  isStale         Boolean   @default(false) @map("is_stale")
+  isAvailable     Boolean   @default(true) @map("is_available")
+  lastSyncedAt    DateTime  @default(now()) @map("last_synced_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supermarket Supermarket @relation(fields: [supermarketId], references: [id])
+
+  @@unique([productId, supermarketId])
+  @@index([supermarketId, lastSyncedAt])
+  @@index([onPromotion, isAvailable])
+  @@map("product_prices")
+}
+
+model PriceSnapshot {
+  id            String   @id @default(cuid())
+  productId     String   @map("product_id")
+  supermarketId String   @map("supermarket_id")
+  price         Decimal  @db.Decimal(10, 2)
+  onPromotion   Boolean  @default(false) @map("on_promotion")
+  source        String
+  capturedAt    DateTime @default(now()) @map("captured_at")
+
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supermarket Supermarket @relation(fields: [supermarketId], references: [id])
+
+  @@index([productId, supermarketId, capturedAt])
+  @@map("price_snapshots")
 }

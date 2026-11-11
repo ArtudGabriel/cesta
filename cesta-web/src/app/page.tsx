@@ -1,70 +1,144 @@
 "use client";
 
 import Link from "next/link";
+import { Loader2 } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useLogout, useMe } from "@/features/auth/hooks/use-auth";
+import { ProductCard } from "@/features/catalog/components/product-card";
+import { SearchBar } from "@/features/catalog/components/search-bar";
+import {
+  useCategories,
+  useProducts,
+  useSupermarkets,
+} from "@/features/catalog/hooks/use-catalog";
+import { useLogout } from "@/features/auth/hooks/use-auth";
 import { useAuthStore } from "@/stores/auth.store";
 
 export default function HomePage() {
   const user = useAuthStore((s) => s.user);
   const isHydrated = useAuthStore((s) => s.isHydrated);
-  const me = useMe();
   const logout = useLogout();
 
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<string | undefined>(undefined);
+  const [onPromotion, setOnPromotion] = useState(false);
+
+  const supermarkets = useSupermarkets();
+  const categories = useCategories();
+  const products = useProducts({
+    search: search || undefined,
+    category,
+    onPromotion: onPromotion || undefined,
+    limit: 20,
+  });
+
   return (
-    <main className="flex-1 flex flex-col items-center justify-center px-4 py-12 text-center">
-      <h1 className="font-display text-4xl font-extrabold text-cesta-green">
-        Cesta
-      </h1>
-      <p className="mt-3 max-w-md text-muted">
-        Compara precios de supermercado en la Comunidad de Madrid.
-      </p>
-
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-2 text-xs">
-        {[
-          "mercadona",
-          "carrefour",
-          "alcampo",
-          "lidl",
-          "froiz",
-          "dia",
-          "aldi",
-        ].map((name) => (
-          <span
-            key={name}
-            className="rounded-pill bg-surface px-3 py-1 font-medium text-muted"
-          >
-            {name}
-          </span>
-        ))}
-      </div>
-
-      <div className="mt-10 flex flex-col items-center gap-3">
-        {!isHydrated ? null : user ? (
-          <>
-            <p className="text-sm text-ink">
-              Hola, <strong>{me.data?.name ?? user.email ?? user.phone}</strong>
-            </p>
+    <main className="flex-1 flex flex-col px-4 py-6 pb-16">
+      {/* Header */}
+      <header className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-extrabold text-cesta-green">
+            Cesta
+          </h1>
+          <p className="text-xs text-muted">Madrid · Supermercados</p>
+        </div>
+        {isHydrated &&
+          (user ? (
             <Button
-              variant="secondary"
               size="sm"
+              variant="secondary"
               onClick={() => logout.mutate()}
               disabled={logout.isPending}
             >
-              Cerrar sesión
+              Salir
             </Button>
-          </>
-        ) : (
-          <div className="flex gap-3">
+          ) : (
             <Button asChild size="sm">
-              <Link href="/login">Iniciar sesión</Link>
+              <Link href="/login">Entrar</Link>
             </Button>
-            <Button asChild variant="secondary" size="sm">
-              <Link href="/register">Crear cuenta</Link>
-            </Button>
+          ))}
+      </header>
+
+      {/* Search */}
+      <SearchBar value={search} onChange={setSearch} className="mb-4" />
+
+      {/* Filters: supermarkets badges */}
+      {supermarkets.data && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {supermarkets.data.map((sm) => (
+            <span
+              key={sm.id}
+              className="rounded-pill px-3 py-1 text-[10px] font-medium text-white"
+              style={{ backgroundColor: sm.color ?? "#1b6b48" }}
+            >
+              {sm.name}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Categories */}
+      {categories.data && (
+        <div className="-mx-4 mb-4 overflow-x-auto px-4">
+          <div className="flex gap-2 pb-2">
+            <button
+              onClick={() => setCategory(undefined)}
+              className={`whitespace-nowrap rounded-pill px-3 py-2 text-xs font-medium cursor-pointer ${
+                !category
+                  ? "bg-cesta-green text-white"
+                  : "bg-surface text-muted hover:text-ink"
+              }`}
+            >
+              Todas
+            </button>
+            {categories.data.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setCategory(c.slug)}
+                className={`whitespace-nowrap rounded-pill px-3 py-2 text-xs font-medium cursor-pointer ${
+                  category === c.slug
+                    ? "bg-cesta-green text-white"
+                    : "bg-surface text-muted hover:text-ink"
+                }`}
+              >
+                {c.nameEs}
+              </button>
+            ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Promotion toggle */}
+      <label className="mb-4 inline-flex items-center gap-2 text-sm text-ink cursor-pointer">
+        <input
+          type="checkbox"
+          checked={onPromotion}
+          onChange={(e) => setOnPromotion(e.target.checked)}
+          className="h-4 w-4 accent-cesta-green"
+        />
+        Solo en promoción
+      </label>
+
+      {/* Products list */}
+      {products.isLoading ? (
+        <div className="flex flex-1 items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-cesta-green" />
+        </div>
+      ) : products.isError ? (
+        <p className="py-6 text-center text-sm text-coral">
+          Error al cargar productos.
+        </p>
+      ) : products.data && products.data.items.length > 0 ? (
+        <div className="grid grid-cols-1 gap-3">
+          {products.data.items.map((p) => (
+            <ProductCard key={p.id} product={p} />
+          ))}
+        </div>
+      ) : (
+        <p className="py-12 text-center text-sm text-muted">
+          Ningún producto encontrado.
+        </p>
+      )}
     </main>
   );
 }

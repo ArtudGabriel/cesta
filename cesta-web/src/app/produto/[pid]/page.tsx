@@ -1,0 +1,147 @@
+"use client";
+
+import { ArrowLeft, Leaf, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { PriceComparisonGrid } from "@/features/catalog/components/price-comparison-grid";
+import { useProduct } from "@/features/catalog/hooks/use-catalog";
+import { formatPrice } from "@/lib/utils";
+
+export default function ProductDetailPage() {
+  const params = useParams<{ pid: string }>();
+  const { data: product, isLoading, isError } = useProduct(params.pid);
+
+  if (isLoading) {
+    return (
+      <main className="flex flex-1 items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-cesta-green" />
+      </main>
+    );
+  }
+
+  if (isError || !product) {
+    return (
+      <main className="flex flex-1 flex-col items-center justify-center gap-4 px-4">
+        <p className="text-sm text-coral">No encontramos este producto.</p>
+        <Button asChild variant="secondary" size="sm">
+          <Link href="/">Volver al inicio</Link>
+        </Button>
+      </main>
+    );
+  }
+
+  const tags = [
+    product.isVegan && "Vegano",
+    product.isVegetarian && "Vegetariano",
+    product.isGlutenFree && "Sin gluten",
+    product.isLactoseFree && "Sin lactosa",
+  ].filter(Boolean) as string[];
+
+  return (
+    <main className="flex-1 pb-16">
+      <header className="sticky top-0 z-10 flex items-center gap-3 bg-cream px-4 py-3">
+        <Button
+          asChild
+          size="icon"
+          variant="ghost"
+          aria-label="Volver"
+        >
+          <Link href="/">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+        </Button>
+        <h1 className="line-clamp-1 font-display text-lg font-bold text-ink">
+          {product.name}
+        </h1>
+      </header>
+
+      <div className="px-4 pb-4">
+        <div className="h-48 w-full rounded-card bg-surface" />
+
+        <div className="mt-4">
+          <h2 className="font-display text-xl font-bold text-ink">
+            {product.name}
+          </h2>
+          {product.brand && (
+            <p className="mt-1 text-sm text-muted">{product.brand}</p>
+          )}
+
+          {product.cheapestPrice !== null && (
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-xs text-muted">Desde</span>
+              <span className="text-2xl font-extrabold text-cesta-green">
+                {formatPrice(product.cheapestPrice)}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {tags.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {tags.map((t) => (
+              <span
+                key={t}
+                className="inline-flex items-center gap-1 rounded-pill bg-lima/20 px-3 py-1 text-xs font-medium text-cesta-green-dark"
+              >
+                <Leaf className="h-3 w-3" /> {t}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <section className="px-4 py-4">
+        <h3 className="mb-3 font-display text-lg font-bold text-ink">
+          Precios en cada supermercado
+        </h3>
+        <PriceComparisonGrid prices={product.prices} />
+      </section>
+
+      {(product.calories !== null ||
+        product.protein !== null ||
+        product.fat !== null) && (
+        <section className="px-4 py-4">
+          <h3 className="mb-3 font-display text-lg font-bold text-ink">
+            Información nutricional
+          </h3>
+          <div className="rounded-card bg-white p-4 shadow-card">
+            <p className="mb-3 text-xs text-muted">Por 100g / 100ml</p>
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+              {product.calories !== null && (
+                <NutritionRow label="Calorías" value={`${product.calories} kcal`} />
+              )}
+              {product.protein !== null && (
+                <NutritionRow label="Proteínas" value={`${product.protein} g`} />
+              )}
+              {product.fat !== null && (
+                <NutritionRow label="Grasas" value={`${product.fat} g`} />
+              )}
+              {product.carbs !== null && (
+                <NutritionRow label="Carbohidratos" value={`${product.carbs} g`} />
+              )}
+              {product.sugar !== null && (
+                <NutritionRow label="Azúcares" value={`${product.sugar} g`} />
+              )}
+              {product.salt !== null && (
+                <NutritionRow label="Sal" value={`${product.salt} g`} />
+              )}
+              {product.fiber !== null && (
+                <NutritionRow label="Fibra" value={`${product.fiber} g`} />
+              )}
+            </dl>
+          </div>
+        </section>
+      )}
+    </main>
+  );
+}
+
+function NutritionRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between border-b border-border/50 py-1 last:border-0">
+      <dt className="text-muted">{label}</dt>
+      <dd className="font-medium text-ink">{value}</dd>
+    </div>
+  );
+}

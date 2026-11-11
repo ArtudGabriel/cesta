@@ -56,6 +56,7 @@ cesta/
 | `catalog-sync` | Adapters por rede + jobs BullMQ de ingestão |
 | `reviews` | Avaliações e comentários de produtos |
 | `favorites` | Favoritos do usuário |
+| `shopping-lists` | Listas manuais recorrentes ("Minha Lista") + cálculo real-time por mercado |
 | `alerts` | Alertas de preço do usuário + verificador |
 | `receipts` | Scan de nota fiscal (upload + job OCR) |
 | `expenses` | Compras registradas + dashboard de gastos |
@@ -73,6 +74,7 @@ cesta/
 | `/comparar` | Comparação direta multi-produto |
 | `/gastos` | Scan/upload de nota + dashboard |
 | `/alertas` | Lista + criação |
+| `/minha-lista` · `/minha-lista/[id]` | Lista(s) do usuário + comparativo em tempo real por mercado |
 | `/minha-cesta/configurar` | Wizard familiar |
 | `/minha-cesta` | Cesta gerada editável |
 | `/perfil` | Idioma + localização + favoritos + config |
@@ -117,13 +119,14 @@ cesta/
 5. Init git + repositório GitHub privado
 
 **Próximas layers (ordem):**
-- Layer 2: módulo `auth` (email/telefone + JWT + refresh)
-- Layer 3: módulos `supermarkets` + `products` + seed inicial (importar Google Sheets do Perplexity)
-- Layer 4: módulo `reviews`
-- Layer 5: módulos `family-profiles` + `family-baskets` + worker de geração
-- Layer 6: `catalog-sync` (primeiro adapter: Mercadona)
-- Layer 7: `receipts` + OCR + `price-correction`
-- Layer 8: `alerts` + `notifications`
+- Layer 2: módulo `auth` (email/telefone + JWT + refresh) ✓
+- Layer 3: módulos `supermarkets` + `products` + `product-prices` + seed inicial (importar Google Sheets do Perplexity)
+- Layer 4: módulo `shopping-lists` ("Minha Lista") + comparativo real-time
+- Layer 5: módulo `reviews`
+- Layer 6: módulos `family-profiles` + `family-baskets` + worker de geração
+- Layer 7: `catalog-sync` (primeiro adapter: Mercadona)
+- Layer 8: `receipts` + OCR + `price-correction`
+- Layer 9: `alerts` + `notifications`
 
 ---
 
