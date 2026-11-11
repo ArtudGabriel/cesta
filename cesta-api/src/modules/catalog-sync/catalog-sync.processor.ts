@@ -10,10 +10,17 @@ export interface CatalogSyncJob {
   supermarketSlug: string;
 }
 
-// Agendamento diário — cron em Europe/Madrid.
+// Agendamento — cron em Europe/Madrid. Espaçamento de 30min entre runs pra
+// aliviar DB. Froiz/LIDL/Aldi são semanais (terça) porque dependem de
+// scraping/folleto que não muda diariamente.
 const SCHEDULE: Array<{ slug: string; cron: string }> = [
   { slug: 'mercadona', cron: '0 3 * * *' },
   { slug: 'carrefour', cron: '30 3 * * *' },
+  { slug: 'alcampo', cron: '0 4 * * *' },
+  { slug: 'dia', cron: '30 4 * * *' },
+  { slug: 'froiz', cron: '0 5 * * 2' },
+  { slug: 'lidl', cron: '0 6 * * 2' },
+  { slug: 'aldi', cron: '0 7 * * 2' },
 ];
 
 @Processor(CATALOG_SYNC_QUEUE)

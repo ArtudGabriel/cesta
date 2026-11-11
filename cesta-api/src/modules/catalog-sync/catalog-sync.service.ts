@@ -6,6 +6,12 @@ import {
   PriceAlertCheckJob,
 } from '../alerts/alerts.processor';
 import { CatalogSyncRepository } from './catalog-sync.repository';
+import { AlcampoAdapter } from './adapters/alcampo.adapter';
+import { AldiAdapter } from './adapters/aldi.adapter';
+import { CarrefourAdapter } from './adapters/carrefour.adapter';
+import { DiaAdapter } from './adapters/dia.adapter';
+import { FroizAdapter } from './adapters/froiz.adapter';
+import { LidlAdapter } from './adapters/lidl.adapter';
 import { MercadonaAdapter } from './adapters/mercadona.adapter';
 import type {
   RawProduct,
@@ -32,11 +38,23 @@ export class CatalogSyncService {
   constructor(
     private readonly repo: CatalogSyncRepository,
     mercadona: MercadonaAdapter,
+    carrefour: CarrefourAdapter,
+    alcampo: AlcampoAdapter,
+    dia: DiaAdapter,
+    froiz: FroizAdapter,
+    lidl: LidlAdapter,
+    aldi: AldiAdapter,
     @InjectQueue(PRICE_ALERTS_QUEUE)
     private readonly alertsQueue: Queue<PriceAlertCheckJob>,
   ) {
     this.adapters = new Map<string, SupermarketAdapter>([
       [mercadona.slug, mercadona],
+      [carrefour.slug, carrefour],
+      [alcampo.slug, alcampo],
+      [dia.slug, dia],
+      [froiz.slug, froiz],
+      [lidl.slug, lidl],
+      [aldi.slug, aldi],
     ]);
   }
 
