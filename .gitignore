@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Testing
+coverage/
+.nyc_output
+
+# Prisma (generated client stays in node_modules; migrations tracked)
+# nada aqui — migrations/ é versionado
+
+# Docker
+.docker/
+
+# Uploads (recebimentos do usuário em dev)
+uploads/
+tmp/
+
+# Memory + local claude settings (per-dev)
+.claude/local/

@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+/*
+ * Cesta — Design tokens
+ * Ver cesta-identidade-visual.md
+ */
+
+@theme {
+  /* Cores — marca */
+  --color-cesta-green:        #1b6b48;
+  --color-cesta-green-light:  #2d9163;
+  --color-cesta-green-dark:   #124a32;
+
+  /* Cores — suporte */
+  --color-lima:   #7DC95E;
+  --color-amber:  #F59E0B;
+  --color-coral:  #E8513A;
+  --color-violet: #7C5CBF;
+
+  /* Neutros */
+  --color-cream:   #F8F5F0;
+  --color-surface: #F0EDEA;
+  --color-border:  #C4BDB6;
+  --color-muted:   #6B6560;
+  --color-ink:     #2A2420;
+
+  /* Supermercados */
+  --color-mercadona: #009D58;
+  --color-carrefour: #004F9F;
+  --color-alcampo:   #E2001A;
+  --color-lidl:      #FFD100;
+  --color-froiz:     #4BA82E;
+  --color-dia:       #D0021B;
+  --color-aldi:      #003087;
+
+  /* Semânticos (shadcn/ui) */
+  --color-background: var(--color-cream);
+  --color-foreground: var(--color-ink);
+
+  /* Fontes */
+  --font-sans:    "Satoshi", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Cabinet Grotesk", ui-sans-serif, system-ui, sans-serif;
+
+  /* Radius */
+  --radius-card: 16px;
+  --radius-btn:  12px;
+  --radius-pill: 100px;
+
+  /* Sombras */
+  --shadow-card:          0 2px 8px rgba(0, 0, 0, 0.07);
+  --shadow-card-elevated: 0 4px 16px rgba(0, 0, 0, 0.12);
+
+  /* Durations */
+  --duration-screen: 280ms;
+  --duration-card:   200ms;
+  --duration-tap:    100ms;
+  --duration-toast:  320ms;
+}
+
+/* Font loading — Fontshare (dev); substituir por next/font/local em produção */
+@import url("https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@700,800&display=swap");
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Touch targets mobile — mínimo 44px */
+@media (pointer: coarse) {
+  button, a {
+    min-height: 44px;
+  }
+}
