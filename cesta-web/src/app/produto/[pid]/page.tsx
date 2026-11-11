@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { PriceComparisonGrid } from "@/features/catalog/components/price-comparison-grid";
 import { useProduct } from "@/features/catalog/hooks/use-catalog";
+import { ReviewsSection } from "@/features/reviews/components/reviews-section";
 import { formatPrice } from "@/lib/utils";
 
 export default function ProductDetailPage() {
@@ -96,6 +97,13 @@ export default function ProductDetailPage() {
           Precios en cada supermercado
         </h3>
         <PriceComparisonGrid prices={product.prices} />
+      </section>
+
+      <section className="px-4 py-4">
+        <h3 className="mb-3 font-display text-lg font-bold text-ink">
+          Opiniones
+        </h3>
+        <ReviewsSection productId={product.id} />
       </section>
 
       {(product.calories !== null ||
