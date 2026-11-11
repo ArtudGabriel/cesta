@@ -1,0 +1,74 @@
+"use client";
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { authService } from "../services/auth.service";
+import { useAuthStore } from "@/stores/auth.store";
+import type { LoginPayload, RegisterPayload } from "../types/auth.types";
+
+export const AUTH_QUERY_KEY = ["auth", "me"] as const;
+
+export function useMe() {
+  const user = useAuthStore((s) => s.user);
+  return useQuery({
+    queryKey: AUTH_QUERY_KEY,
+    queryFn: authService.me,
+    enabled: Boolean(user),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useLogin() {
+  const setSession = useAuthStore((s) => s.setSession);
+  const router = useRouter();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: LoginPayload) => authService.login(payload),
+    onSuccess: ({ user, tokens }) => {
+      setSession(user, tokens);
+      qc.setQueryData(AUTH_QUERY_KEY, user);
+      toast.success("Bienvenido");
+      router.push("/");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "No pudimos iniciar sesión");
+    },
+  });
+}
+
+export function useRegister() {
+  const setSession = useAuthStore((s) => s.setSession);
+  const router = useRouter();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: RegisterPayload) => authService.register(payload),
+    onSuccess: ({ user, tokens }) => {
+      setSession(user, tokens);
+      qc.setQueryData(AUTH_QUERY_KEY, user);
+      toast.success("Cuenta creada");
+      router.push("/");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "No pudimos crear tu cuenta");
+    },
+  });
+}
+
+export function useLogout() {
+  const clear = useAuthStore((s) => s.clear);
+  const refreshToken = useAuthStore((s) => s.refreshToken);
+  const router = useRouter();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => authService.logout(refreshToken ?? undefined),
+    onSettled: () => {
+      clear();
+      qc.removeQueries({ queryKey: AUTH_QUERY_KEY });
+      router.push("/login");
+    },
+  });
+}
