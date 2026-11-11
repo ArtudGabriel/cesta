@@ -423,12 +423,70 @@ async function seedProducts() {
   console.log(`✓ ${PRODUCTS.length} products + prices`);
 }
 
+// ──────────────────────────────────────────────
+// Dietary questions (Cesta Familiar)
+// ──────────────────────────────────────────────
+const DIETARY_QUESTIONS: Array<{
+  key: string;
+  labelEs: string;
+  labelPt: string;
+  type: 'boolean' | 'choice';
+  options?: Array<{ value: string; labelEs: string; labelPt: string }>;
+  category?: string;
+  order: number;
+}> = [
+  { key: 'eats_meat', labelEs: '¿La familia come carne?', labelPt: 'A família come carne?', type: 'boolean', category: 'protein', order: 1 },
+  { key: 'eats_fish', labelEs: '¿Come pescado?', labelPt: 'Come peixe?', type: 'boolean', category: 'protein', order: 2 },
+  { key: 'eats_dairy', labelEs: '¿Consume lácteos?', labelPt: 'Consome laticínios?', type: 'boolean', category: 'dairy', order: 3 },
+  { key: 'eats_bread', labelEs: '¿Consume pan regularmente?', labelPt: 'Consome pão regularmente?', type: 'boolean', category: 'grains', order: 4 },
+  { key: 'lactose_intolerant', labelEs: '¿Alguien tiene intolerancia a la lactosa?', labelPt: 'Alguém tem intolerância à lactose?', type: 'boolean', category: 'restriction', order: 5 },
+  { key: 'gluten_free', labelEs: '¿Alguien evita el gluten?', labelPt: 'Alguém evita glúten?', type: 'boolean', category: 'restriction', order: 6 },
+  { key: 'vegan', labelEs: '¿Siguen una dieta vegana?', labelPt: 'Seguem dieta vegana?', type: 'boolean', category: 'diet', order: 7 },
+  { key: 'vegetarian', labelEs: '¿Siguen una dieta vegetariana?', labelPt: 'Seguem dieta vegetariana?', type: 'boolean', category: 'diet', order: 8 },
+  { key: 'drinks_alcohol', labelEs: '¿Consumen alcohol (vino, cerveza)?', labelPt: 'Consomem álcool (vinho, cerveja)?', type: 'boolean', category: 'beverages', order: 9 },
+  {
+    key: 'fruits_veggies_frequency',
+    labelEs: '¿Con qué frecuencia comen frutas y verduras?',
+    labelPt: 'Com que frequência comem frutas e verduras?',
+    type: 'choice',
+    options: [
+      { value: 'daily', labelEs: 'Todos los días', labelPt: 'Todos os dias' },
+      { value: 'weekly', labelEs: 'Varias veces por semana', labelPt: 'Várias vezes por semana' },
+      { value: 'rarely', labelEs: 'Pocas veces', labelPt: 'Raramente' },
+    ],
+    category: 'produce',
+    order: 10,
+  },
+  { key: 'eats_out_often', labelEs: '¿Comen fuera de casa con frecuencia?', labelPt: 'Comem fora de casa com frequência?', type: 'boolean', category: 'lifestyle', order: 11 },
+  { key: 'has_pets', labelEs: '¿Tienen mascotas en casa?', labelPt: 'Têm pets em casa?', type: 'boolean', category: 'pets', order: 12 },
+];
+
+async function seedDietaryQuestions() {
+  for (const q of DIETARY_QUESTIONS) {
+    await prisma.dietaryQuestion.upsert({
+      where: { key: q.key },
+      create: {
+        key: q.key,
+        labelEs: q.labelEs,
+        labelPt: q.labelPt,
+        type: q.type,
+        options: q.options ?? Prisma.DbNull,
+        category: q.category,
+        order: q.order,
+      },
+      update: {},
+    });
+  }
+  console.log(`✓ ${DIETARY_QUESTIONS.length} dietary questions`);
+}
+
 async function main() {
   console.log('Seeding Cesta…');
   await seedSupermarkets();
   await seedCategories(CATEGORIES);
   console.log(`✓ ${CATEGORIES.length} categories`);
   await seedProducts();
+  await seedDietaryQuestions();
   console.log('Done.');
 }
 

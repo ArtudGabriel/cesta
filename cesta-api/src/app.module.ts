@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { BullModule } from '@nestjs/bullmq';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
@@ -9,6 +10,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
 import { CategoriesModule } from './modules/categories/categories.module';
+import { FamilyBasketsModule } from './modules/family-baskets/family-baskets.module';
+import { FamilyProfilesModule } from './modules/family-profiles/family-profiles.module';
 import { ProductsModule } from './modules/products/products.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { ShoppingListsModule } from './modules/shopping-lists/shopping-lists.module';
@@ -29,6 +32,20 @@ import { UsersModule } from './modules/users/users.module';
         limit: 120,
       },
     ]),
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const url = new URL(config.getOrThrow<string>('REDIS_URL'));
+        return {
+          connection: {
+            host: url.hostname,
+            port: Number(url.port || 6379),
+            password: url.password || undefined,
+          },
+        };
+      },
+    }),
     PrismaModule,
     UsersModule,
     AuthModule,
@@ -37,6 +54,8 @@ import { UsersModule } from './modules/users/users.module';
     ProductsModule,
     ShoppingListsModule,
     ReviewsModule,
+    FamilyProfilesModule,
+    FamilyBasketsModule,
   ],
   controllers: [AppController],
   providers: [

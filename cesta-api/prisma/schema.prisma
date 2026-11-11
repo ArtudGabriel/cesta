@@ -31,6 +31,8 @@ model User {
   shoppingLists  ShoppingList[]
   reviews        Review[]
   reviewHelpfuls ReviewHelpful[]
+  familyProfile  FamilyProfile?
+  familyBaskets  FamilyBasket[]
 
   @@index([deletedAt])
   @@map("users")
@@ -139,11 +141,12 @@ model Product {
   updatedAt  DateTime  @updatedAt @map("updated_at")
   deletedAt  DateTime? @map("deleted_at")
 
-  category   Category?          @relation(fields: [categoryId], references: [id])
-  prices     ProductPrice[]
-  snapshots  PriceSnapshot[]
-  listItems  ShoppingListItem[]
-  reviews    Review[]
+  category     Category?          @relation(fields: [categoryId], references: [id])
+  prices       ProductPrice[]
+  snapshots    PriceSnapshot[]
+  listItems    ShoppingListItem[]
+  reviews      Review[]
+  basketItems  FamilyBasketItem[]
 
   @@index([normalizedName])
   @@index([categoryId, deletedAt])
@@ -264,4 +267,75 @@ model ReviewHelpful {
 
   @@unique([reviewId, userId])
   @@map("review_helpfuls")
+}
+
+// ──────────────────────────────────────────────
+// Cesta Familiar
+// ──────────────────────────────────────────────
+
+model DietaryQuestion {
+  id       String  @id @default(cuid())
+  key      String  @unique
+  labelEs  String  @map("label_es")
+  labelPt  String  @map("label_pt")
+  type     String  // "boolean" | "choice"
+  options  Json?   // [{ value, labelEs, labelPt }] quando type=choice
+  category String?
+  order    Int     @default(0)
+
+  @@map("dietary_questions")
+}
+
+model FamilyProfile {
+  id                 String   @id @default(cuid())
+  userId             String   @unique @map("user_id")
+  members            Json     // { babies, kids, children, teens, adults, seniors }
+  answers            Json     // { eats_meat: true, eats_bread: true, ... }
+  restrictions       String[] @default([])
+  blockedCategories  String[] @default([]) @map("blocked_categories")
+  requiredProductIds String[] @default([]) @map("required_product_ids")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  baskets FamilyBasket[]
+
+  @@map("family_profiles")
+}
+
+model FamilyBasket {
+  id              String    @id @default(cuid())
+  userId          String    @map("user_id")
+  familyProfileId String    @map("family_profile_id")
+  estimatedCost   Decimal   @db.Decimal(10, 2) @default(0) @map("estimated_cost")
+  status          String    @default("pending") // pending | ready | failed
+  errorMessage    String?   @map("error_message")
+  generatedAt     DateTime  @default(now()) @map("generated_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  user    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile FamilyProfile      @relation(fields: [familyProfileId], references: [id])
+  items   FamilyBasketItem[]
+
+  @@index([userId, deletedAt])
+  @@map("family_baskets")
+}
+
+model FamilyBasketItem {
+  id         String  @id @default(cuid())
+  basketId   String  @map("basket_id")
+  productId  String  @map("product_id")
+  quantity   Decimal @db.Decimal(10, 3)
+  isRequired Boolean @default(false) @map("is_required")
+  isLocked   Boolean @default(false) @map("is_locked")
+  unitPrice  Decimal @db.Decimal(10, 2) @map("unit_price")
+  position   Int     @default(0)
+
+  basket  FamilyBasket @relation(fields: [basketId], references: [id], onDelete: Cascade)
+  product Product      @relation(fields: [productId], references: [id])
+
+  @@unique([basketId, productId])
+  @@index([basketId])
+  @@map("family_basket_items")
 }

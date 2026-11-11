@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { List, Loader2 } from "lucide-react";
+import { List, Loader2, ShoppingBasket } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/features/catalog/components/product-card";
@@ -44,12 +44,18 @@ export default function HomePage() {
         </div>
         <div className="flex items-center gap-2">
           {isHydrated && user && (
-            <Button asChild size="sm" variant="secondary" aria-label="Mi Lista">
-              <Link href="/minha-lista">
-                <List className="h-4 w-4" />
-                Mi Lista
-              </Link>
-            </Button>
+            <>
+              <Button asChild size="icon" variant="secondary" aria-label="Mi Cesta familiar">
+                <Link href="/minha-cesta">
+                  <ShoppingBasket className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button asChild size="icon" variant="secondary" aria-label="Mi Lista">
+                <Link href="/minha-lista">
+                  <List className="h-4 w-4" />
+                </Link>
+              </Button>
+            </>
           )}
           {isHydrated &&
             (user ? (
