@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { cn } from "@/lib/utils";
 import type { MeasureUnit, Product } from "../types/catalog.types";
 
 type NutritionProduct = Pick<
@@ -29,7 +30,12 @@ function formatValue(v: number | null, suffix: string): string {
   return `${rounded} ${suffix}`;
 }
 
-export function NutritionTable({ product }: { product: NutritionProduct }) {
+interface NutritionTableProps {
+  product: NutritionProduct;
+  compact?: boolean;
+}
+
+export function NutritionTable({ product, compact = false }: NutritionTableProps) {
   const t = useTranslations("product.nutrition");
 
   const hasAny =
@@ -44,16 +50,12 @@ export function NutritionTable({ product }: { product: NutritionProduct }) {
 
   if (!hasAny) return null;
 
-  return (
-    <section className="px-4 py-4">
-      <h3 className="mb-3 font-display text-lg font-bold text-ink">
-        {t("title")}
-      </h3>
-      <div className="rounded-card bg-white p-4 shadow-card">
-        <p className="mb-3 text-xs text-muted">{t(perLabelKey(product.comparisonUnit))}</p>
+  const body = (
+    <div className="rounded-card bg-white p-4 shadow-card">
+      <p className="mb-3 text-xs text-muted">{t(perLabelKey(product.comparisonUnit))}</p>
       <dl className="divide-y divide-border/50 text-sm">
-        <Row label={t("calories")} value={formatValue(product.calories, "kcal")} />
-        <Row label={t("fat")} value={formatValue(product.fat, "g")}>
+        <Row label={t("calories")} value={formatValue(product.calories, "kcal")} compact={compact} />
+        <Row label={t("fat")} value={formatValue(product.fat, "g")} compact={compact}>
           {product.saturatedFat !== null && (
             <SubRow
               label={`${t("ofWhich")} ${t("saturatedFat")}`}
@@ -61,7 +63,7 @@ export function NutritionTable({ product }: { product: NutritionProduct }) {
             />
           )}
         </Row>
-        <Row label={t("carbs")} value={formatValue(product.carbs, "g")}>
+        <Row label={t("carbs")} value={formatValue(product.carbs, "g")} compact={compact}>
           {product.sugar !== null && (
             <SubRow
               label={`${t("ofWhich")} ${t("sugar")}`}
@@ -69,11 +71,19 @@ export function NutritionTable({ product }: { product: NutritionProduct }) {
             />
           )}
         </Row>
-        <Row label={t("fiber")} value={formatValue(product.fiber, "g")} />
-        <Row label={t("protein")} value={formatValue(product.protein, "g")} />
-        <Row label={t("salt")} value={formatValue(product.salt, "g")} />
+        <Row label={t("fiber")} value={formatValue(product.fiber, "g")} compact={compact} />
+        <Row label={t("protein")} value={formatValue(product.protein, "g")} compact={compact} />
+        <Row label={t("salt")} value={formatValue(product.salt, "g")} compact={compact} />
       </dl>
-      </div>
+    </div>
+  );
+
+  if (compact) return body;
+
+  return (
+    <section className="px-4 py-4">
+      <h3 className="mb-3 font-display text-lg font-bold text-ink">{t("title")}</h3>
+      {body}
     </section>
   );
 }
@@ -81,14 +91,16 @@ export function NutritionTable({ product }: { product: NutritionProduct }) {
 function Row({
   label,
   value,
+  compact,
   children,
 }: {
   label: string;
   value: string;
+  compact?: boolean;
   children?: React.ReactNode;
 }) {
   return (
-    <div className="py-2">
+    <div className={cn(compact ? "py-1" : "py-2")}>
       <div className="flex items-center justify-between">
         <dt className="text-muted">{label}</dt>
         <dd className={`font-medium ${value === "—" ? "text-neutral-300" : "text-ink"}`}>

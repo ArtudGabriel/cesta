@@ -14,7 +14,13 @@
     "winnerBadge": "Melhor preço geral",
     "noUnitComparison": "Sem comparação unitária",
     "normalizedNoteAbsolute": "Mostrando preços totais — alterne acima para comparar por unidade",
-    "normalizedNoteUnit": "Comparando preços por unidade — justo em embalagens distintas"
+    "normalizedNoteUnit": "Comparando preços por unidade — justo em embalagens distintas",
+    "viewPrices": "Preços",
+    "viewNutrition": "Nutrição",
+    "nutritionNote": "Valores por 100g / 100ml / unidade conforme embalagem",
+    "nutritionEmptyTitle": "Sem dados nutricionais",
+    "nutritionEmptySubtitle": "Não há informação nutricional disponível para esses produtos",
+    "nutritionEmptyCta": "Voltar para Preços"
   },
   "home": {
     "sortLabel": "Ordenar:",

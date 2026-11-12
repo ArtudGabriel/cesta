@@ -3,11 +3,11 @@
 import { ArrowLeft, Loader2, Plus, Scale } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { CompareAddSheet } from "@/features/catalog/components/compare-add-sheet";
-import { CompareGrid, type SortMode } from "@/features/catalog/components/compare-grid";
+import { CompareGrid, type SortMode, type ViewMode } from "@/features/catalog/components/compare-grid";
 import { useCompare } from "@/features/catalog/hooks/use-compare";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +26,14 @@ function CompararContent() {
   const searchParams = useSearchParams();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("absolute");
+  const [viewMode, setViewMode] = useState<ViewMode>("prices");
   const t = useTranslations("compare");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [viewMode]);
 
   const ids = useMemo(() => {
     const raw = searchParams.get("products") ?? "";
@@ -89,16 +96,16 @@ function CompararContent() {
           <EmptyState count={ids.length} onAdd={() => setSheetOpen(true)} />
         ) : (
           <>
-            <div className="mb-3 flex gap-2" role="radiogroup" aria-label={t("sortAbsolute") + " / " + t("sortUnit")}>
-              {(["absolute", "unit"] as const).map((mode) => {
-                const active = sortMode === mode;
+            <div className="mb-3 flex gap-2" role="radiogroup" aria-label={t("viewPrices") + " / " + t("viewNutrition")}>
+              {(["prices", "nutrition"] as const).map((mode) => {
+                const active = viewMode === mode;
                 return (
                   <button
                     key={mode}
                     type="button"
                     role="radio"
                     aria-checked={active}
-                    onClick={() => setSortMode(mode)}
+                    onClick={() => setViewMode(mode)}
                     className={cn(
                       "inline-flex h-11 flex-1 items-center justify-center rounded-pill px-4 text-sm font-medium cursor-pointer transition-colors",
                       active
@@ -106,15 +113,41 @@ function CompararContent() {
                         : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200",
                     )}
                   >
-                    {mode === "absolute" ? t("sortAbsolute") : t("sortUnit")}
+                    {mode === "prices" ? t("viewPrices") : t("viewNutrition")}
                   </button>
                 );
               })}
             </div>
+            {viewMode === "prices" && (
+              <div className="mb-3 flex gap-2" role="radiogroup" aria-label={t("sortAbsolute") + " / " + t("sortUnit")}>
+                {(["absolute", "unit"] as const).map((mode) => {
+                  const active = sortMode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => setSortMode(mode)}
+                      className={cn(
+                        "inline-flex h-11 flex-1 items-center justify-center rounded-pill px-4 text-xs font-medium cursor-pointer transition-colors",
+                        active
+                          ? "bg-cesta-green text-white"
+                          : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200",
+                      )}
+                    >
+                      {mode === "absolute" ? t("sortAbsolute") : t("sortUnit")}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <CompareGrid
               products={data ?? []}
               onRemove={remove}
               sortMode={sortMode}
+              viewMode={viewMode}
+              onSwitchToPrices={() => setViewMode("prices")}
             />
             {ids.length < MAX && (
               <div className="mt-4 flex justify-center">

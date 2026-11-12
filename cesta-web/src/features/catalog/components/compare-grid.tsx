@@ -5,25 +5,31 @@ import { useTranslations } from "next-intl";
 import { cn, formatPrice } from "@/lib/utils";
 import { formatUnitPrice } from "../utils/format-unit-price";
 import { useLocale } from "../hooks/use-locale";
+import { DietaryBadges } from "./dietary-badges";
+import { NutritionTable } from "./nutrition-table";
 import type { Product } from "../types/catalog.types";
 
 export type SortMode = "absolute" | "unit";
+export type ViewMode = "prices" | "nutrition";
 
 interface CompareGridProps {
   products: Product[];
   onRemove: (productId: string) => void;
   sortMode?: SortMode;
+  viewMode?: ViewMode;
+  onSwitchToPrices?: () => void;
 }
 
 export function CompareGrid({
   products,
   onRemove,
   sortMode = "absolute",
+  viewMode = "prices",
+  onSwitchToPrices,
 }: CompareGridProps) {
   const locale = useLocale();
   const t = useTranslations("compare");
 
-  // Winner: menor métrica conforme modo. Modo 'unit' exclui produtos sem unitPrice.
   const eligibleForWinner = products.filter((p) => {
     if (sortMode === "absolute") return p.cheapestPrice != null;
     return p.cheapestUnitPrice != null;
@@ -31,6 +37,59 @@ export function CompareGrid({
   const winnerId = eligibleForWinner
     .slice()
     .sort((a, b) => metric(a, sortMode) - metric(b, sortMode))[0]?.id;
+
+  if (viewMode === "nutrition") {
+    const allEmpty = products.length > 0 && products.every(
+      (p) =>
+        p.calories === null &&
+        p.protein === null &&
+        p.fat === null &&
+        p.saturatedFat === null &&
+        p.carbs === null &&
+        p.sugar === null &&
+        p.salt === null &&
+        p.fiber === null,
+    );
+
+    if (allEmpty) {
+      return (
+        <div className="flex flex-col items-center gap-3 rounded-card bg-white px-6 py-10 text-center shadow-sm">
+          <p className="font-display text-base font-bold text-ink">
+            {t("nutritionEmptyTitle")}
+          </p>
+          <p className="max-w-xs text-sm text-muted">
+            {t("nutritionEmptySubtitle")}
+          </p>
+          {onSwitchToPrices && (
+            <button
+              type="button"
+              onClick={onSwitchToPrices}
+              className="inline-flex h-11 items-center justify-center rounded-pill bg-cesta-green px-4 text-sm font-medium text-white cursor-pointer"
+            >
+              {t("nutritionEmptyCta")}
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <div className="grid gap-4 md:grid-cols-2">
+          {products.map((p) => (
+            <ProductNutritionCard
+              key={p.id}
+              product={p}
+              onRemove={() => onRemove(p.id)}
+            />
+          ))}
+        </div>
+        <p className="mt-3 text-center text-xs text-muted">
+          {t("nutritionNote")}
+        </p>
+      </>
+    );
+  }
 
   return (
     <>
@@ -169,6 +228,44 @@ function ProductCompareCard({
           );
         })}
       </ul>
+    </article>
+  );
+}
+
+function ProductNutritionCard({
+  product,
+  onRemove,
+}: {
+  product: Product;
+  onRemove: () => void;
+}) {
+  return (
+    <article className="rounded-card bg-white shadow-sm">
+      <header className="flex items-start gap-3 p-4">
+        <div className="h-12 w-12 flex-shrink-0 rounded-md bg-surface" />
+        <div className="min-w-0 flex-1">
+          <h3 className="line-clamp-2 text-sm font-semibold text-ink">
+            {product.name}
+          </h3>
+          {product.brand && (
+            <p className="mt-0.5 text-xs text-muted">{product.brand}</p>
+          )}
+          <div className="mt-2">
+            <DietaryBadges product={product} />
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label="Quitar producto de la comparación"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted hover:bg-surface cursor-pointer"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </header>
+      <div className="px-4 pb-4">
+        <NutritionTable product={product} compact />
+      </div>
     </article>
   );
 }
