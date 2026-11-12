@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { MeasureUnit } from '@prisma/client';
-import { PrismaService } from '../../database/prisma.service';
 import { calculateUnitPrice } from '../../common/utils/price-normalization';
 import {
   CheapestPriceDto,
   FavoriteResponseDto,
 } from './dtos/favorite-response.dto';
+import { FavoritesRepository } from './favorites.repository';
 
 interface RawCheapest {
   price: number;
@@ -15,56 +15,26 @@ interface RawCheapest {
 
 @Injectable()
 export class FavoritesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly repo: FavoritesRepository) {}
 
   async add(
     userId: string,
     productId: string,
   ): Promise<{ favorite: FavoriteResponseDto; created: boolean }> {
-    const existing = await this.prisma.favorite.findUnique({
-      where: { userId_productId: { userId, productId } },
-    });
+    const existing = await this.repo.findByUserAndProduct(userId, productId);
     if (existing) {
       return { favorite: this.mapBase(existing), created: false };
     }
-    const favorite = await this.prisma.favorite.create({
-      data: { userId, productId },
-    });
+    const favorite = await this.repo.create(userId, productId);
     return { favorite: this.mapBase(favorite), created: true };
   }
 
   async remove(userId: string, productId: string): Promise<void> {
-    await this.prisma.favorite.deleteMany({ where: { userId, productId } });
+    await this.repo.deleteByUserAndProduct(userId, productId);
   }
 
   async list(userId: string): Promise<FavoriteResponseDto[]> {
-    const favorites = await this.prisma.favorite.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        product: {
-          select: {
-            id: true,
-            name: true,
-            brand: true,
-            imageUrl: true,
-            packageSize: true,
-            packageUnit: true,
-            comparisonUnit: true,
-            prices: {
-              where: {
-                isAvailable: true,
-                supermarket: { isActive: true },
-              },
-              select: {
-                currentPrice: true,
-                supermarket: { select: { slug: true, name: true } },
-              },
-            },
-          },
-        },
-      },
-    });
+    const favorites = await this.repo.listByUserWithProduct(userId);
 
     return favorites.map((f) => {
       const cheapestRaw = this.pickCheapest(
@@ -100,13 +70,8 @@ export class FavoritesService {
     });
   }
 
-  async check(userId: string, productIds: string[]): Promise<string[]> {
-    if (productIds.length === 0) return [];
-    const rows = await this.prisma.favorite.findMany({
-      where: { userId, productId: { in: productIds } },
-      select: { productId: true },
-    });
-    return rows.map((r) => r.productId);
+  check(userId: string, productIds: string[]): Promise<string[]> {
+    return this.repo.findProductIdsByUser(userId, productIds);
   }
 
   private mapBase(

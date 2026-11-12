@@ -58,6 +58,7 @@ jobs:
       - run: npm run lint --if-present
         continue-on-error: true
       - run: npm run audit:dtos
+      - run: npm run audit:repos
       - run: npx jest --ci
       - run: npm run build
 

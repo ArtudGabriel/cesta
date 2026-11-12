@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../database/prisma.service';
 import { PriceHistorySeriesDto } from './dtos/price-history-response.dto';
+import { PriceHistoryRepository } from './price-history.repository';
 
 @Injectable()
 export class PriceHistoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly repo: PriceHistoryRepository) {}
 
   async getSeries(
     productId: string,
@@ -12,15 +12,11 @@ export class PriceHistoryService {
   ): Promise<PriceHistorySeriesDto[]> {
     const from = new Date(Date.now() - options.days * 24 * 60 * 60 * 1000);
 
-    const snapshots = await this.prisma.priceSnapshot.findMany({
-      where: {
-        productId,
-        capturedAt: { gte: from },
-        ...(options.supermarketId && { supermarketId: options.supermarketId }),
-      },
-      orderBy: { capturedAt: 'asc' },
-      include: { supermarket: true },
-    });
+    const snapshots = await this.repo.findSnapshotsByProduct(
+      productId,
+      from,
+      options.supermarketId,
+    );
 
     const bySupermarket = new Map<string, PriceHistorySeriesDto>();
 

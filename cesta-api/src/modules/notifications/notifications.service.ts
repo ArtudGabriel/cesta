@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../../database/prisma.service';
+import { NotificationsRepository } from './notifications.repository';
 import { SubscribeDto } from './dtos/subscribe.dto';
 import * as webPush from 'web-push';
 
@@ -18,7 +18,7 @@ export class NotificationsService implements OnModuleInit {
   private readonly isConfigured: boolean;
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly repo: NotificationsRepository,
     private readonly config: ConfigService,
   ) {
     const pub = this.config.get<string>('VAPID_PUBLIC_KEY');
@@ -45,25 +45,17 @@ export class NotificationsService implements OnModuleInit {
   }
 
   async subscribe(userId: string, dto: SubscribeDto): Promise<void> {
-    await this.prisma.pushSubscription.upsert({
-      where: { endpoint: dto.endpoint },
-      create: {
-        userId,
-        endpoint: dto.endpoint,
-        p256dh: dto.keys.p256dh,
-        auth: dto.keys.auth,
-        userAgent: dto.userAgent ?? null,
-      },
-      update: {
-        userId,
-        p256dh: dto.keys.p256dh,
-        auth: dto.keys.auth,
-      },
+    await this.repo.upsertSubscription({
+      userId,
+      endpoint: dto.endpoint,
+      p256dh: dto.keys.p256dh,
+      auth: dto.keys.auth,
+      userAgent: dto.userAgent ?? null,
     });
   }
 
   async unsubscribe(endpoint: string): Promise<void> {
-    await this.prisma.pushSubscription.deleteMany({ where: { endpoint } });
+    await this.repo.deleteByEndpoint(endpoint);
   }
 
   async sendToUser(
@@ -72,9 +64,7 @@ export class NotificationsService implements OnModuleInit {
   ): Promise<{ sent: number; removed: number }> {
     if (!this.isConfigured) return { sent: 0, removed: 0 };
 
-    const subs = await this.prisma.pushSubscription.findMany({
-      where: { userId },
-    });
+    const subs = await this.repo.findByUser(userId);
 
     let sent = 0;
     let removed = 0;
@@ -93,9 +83,8 @@ export class NotificationsService implements OnModuleInit {
           typeof error === 'object' && error !== null && 'statusCode' in error
             ? (error as { statusCode: number }).statusCode
             : null;
-        // 410/404 = subscription expirada/removida — limpa
         if (status === 404 || status === 410) {
-          await this.prisma.pushSubscription.delete({ where: { id: sub.id } });
+          await this.repo.deleteById(sub.id);
           removed += 1;
         } else {
           this.logger.warn(

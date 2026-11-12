@@ -1,10 +1,10 @@
 import { Test } from '@nestjs/testing';
-import { PrismaService } from '../../database/prisma.service';
+import { PriceHistoryRepository } from './price-history.repository';
 import { PriceHistoryService } from './price-history.service';
 
 describe('PriceHistoryService', () => {
   let service: PriceHistoryService;
-  let prismaMock: { priceSnapshot: { findMany: jest.Mock } };
+  let repoMock: { findSnapshotsByProduct: jest.Mock };
 
   const fakeSupermarket = (
     id: string,
@@ -46,14 +46,14 @@ describe('PriceHistoryService', () => {
   });
 
   beforeEach(async () => {
-    prismaMock = {
-      priceSnapshot: { findMany: jest.fn() },
+    repoMock = {
+      findSnapshotsByProduct: jest.fn(),
     };
 
     const module = await Test.createTestingModule({
       providers: [
         PriceHistoryService,
-        { provide: PrismaService, useValue: prismaMock },
+        { provide: PriceHistoryRepository, useValue: repoMock },
       ],
     }).compile();
 
@@ -66,7 +66,7 @@ describe('PriceHistoryService', () => {
     const sm1 = fakeSupermarket('s1', 'merc', 'Mercadona', '#009D58');
     const sm2 = fakeSupermarket('s2', 'lidl', 'LIDL', '#FFD100');
 
-    prismaMock.priceSnapshot.findMany.mockResolvedValue([
+    repoMock.findSnapshotsByProduct.mockResolvedValue([
       fakeSnapshot({ productId: 'p1', supermarketId: 's1', price: 1.5, capturedAt: d1, supermarket: sm1 }),
       fakeSnapshot({ productId: 'p1', supermarketId: 's2', price: 1.4, capturedAt: d1, supermarket: sm2 }),
       fakeSnapshot({ productId: 'p1', supermarketId: 's1', price: 1.6, capturedAt: d2, supermarket: sm1 }),
@@ -89,29 +89,31 @@ describe('PriceHistoryService', () => {
   });
 
   it('filtra por supermarketId quando informado', async () => {
-    prismaMock.priceSnapshot.findMany.mockResolvedValue([]);
+    repoMock.findSnapshotsByProduct.mockResolvedValue([]);
     await service.getSeries('p1', { days: 7, supermarketId: 's1' });
 
-    const call = prismaMock.priceSnapshot.findMany.mock.calls[0][0];
-    expect(call.where).toMatchObject({ productId: 'p1', supermarketId: 's1' });
-    expect(call.where.capturedAt).toHaveProperty('gte');
+    expect(repoMock.findSnapshotsByProduct).toHaveBeenCalledWith(
+      'p1',
+      expect.any(Date),
+      's1',
+    );
   });
 
   it('usa janela correta de dias no filtro capturedAt', async () => {
-    prismaMock.priceSnapshot.findMany.mockResolvedValue([]);
+    repoMock.findSnapshotsByProduct.mockResolvedValue([]);
     const before = Date.now();
     await service.getSeries('p1', { days: 60 });
     const after = Date.now();
 
-    const call = prismaMock.priceSnapshot.findMany.mock.calls[0][0];
-    const gte = (call.where.capturedAt as { gte: Date }).gte.getTime();
+    const fromArg = repoMock.findSnapshotsByProduct.mock.calls[0][1] as Date;
+    const gte = fromArg.getTime();
     const windowMs = 60 * 24 * 60 * 60 * 1000;
     expect(gte).toBeGreaterThanOrEqual(before - windowMs - 5);
     expect(gte).toBeLessThanOrEqual(after - windowMs + 5);
   });
 
   it('retorna array vazio quando sem snapshots', async () => {
-    prismaMock.priceSnapshot.findMany.mockResolvedValue([]);
+    repoMock.findSnapshotsByProduct.mockResolvedValue([]);
     const series = await service.getSeries('missing', { days: 30 });
     expect(series).toEqual([]);
   });

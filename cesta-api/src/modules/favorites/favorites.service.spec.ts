@@ -1,32 +1,30 @@
 import { Test } from '@nestjs/testing';
-import { PrismaService } from '../../database/prisma.service';
+import { FavoritesRepository } from './favorites.repository';
 import { FavoritesService } from './favorites.service';
 
 describe('FavoritesService', () => {
   let service: FavoritesService;
-  let prismaMock: {
-    favorite: {
-      findUnique: jest.Mock;
-      findMany: jest.Mock;
-      create: jest.Mock;
-      deleteMany: jest.Mock;
-    };
+  let repoMock: {
+    findByUserAndProduct: jest.Mock;
+    create: jest.Mock;
+    deleteByUserAndProduct: jest.Mock;
+    listByUserWithProduct: jest.Mock;
+    findProductIdsByUser: jest.Mock;
   };
 
   beforeEach(async () => {
-    prismaMock = {
-      favorite: {
-        findUnique: jest.fn(),
-        findMany: jest.fn(),
-        create: jest.fn(),
-        deleteMany: jest.fn(),
-      },
+    repoMock = {
+      findByUserAndProduct: jest.fn(),
+      create: jest.fn(),
+      deleteByUserAndProduct: jest.fn(),
+      listByUserWithProduct: jest.fn(),
+      findProductIdsByUser: jest.fn(),
     };
 
     const module = await Test.createTestingModule({
       providers: [
         FavoritesService,
-        { provide: PrismaService, useValue: prismaMock },
+        { provide: FavoritesRepository, useValue: repoMock },
       ],
     }).compile();
 
@@ -35,8 +33,8 @@ describe('FavoritesService', () => {
 
   describe('add', () => {
     it('cria favorite novo e retorna created=true', async () => {
-      prismaMock.favorite.findUnique.mockResolvedValue(null);
-      prismaMock.favorite.create.mockResolvedValue({
+      repoMock.findByUserAndProduct.mockResolvedValue(null);
+      repoMock.create.mockResolvedValue({
         id: 'f1',
         productId: 'p1',
         createdAt: new Date('2026-11-12'),
@@ -45,13 +43,11 @@ describe('FavoritesService', () => {
       const result = await service.add('u1', 'p1');
       expect(result.created).toBe(true);
       expect(result.favorite.id).toBe('f1');
-      expect(prismaMock.favorite.create).toHaveBeenCalledWith({
-        data: { userId: 'u1', productId: 'p1' },
-      });
+      expect(repoMock.create).toHaveBeenCalledWith('u1', 'p1');
     });
 
     it('é idempotente: retorna existente com created=false', async () => {
-      prismaMock.favorite.findUnique.mockResolvedValue({
+      repoMock.findByUserAndProduct.mockResolvedValue({
         id: 'f-existing',
         productId: 'p1',
         createdAt: new Date('2026-11-01'),
@@ -60,28 +56,26 @@ describe('FavoritesService', () => {
       const result = await service.add('u1', 'p1');
       expect(result.created).toBe(false);
       expect(result.favorite.id).toBe('f-existing');
-      expect(prismaMock.favorite.create).not.toHaveBeenCalled();
+      expect(repoMock.create).not.toHaveBeenCalled();
     });
   });
 
   describe('remove', () => {
-    it('chama deleteMany (idempotente)', async () => {
-      prismaMock.favorite.deleteMany.mockResolvedValue({ count: 1 });
+    it('chama deleteByUserAndProduct (idempotente)', async () => {
+      repoMock.deleteByUserAndProduct.mockResolvedValue(undefined);
       await service.remove('u1', 'p1');
-      expect(prismaMock.favorite.deleteMany).toHaveBeenCalledWith({
-        where: { userId: 'u1', productId: 'p1' },
-      });
+      expect(repoMock.deleteByUserAndProduct).toHaveBeenCalledWith('u1', 'p1');
     });
 
     it('não falha quando favorite não existe', async () => {
-      prismaMock.favorite.deleteMany.mockResolvedValue({ count: 0 });
+      repoMock.deleteByUserAndProduct.mockResolvedValue(undefined);
       await expect(service.remove('u1', 'missing')).resolves.toBeUndefined();
     });
   });
 
   describe('list', () => {
     it('retorna favoritos com cheapest price por produto', async () => {
-      prismaMock.favorite.findMany.mockResolvedValue([
+      repoMock.listByUserWithProduct.mockResolvedValue([
         {
           id: 'f1',
           productId: 'p1',
@@ -121,7 +115,7 @@ describe('FavoritesService', () => {
     });
 
     it('cheapestPrice null quando produto sem preços', async () => {
-      prismaMock.favorite.findMany.mockResolvedValue([
+      repoMock.listByUserWithProduct.mockResolvedValue([
         {
           id: 'f1',
           productId: 'p1',
@@ -146,18 +140,15 @@ describe('FavoritesService', () => {
 
   describe('check', () => {
     it('retorna ids favoritados do batch', async () => {
-      prismaMock.favorite.findMany.mockResolvedValue([
-        { productId: 'p1' },
-        { productId: 'p3' },
-      ]);
+      repoMock.findProductIdsByUser.mockResolvedValue(['p1', 'p3']);
       const result = await service.check('u1', ['p1', 'p2', 'p3']);
       expect(result).toEqual(['p1', 'p3']);
     });
 
     it('array vazio quando sem ids', async () => {
+      repoMock.findProductIdsByUser.mockResolvedValue([]);
       const result = await service.check('u1', []);
       expect(result).toEqual([]);
-      expect(prismaMock.favorite.findMany).not.toHaveBeenCalled();
     });
   });
 });
