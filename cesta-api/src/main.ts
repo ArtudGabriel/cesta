@@ -15,7 +15,8 @@ async function bootstrap(): Promise<void> {
 
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
-  app.setGlobalPrefix('api/v1', { exclude: ['uploads/(.*)'] });
+  app.setGlobalPrefix('api/v1', { exclude: ['uploads/(.*)', 'health'] });
+  app.enableShutdownHooks();
   app.enableCors({
     origin: config.get<string>('CORS_ORIGIN', 'http://localhost:3000'),
     credentials: true,

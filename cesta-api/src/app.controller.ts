@@ -1,18 +1,6 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Public } from './common/decorators/public.decorator';
+import { Controller } from '@nestjs/common';
 
-@ApiTags('Health')
+// Health check extraido pra HealthModule (Sprint 23). AppController reservado
+// pra endpoints raiz futuros.
 @Controller()
-export class AppController {
-  @Public()
-  @Get('health')
-  @ApiOperation({ summary: 'Health check' })
-  health() {
-    return {
-      status: 'ok',
-      uptime: process.uptime(),
-      timestamp: new Date().toISOString(),
-    };
-  }
-}
+export class AppController {}

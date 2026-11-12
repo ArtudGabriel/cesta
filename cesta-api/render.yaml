@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: cesta-api
+    runtime: node
+    rootDir: cesta-api
+    buildCommand: npm ci && npx prisma generate && npx prisma migrate deploy && npm run build
+    startCommand: node dist/main.js
+    healthCheckPath: /health
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      - key: VAPID_PUBLIC_KEY
+        value: disabled
+      - key: VAPID_PRIVATE_KEY
+        value: disabled
+      - key: VAPID_SUBJECT
+        value: mailto:contact@cesta.app
