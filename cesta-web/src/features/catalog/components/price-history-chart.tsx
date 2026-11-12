@@ -83,7 +83,7 @@ export function PriceHistoryChart({
       ) : (
         <div className="h-40 w-full md:h-56">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: -20 }}>
+            <LineChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0edea" vertical={false} />
               <XAxis
                 dataKey="dateLabel"
@@ -96,7 +96,7 @@ export function PriceHistoryChart({
                 tick={{ fill: "#6B6560", fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
-                width={48}
+                width={56}
                 tickFormatter={(v) => `€${Number(v).toFixed(2)}`}
               />
               <Tooltip content={<CustomTooltip series={series} />} />
