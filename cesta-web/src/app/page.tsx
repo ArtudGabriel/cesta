@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, Heart, List, Loader2, Receipt, ShoppingBasket } from "lucide-react";
+import { Bell, Heart, List, Receipt, ShoppingBasket } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { CategoryChipSkeleton } from "@/features/catalog/components/category-chip-skeleton";
+import { HomeEmptyState } from "@/features/catalog/components/home-empty-state";
 import { ProductCard } from "@/features/catalog/components/product-card";
+import { ProductCardSkeleton } from "@/features/catalog/components/product-card-skeleton";
 import { SearchBar } from "@/features/catalog/components/search-bar";
 import {
   useCategories,
@@ -109,35 +112,43 @@ export default function HomePage() {
       )}
 
       {/* Categories */}
-      {categories.data && (
-        <div className="-mx-4 mb-4 overflow-x-auto px-4">
-          <div className="flex gap-2 pb-2">
-            <button
-              onClick={() => setCategory(undefined)}
-              className={`whitespace-nowrap rounded-pill px-3 py-2 text-xs font-medium cursor-pointer ${
-                !category
-                  ? "bg-cesta-green text-white"
-                  : "bg-surface text-muted hover:text-ink"
-              }`}
-            >
-              Todas
-            </button>
-            {categories.data.map((c) => (
+      <div className="-mx-4 mb-4 overflow-x-auto px-4">
+        <div className="flex gap-2 pb-2">
+          {categories.isPending ? (
+            <>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <CategoryChipSkeleton key={i} width={80 + (i % 3) * 24} />
+              ))}
+            </>
+          ) : (
+            <>
               <button
-                key={c.id}
-                onClick={() => setCategory(c.slug)}
+                onClick={() => setCategory(undefined)}
                 className={`whitespace-nowrap rounded-pill px-3 py-2 text-xs font-medium cursor-pointer ${
-                  category === c.slug
+                  !category
                     ? "bg-cesta-green text-white"
                     : "bg-surface text-muted hover:text-ink"
                 }`}
               >
-                {c.nameEs}
+                Todas
               </button>
-            ))}
-          </div>
+              {(categories.data ?? []).map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setCategory(c.slug)}
+                  className={`whitespace-nowrap rounded-pill px-3 py-2 text-xs font-medium cursor-pointer ${
+                    category === c.slug
+                      ? "bg-cesta-green text-white"
+                      : "bg-surface text-muted hover:text-ink"
+                  }`}
+                >
+                  {c.nameEs}
+                </button>
+              ))}
+            </>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Promotion toggle */}
       <label className="mb-4 inline-flex items-center gap-2 text-sm text-ink cursor-pointer">
@@ -151,9 +162,11 @@ export default function HomePage() {
       </label>
 
       {/* Products list */}
-      {products.isLoading ? (
-        <div className="flex flex-1 items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-cesta-green" />
+      {products.isPending ? (
+        <div className="grid grid-cols-1 gap-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <ProductCardSkeleton key={i} />
+          ))}
         </div>
       ) : products.isError ? (
         <p className="py-6 text-center text-sm text-coral">
@@ -166,9 +179,19 @@ export default function HomePage() {
           ))}
         </div>
       ) : (
-        <p className="py-12 text-center text-sm text-muted">
-          Ningún producto encontrado.
-        </p>
+        <HomeEmptyState
+          query={search || undefined}
+          categoryLabel={
+            category
+              ? categories.data?.find((c) => c.slug === category)?.nameEs
+              : undefined
+          }
+          onReset={() => {
+            setSearch("");
+            setCategory(undefined);
+            setOnPromotion(false);
+          }}
+        />
       )}
     </main>
   );
