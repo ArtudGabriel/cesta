@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, Heart, List, Receipt, Scale, ShoppingBasket, UserCircle } from "lucide-react";
+import { Bell, Receipt, ShoppingBasket } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CategoryChipSkeleton } from "@/features/catalog/components/category-chip-skeleton";
@@ -14,13 +14,11 @@ import {
   useProducts,
   useSupermarkets,
 } from "@/features/catalog/hooks/use-catalog";
-import { useLogout } from "@/features/auth/hooks/use-auth";
 import { useAuthStore } from "@/stores/auth.store";
 
 export default function HomePage() {
   const user = useAuthStore((s) => s.user);
   const isHydrated = useAuthStore((s) => s.isHydrated);
-  const logout = useLogout();
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string | undefined>(undefined);
@@ -46,18 +44,10 @@ export default function HomePage() {
           <p className="text-xs text-muted">Madrid · Supermercados</p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Features primárias (Favoritos/Comparar/Mi lista/Mi cuenta/Inicio) migradas
+              pra bottom-nav. Header mantém só atalhos secundários + ação de sessão. */}
           {isHydrated && user && (
             <>
-              <Button asChild size="icon" variant="secondary" aria-label="Favoritos">
-                <Link href="/favoritos">
-                  <Heart className="h-4 w-4" />
-                </Link>
-              </Button>
-              <Button asChild size="icon" variant="secondary" aria-label="Comparar">
-                <Link href="/comparar">
-                  <Scale className="h-4 w-4" />
-                </Link>
-              </Button>
               <Button asChild size="icon" variant="secondary" aria-label="Alertas">
                 <Link href="/alertas">
                   <Bell className="h-4 w-4" />
@@ -73,33 +63,13 @@ export default function HomePage() {
                   <ShoppingBasket className="h-4 w-4" />
                 </Link>
               </Button>
-              <Button asChild size="icon" variant="secondary" aria-label="Mi Lista">
-                <Link href="/minha-lista">
-                  <List className="h-4 w-4" />
-                </Link>
-              </Button>
-              <Button asChild size="icon" variant="secondary" aria-label="Mi cuenta">
-                <Link href="/perfil">
-                  <UserCircle className="h-4 w-4" />
-                </Link>
-              </Button>
             </>
           )}
-          {isHydrated &&
-            (user ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => logout.mutate()}
-                disabled={logout.isPending}
-              >
-                Salir
-              </Button>
-            ) : (
-              <Button asChild size="sm">
-                <Link href="/login">Entrar</Link>
-              </Button>
-            ))}
+          {isHydrated && !user && (
+            <Button asChild size="sm">
+              <Link href="/login">Entrar</Link>
+            </Button>
+          )}
         </div>
       </header>
 

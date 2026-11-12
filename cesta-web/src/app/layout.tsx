@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { BottomNav } from "@/components/bottom-nav";
 import { InstallPrompt } from "@/components/install-prompt";
 import { QueryProvider } from "@/providers/query-provider";
 import { Toaster } from "sonner";
@@ -43,8 +44,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* iOS legacy; desktop Chrome/Android usa mobile-web-app-capable (emitido pelo Next via appleWebApp) */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
-      <body className="min-h-full flex flex-col bg-cream text-ink">
-        <QueryProvider>{children}</QueryProvider>
+      <body className="min-h-full flex flex-col bg-cream text-ink pb-16">
+        <QueryProvider>
+          {children}
+          <BottomNav />
+        </QueryProvider>
         <InstallPrompt />
         <Toaster position="top-center" richColors />
       </body>
