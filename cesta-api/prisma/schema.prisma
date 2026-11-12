@@ -37,6 +37,7 @@ model User {
   priceDiscrepancies PriceDiscrepancy[]
   alerts             Alert[]
   pushSubscriptions  PushSubscription[]
+  favorites          Favorite[]
 
   @@index([deletedAt])
   @@map("users")
@@ -155,11 +156,26 @@ model Product {
   basketItems  FamilyBasketItem[]
   receiptItems ReceiptItem[]
   alerts       Alert[]
+  favorites    Favorite[]
 
   @@index([normalizedName])
   @@index([categoryId, deletedAt])
   @@index([brand])
   @@map("products")
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  productId String   @map("product_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId, createdAt])
+  @@map("favorites")
 }
 
 model ProductPrice {
