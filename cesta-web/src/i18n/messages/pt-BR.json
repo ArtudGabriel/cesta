@@ -21,7 +21,10 @@
     "nutritionLegendBest": "↓ Menos é melhor em calorias, gorduras, açúcares, sal. ↑ Mais é melhor em fibra, proteína.",
     "nutritionEmptyTitle": "Sem dados nutricionais",
     "nutritionEmptySubtitle": "Não há informação nutricional disponível para esses produtos",
-    "nutritionEmptyCta": "Voltar para Preços"
+    "nutritionEmptyCta": "Voltar para Preços",
+    "dietary": {
+      "warning": "Não cumpre: {restrictions}"
+    }
   },
   "home": {
     "sortLabel": "Ordenar:",
@@ -33,6 +36,11 @@
       "empty": "Sem sugestões para \"{query}\"",
       "loading": "Buscando sugestões…"
     }
+  },
+  "favorites": {
+    "filteredCount": "{visible} de {total}",
+    "emptyFilteredTitle": "Você não tem favoritos que cumpram suas restrições",
+    "emptyFilteredCta": "Remover filtros"
   },
   "profile": {
     "localeHint": "A tradução será aplicada em breve.",

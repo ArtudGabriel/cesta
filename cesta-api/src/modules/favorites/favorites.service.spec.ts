@@ -88,6 +88,10 @@ describe('FavoritesService', () => {
             packageSize: 1,
             packageUnit: 'LITER',
             comparisonUnit: 'LITER',
+            isVegan: false,
+            isVegetarian: false,
+            isGlutenFree: false,
+            isLactoseFree: false,
             prices: [
               {
                 currentPrice: 0.95,
@@ -106,6 +110,7 @@ describe('FavoritesService', () => {
       expect(result).toHaveLength(1);
       expect(result[0].productId).toBe('p1');
       expect(result[0].product?.name).toBe('Leche 1L');
+      expect(result[0].product?.isVegan).toBe(false);
       expect(result[0].cheapestPrice).toEqual({
         price: 0.93,
         supermarketSlug: 'lidl',
@@ -128,6 +133,10 @@ describe('FavoritesService', () => {
             packageSize: 1,
             packageUnit: 'LITER',
             comparisonUnit: 'LITER',
+            isVegan: false,
+            isVegetarian: false,
+            isGlutenFree: false,
+            isLactoseFree: false,
             prices: [],
           },
         },

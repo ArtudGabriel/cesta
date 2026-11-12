@@ -5,6 +5,10 @@ export interface FavoriteProduct {
   name: string;
   brand: string | null;
   imageUrl: string | null;
+  isVegan: boolean;
+  isVegetarian: boolean;
+  isGlutenFree: boolean;
+  isLactoseFree: boolean;
 }
 
 export interface CheapestPrice {

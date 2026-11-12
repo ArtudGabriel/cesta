@@ -2,8 +2,9 @@
 
 import { ArrowLeft, Check, Heart, Loader2, Scale, X } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   useFavorites,
@@ -13,18 +14,72 @@ import { useAuthStore } from "@/stores/auth.store";
 import { cn, formatPrice } from "@/lib/utils";
 import { formatUnitPrice } from "@/features/catalog/utils/format-unit-price";
 import { useLocale } from "@/features/catalog/hooks/use-locale";
+import { DietaryFilters, type DietaryFlag } from "@/features/catalog/components/dietary-filters";
+import { useProfile } from "@/features/profile/hooks/use-profile";
 
 const COMPARE_MAX = 4;
+const DIETARY_FLAGS: DietaryFlag[] = ["vegan", "vegetarian", "glutenFree", "lactoseFree"];
+
+function parseDietFromUrl(raw: string | null): Set<DietaryFlag> {
+  if (raw === null) return new Set();
+  const valid = new Set<DietaryFlag>();
+  for (const token of raw.split(",")) {
+    const t = token.trim() as DietaryFlag;
+    if (DIETARY_FLAGS.includes(t)) valid.add(t);
+  }
+  return valid;
+}
+
+const FLAG_TO_PRODUCT_KEY = {
+  vegan: "isVegan",
+  vegetarian: "isVegetarian",
+  glutenFree: "isGlutenFree",
+  lactoseFree: "isLactoseFree",
+} as const;
 
 export default function FavoritosPage() {
   const user = useAuthStore((s) => s.user);
   const isHydrated = useAuthStore((s) => s.isHydrated);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data, isLoading } = useFavorites();
+  const { data: profile } = useProfile();
   const remove = useRemoveFavorite();
   const locale = useLocale();
+  const t = useTranslations("favorites");
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
+
+  const urlDietRaw = searchParams.get("diet");
+  const dietary = useMemo(() => {
+    if (urlDietRaw !== null) return parseDietFromUrl(urlDietRaw);
+    if (!profile) return new Set<DietaryFlag>();
+    const fromProfile = new Set<DietaryFlag>();
+    if (profile.prefersVegan) fromProfile.add("vegan");
+    if (profile.prefersVegetarian) fromProfile.add("vegetarian");
+    if (profile.prefersGlutenFree) fromProfile.add("glutenFree");
+    if (profile.prefersLactoseFree) fromProfile.add("lactoseFree");
+    return fromProfile;
+  }, [urlDietRaw, profile]);
+
+  const toggleDietary = useCallback(
+    (flag: DietaryFlag) => {
+      const next = new Set(dietary);
+      if (next.has(flag)) next.delete(flag);
+      else next.add(flag);
+      const params = new URLSearchParams(searchParams.toString());
+      const sorted = DIETARY_FLAGS.filter((f) => next.has(f));
+      params.set("diet", sorted.join(","));
+      router.replace(`/favoritos?${params.toString()}`, { scroll: false });
+    },
+    [dietary, router, searchParams],
+  );
+
+  const clearFilters = useCallback(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("diet", "");
+    router.replace(`/favoritos?${params.toString()}`, { scroll: false });
+  }, [router, searchParams]);
 
   useEffect(() => {
     if (isHydrated && !user) {
@@ -41,6 +96,19 @@ export default function FavoritosPage() {
   }
 
   const favorites = data ?? [];
+  const filtered = useMemo(() => {
+    if (dietary.size === 0) return favorites;
+    return favorites.filter((fav) => {
+      const p = fav.product;
+      if (!p) return false;
+      for (const flag of dietary) {
+        const key = FLAG_TO_PRODUCT_KEY[flag];
+        if (!p[key]) return false;
+      }
+      return true;
+    });
+  }, [favorites, dietary]);
+  const hasActiveFilters = dietary.size > 0;
 
   function toggleSelect(productId: string) {
     setSelected((prev) => {
@@ -70,6 +138,11 @@ export default function FavoritosPage() {
         </Button>
         <h1 className="flex-1 font-display text-lg font-bold text-ink">
           Mis favoritos
+          {hasActiveFilters && favorites.length > 0 && (
+            <span className="ml-2 text-xs font-normal text-muted">
+              ({t("filteredCount", { visible: filtered.length, total: favorites.length })})
+            </span>
+          )}
         </h1>
         {favorites.length > 0 && !selectMode && (
           <Button
@@ -94,6 +167,12 @@ export default function FavoritosPage() {
         )}
       </header>
 
+      {favorites.length > 0 && (
+        <section className="px-4 pt-2">
+          <DietaryFilters active={dietary} onToggle={toggleDietary} />
+        </section>
+      )}
+
       <section className="px-4 pt-2">
         {isLoading ? (
           <ul className="space-y-3">
@@ -106,9 +185,11 @@ export default function FavoritosPage() {
           </ul>
         ) : favorites.length === 0 ? (
           <EmptyState />
+        ) : filtered.length === 0 ? (
+          <FilteredEmptyState onClear={clearFilters} />
         ) : (
           <ul className="space-y-3">
-            {favorites.map((fav) => {
+            {filtered.map((fav) => {
               const isSelected = selected.includes(fav.productId);
               return (
                 <li
@@ -243,6 +324,23 @@ function EmptyState() {
       </p>
       <Button asChild size="sm">
         <Link href="/">Explorar productos</Link>
+      </Button>
+    </div>
+  );
+}
+
+function FilteredEmptyState({ onClear }: { onClear: () => void }) {
+  const t = useTranslations("favorites");
+  return (
+    <div className="flex flex-col items-center gap-3 rounded-card bg-white px-6 py-10 text-center shadow-sm">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface">
+        <Heart className="h-8 w-8 text-muted" />
+      </div>
+      <p className="font-display text-base font-bold text-ink">
+        {t("emptyFilteredTitle")}
+      </p>
+      <Button type="button" size="sm" variant="secondary" onClick={onClear}>
+        {t("emptyFilteredCta")}
       </Button>
     </div>
   );

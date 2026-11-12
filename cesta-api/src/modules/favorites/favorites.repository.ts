@@ -17,6 +17,10 @@ export interface FavoriteWithProductRow extends FavoriteRow {
     packageSize: unknown;
     packageUnit: MeasureUnit;
     comparisonUnit: MeasureUnit;
+    isVegan: boolean;
+    isVegetarian: boolean;
+    isGlutenFree: boolean;
+    isLactoseFree: boolean;
     prices: Array<{
       currentPrice: unknown;
       supermarket: { slug: string; name: string };
@@ -62,6 +66,10 @@ export class FavoritesRepository {
             packageSize: true,
             packageUnit: true,
             comparisonUnit: true,
+            isVegan: true,
+            isVegetarian: true,
+            isGlutenFree: true,
+            isLactoseFree: true,
             prices: {
               where: {
                 isAvailable: true,

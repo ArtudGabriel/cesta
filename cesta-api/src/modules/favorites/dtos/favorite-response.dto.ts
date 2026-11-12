@@ -33,6 +33,18 @@ export class FavoriteProductDto {
 
   @ApiProperty({ nullable: true })
   imageUrl: string | null;
+
+  @ApiProperty()
+  isVegan: boolean;
+
+  @ApiProperty()
+  isVegetarian: boolean;
+
+  @ApiProperty()
+  isGlutenFree: boolean;
+
+  @ApiProperty()
+  isLactoseFree: boolean;
 }
 
 export class FavoriteResponseDto {

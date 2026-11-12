@@ -64,6 +64,10 @@ export class FavoritesService {
           name: f.product.name,
           brand: f.product.brand,
           imageUrl: f.product.imageUrl,
+          isVegan: f.product.isVegan,
+          isVegetarian: f.product.isVegetarian,
+          isGlutenFree: f.product.isGlutenFree,
+          isLactoseFree: f.product.isLactoseFree,
         },
         cheapestPrice: cheapest,
       };

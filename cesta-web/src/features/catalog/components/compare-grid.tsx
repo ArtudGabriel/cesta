@@ -8,7 +8,9 @@ import { formatUnitPrice } from "../utils/format-unit-price";
 import { computeWinnerSets, type Nutrient } from "../utils/nutrition-winner";
 import { useLocale } from "../hooks/use-locale";
 import { DietaryBadges } from "./dietary-badges";
+import { DietaryWarning } from "./dietary-warning";
 import { NutritionTable } from "./nutrition-table";
+import { useDietaryPreferences } from "@/features/profile/hooks/use-dietary-preferences";
 import type { Product } from "../types/catalog.types";
 
 export type SortMode = "absolute" | "unit";
@@ -125,6 +127,7 @@ function ProductCompareCard({
   const unitPriceStr = formatUnitPrice(product.cheapestUnitPrice, locale);
   const noUnit = sortMode === "unit" && product.cheapestUnitPrice == null;
   const t = useTranslations("compare");
+  const preferences = useDietaryPreferences();
   const sortedPrices = [...product.prices].sort((a, b) => {
     if (a.isAvailable !== b.isAvailable) return a.isAvailable ? -1 : 1;
     return a.price - b.price;
@@ -141,6 +144,9 @@ function ProductCompareCard({
           {product.brand && (
             <p className="mt-0.5 text-xs text-muted">{product.brand}</p>
           )}
+          <div className="mt-1">
+            <DietaryWarning product={product} preferences={preferences} />
+          </div>
           {product.cheapestPrice != null && (
             <>
               <p className="mt-2 text-lg font-bold text-cesta-green">
@@ -260,6 +266,7 @@ function ProductNutritionCard({
   onRemove: () => void;
   winnerNutrients?: Set<Nutrient>;
 }) {
+  const preferences = useDietaryPreferences();
   return (
     <article className="rounded-card bg-white shadow-sm">
       <header className="flex items-start gap-3 p-4">
@@ -271,6 +278,9 @@ function ProductNutritionCard({
           {product.brand && (
             <p className="mt-0.5 text-xs text-muted">{product.brand}</p>
           )}
+          <div className="mt-1">
+            <DietaryWarning product={product} preferences={preferences} />
+          </div>
           <div className="mt-2">
             <DietaryBadges product={product} />
           </div>
