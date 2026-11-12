@@ -80,6 +80,7 @@ jobs:
       - run: npm ci
       - run: npm run lint --if-present
         continue-on-error: true
+      - run: npm run test:run
       # Next 16 gera LayoutProps/PageProps types via `next build`; rodar tsc
       # standalone falha com TS2304. O proprio `next build` type-checa.
       - run: npm run build

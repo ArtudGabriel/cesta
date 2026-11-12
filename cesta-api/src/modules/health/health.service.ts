@@ -1,12 +1,7 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleDestroy,
-  OnModuleInit,
-} from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import Redis from 'ioredis';
+import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import type Redis from 'ioredis';
 import { HealthRepository } from './health.repository';
+import { REDIS_HEALTH_CLIENT } from './redis-health.provider';
 
 export interface CheckResult {
   status: 'ok' | 'down';
@@ -27,32 +22,20 @@ export interface HealthReport {
 const CHECK_TIMEOUT_MS = 1000;
 
 @Injectable()
-export class HealthService implements OnModuleInit, OnModuleDestroy {
+export class HealthService implements OnModuleDestroy {
   private readonly logger = new Logger(HealthService.name);
-  private redis!: Redis;
 
   constructor(
     private readonly repo: HealthRepository,
-    private readonly config: ConfigService,
-  ) {}
-
-  onModuleInit(): void {
-    const url = this.config.getOrThrow<string>('REDIS_URL');
-    this.redis = new Redis(url, {
-      lazyConnect: true,
-      maxRetriesPerRequest: 0,
-      enableReadyCheck: false,
-      connectTimeout: CHECK_TIMEOUT_MS,
-    });
+    @Inject(REDIS_HEALTH_CLIENT) private readonly redis: Redis,
+  ) {
     this.redis.on('error', (err) => {
       this.logger.debug(`Redis health client error: ${err.message}`);
     });
   }
 
   async onModuleDestroy(): Promise<void> {
-    if (this.redis) {
-      await this.redis.quit().catch(() => undefined);
-    }
+    await this.redis.quit().catch(() => undefined);
   }
 
   async checkDb(): Promise<CheckResult> {

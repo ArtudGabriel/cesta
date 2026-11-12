@@ -1,38 +1,35 @@
 import { Test } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
 import { HealthRepository } from './health.repository';
 import { HealthService } from './health.service';
+import { REDIS_HEALTH_CLIENT } from './redis-health.provider';
 
 describe('HealthService.report', () => {
   let service: HealthService;
   let repoMock: { pingDb: jest.Mock };
-  let redisPingMock: jest.Mock;
+  let redisMock: { ping: jest.Mock; quit: jest.Mock; on: jest.Mock };
 
   beforeEach(async () => {
     repoMock = { pingDb: jest.fn() };
-    redisPingMock = jest.fn();
+    redisMock = {
+      ping: jest.fn(),
+      quit: jest.fn().mockResolvedValue(undefined),
+      on: jest.fn(),
+    };
 
     const module = await Test.createTestingModule({
       providers: [
         HealthService,
         { provide: HealthRepository, useValue: repoMock },
-        {
-          provide: ConfigService,
-          useValue: { getOrThrow: () => 'redis://localhost:6379' },
-        },
+        { provide: REDIS_HEALTH_CLIENT, useValue: redisMock },
       ],
     }).compile();
 
     service = module.get(HealthService);
-    (service as unknown as { redis: { ping: jest.Mock; quit: jest.Mock } }).redis = {
-      ping: redisPingMock,
-      quit: jest.fn().mockResolvedValue(undefined),
-    };
   });
 
   it('todos checks ok -> status ok', async () => {
     repoMock.pingDb.mockResolvedValue(undefined);
-    redisPingMock.mockResolvedValue('PONG');
+    redisMock.ping.mockResolvedValue('PONG');
 
     const report = await service.report();
     expect(report.status).toBe('ok');
@@ -44,7 +41,7 @@ describe('HealthService.report', () => {
 
   it('db down -> status degraded + checks.db.status down', async () => {
     repoMock.pingDb.mockRejectedValue(new Error('connection refused'));
-    redisPingMock.mockResolvedValue('PONG');
+    redisMock.ping.mockResolvedValue('PONG');
 
     const report = await service.report();
     expect(report.status).toBe('degraded');
@@ -55,7 +52,7 @@ describe('HealthService.report', () => {
 
   it('redis down -> status degraded + checks.redis.status down', async () => {
     repoMock.pingDb.mockResolvedValue(undefined);
-    redisPingMock.mockRejectedValue(new Error('ECONNREFUSED'));
+    redisMock.ping.mockRejectedValue(new Error('ECONNREFUSED'));
 
     const report = await service.report();
     expect(report.status).toBe('degraded');
