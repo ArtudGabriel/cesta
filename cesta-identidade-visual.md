@@ -400,3 +400,22 @@ O shadcn/ui usa variáveis CSS (`--background`, `--primary`, etc.). Mapear os to
   }
 }
 ```
+
+---
+
+## 13. Escala de z-index
+
+Convenção semântica — camadas de empilhamento usadas na app. Tudo acima de `z-40` deve usar classe `z-[valor]` ou classe nomeada do tailwind config. Nunca inline style.
+
+| Camada | Classe Tailwind | Uso |
+|---|---|---|
+| Base content | (default) | Grids, cards, header sticky da rota |
+| Overlay in-flow | `z-10` | Headers sticky, filtros sticky dentro da seção |
+| Nav/toolbar flutuante | `z-20` | InstallPrompt, FAB |
+| Backdrops modais | `z-30` | Overlay de bottom sheets antes da sheet |
+| Modais/sheets | `z-40` | Bottom sheets (CompareAddSheet), modais |
+| Navegação primária | `z-50` | BottomNav |
+| Popover sobre nav | `z-[60]` | Autocomplete dropdown, tooltips que precisam ficar sobre BottomNav |
+| Toasts | `z-[70]` | sonner Toaster |
+
+Regra: ao introduzir componente overlay novo, documentar aqui + usar classe correspondente. Evitar `z-50` igual BottomNav em elementos diferentes (frágil se DOM reorganizar).

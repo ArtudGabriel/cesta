@@ -2,8 +2,10 @@
 
 import { AlertCircle, Check, Trophy, X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useMemo } from "react";
 import { cn, formatPrice } from "@/lib/utils";
 import { formatUnitPrice } from "../utils/format-unit-price";
+import { computeWinnerSets, type Nutrient } from "../utils/nutrition-winner";
 import { useLocale } from "../hooks/use-locale";
 import { DietaryBadges } from "./dietary-badges";
 import { NutritionTable } from "./nutrition-table";
@@ -74,20 +76,7 @@ export function CompareGrid({
     }
 
     return (
-      <>
-        <div className="grid gap-4 md:grid-cols-2">
-          {products.map((p) => (
-            <ProductNutritionCard
-              key={p.id}
-              product={p}
-              onRemove={() => onRemove(p.id)}
-            />
-          ))}
-        </div>
-        <p className="mt-3 text-center text-xs text-muted">
-          {t("nutritionNote")}
-        </p>
-      </>
+      <NutritionGrid products={products} onRemove={onRemove} />
     );
   }
 
@@ -232,12 +221,44 @@ function ProductCompareCard({
   );
 }
 
+function NutritionGrid({
+  products,
+  onRemove,
+}: {
+  products: Product[];
+  onRemove: (productId: string) => void;
+}) {
+  const t = useTranslations("compare");
+  const winnerSets = useMemo(() => computeWinnerSets(products), [products]);
+
+  return (
+    <>
+      <div className="grid gap-4 md:grid-cols-2">
+        {products.map((p) => (
+          <ProductNutritionCard
+            key={p.id}
+            product={p}
+            onRemove={() => onRemove(p.id)}
+            winnerNutrients={winnerSets.get(p.id)}
+          />
+        ))}
+      </div>
+      <p className="mt-3 text-center text-xs text-muted">{t("nutritionNote")}</p>
+      <p className="mt-1 text-center text-[11px] text-neutral-500">
+        {t("nutritionLegendBest")}
+      </p>
+    </>
+  );
+}
+
 function ProductNutritionCard({
   product,
   onRemove,
+  winnerNutrients,
 }: {
   product: Product;
   onRemove: () => void;
+  winnerNutrients?: Set<Nutrient>;
 }) {
   return (
     <article className="rounded-card bg-white shadow-sm">
@@ -264,7 +285,7 @@ function ProductNutritionCard({
         </button>
       </header>
       <div className="px-4 pb-4">
-        <NutritionTable product={product} compact />
+        <NutritionTable product={product} compact winnerNutrients={winnerNutrients} />
       </div>
     </article>
   );

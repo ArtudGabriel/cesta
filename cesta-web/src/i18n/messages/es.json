@@ -18,6 +18,7 @@
     "viewPrices": "Precios",
     "viewNutrition": "Nutrición",
     "nutritionNote": "Valores por 100g / 100ml / unidad según embalaje",
+    "nutritionLegendBest": "↓ Menos es mejor en calorías, grasas, azúcares, sal. ↑ Más es mejor en fibra, proteína.",
     "nutritionEmptyTitle": "Sin datos nutricionales",
     "nutritionEmptySubtitle": "No hay información nutricional disponible para estos productos",
     "nutritionEmptyCta": "Volver a Precios"
@@ -75,6 +76,7 @@
       "perUnit": "por unidad",
       "empty": "Información nutricional no disponible",
       "ofWhich": "de los cuales",
+      "winnerLabel": "Mejor valor",
       "calories": "Calorías",
       "protein": "Proteínas",
       "fat": "Grasas",

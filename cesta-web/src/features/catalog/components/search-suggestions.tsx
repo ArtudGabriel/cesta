@@ -22,7 +22,7 @@ export function SearchSuggestions({ query, onSelect }: SearchSuggestionsProps) {
     <div
       role="listbox"
       aria-label={t("loading")}
-      className="absolute inset-x-0 top-full z-50 mt-2 max-h-96 overflow-y-auto rounded-xl bg-white shadow-card-elevated border border-border/40"
+      className="absolute inset-x-0 top-full z-[60] mt-2 max-h-96 overflow-y-auto rounded-xl bg-white shadow-card-elevated border border-border/40"
     >
       {isPending || isFetching ? (
         <ul className="divide-y divide-border/40">
