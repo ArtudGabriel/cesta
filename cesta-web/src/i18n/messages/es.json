@@ -19,7 +19,9 @@
   "home": {
     "sortLabel": "Ordenar:",
     "sortAbsolute": "Precio",
-    "sortUnit": "Por unidad"
+    "sortUnit": "Por unidad",
+    "searching": "Buscando…",
+    "clearSearch": "Limpiar búsqueda"
   },
   "profile": {
     "localeHint": "La traducción se aplicará en breve."

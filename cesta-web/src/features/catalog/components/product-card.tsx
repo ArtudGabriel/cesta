@@ -6,18 +6,21 @@ import { cn, formatPrice } from "@/lib/utils";
 import { FavoriteToggle } from "@/features/favorites/components/favorite-toggle";
 import { formatUnitPrice } from "../utils/format-unit-price";
 import { useLocale } from "../hooks/use-locale";
+import { HighlightedText } from "./highlighted-text";
 import type { Product } from "../types/catalog.types";
 
 interface ProductCardProps {
   product: Product;
   className?: string;
   sortMode?: "absolute" | "unit";
+  highlight?: string;
 }
 
 export function ProductCard({
   product,
   className,
   sortMode = "absolute",
+  highlight,
 }: ProductCardProps) {
   const locale = useLocale();
   const cheapest = product.prices.find(
@@ -39,7 +42,7 @@ export function ProductCard({
           <div className="h-16 w-16 flex-shrink-0 rounded-btn bg-surface" />
           <div className="min-w-0 flex-1 pr-10">
             <h3 className="line-clamp-2 text-sm font-medium text-ink group-hover:text-cesta-green">
-              {product.name}
+              <HighlightedText text={product.name} highlight={highlight} />
             </h3>
             {product.brand && (
               <p className="mt-0.5 text-xs text-muted">{product.brand}</p>

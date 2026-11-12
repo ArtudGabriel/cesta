@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Bell, Receipt, ShoppingBasket } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { CategoryChipSkeleton } from "@/features/catalog/components/category-chip-skeleton";
@@ -16,6 +16,7 @@ import {
   useSupermarkets,
 } from "@/features/catalog/hooks/use-catalog";
 import { useAuthStore } from "@/stores/auth.store";
+import { useDebounce } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
 
 type SortMode = "absolute" | "unit";
@@ -25,6 +26,7 @@ export default function HomePage() {
   const isHydrated = useAuthStore((s) => s.isHydrated);
 
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 250);
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [onPromotion, setOnPromotion] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("absolute");
@@ -33,11 +35,21 @@ export default function HomePage() {
   const supermarkets = useSupermarkets();
   const categories = useCategories();
   const products = useProducts({
-    search: search || undefined,
+    search: debouncedSearch || undefined,
     category,
     onPromotion: onPromotion || undefined,
     limit: 20,
   });
+
+  const searchPending = search !== debouncedSearch;
+  const searching = searchPending && search.length > 0;
+
+  useEffect(() => {
+    // Scroll to top smooth when debouncedSearch changes
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [debouncedSearch]);
 
   const sortedItems = useMemo(() => {
     const items = products.data?.items ?? [];
@@ -91,7 +103,18 @@ export default function HomePage() {
       </header>
 
       {/* Search */}
-      <SearchBar value={search} onChange={setSearch} className="mb-4" />
+      <SearchBar
+        value={search}
+        onChange={setSearch}
+        isPending={searchPending || products.isFetching}
+        clearLabel={t("clearSearch")}
+        className="mb-1"
+      />
+      {searching ? (
+        <p className="mb-3 text-sm text-muted">{t("searching")}</p>
+      ) : (
+        <div className="mb-3" />
+      )}
 
       {/* Filters: supermarkets badges */}
       {supermarkets.data && (
@@ -196,12 +219,17 @@ export default function HomePage() {
       ) : sortedItems.length > 0 ? (
         <div className="grid grid-cols-1 gap-3">
           {sortedItems.map((p) => (
-            <ProductCard key={p.id} product={p} sortMode={sortMode} />
+            <ProductCard
+              key={p.id}
+              product={p}
+              sortMode={sortMode}
+              highlight={debouncedSearch || undefined}
+            />
           ))}
         </div>
       ) : (
         <HomeEmptyState
-          query={search || undefined}
+          query={debouncedSearch || undefined}
           categoryLabel={
             category
               ? categories.data?.find((c) => c.slug === category)?.nameEs
