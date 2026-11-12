@@ -5,10 +5,13 @@ export interface FavoriteProduct {
   imageUrl: string | null;
 }
 
+import type { UnitPrice } from "@/features/catalog/types/catalog.types";
+
 export interface CheapestPrice {
   price: number;
   supermarketSlug: string;
   supermarketName: string;
+  unitPrice: UnitPrice | null;
 }
 
 export interface Favorite {

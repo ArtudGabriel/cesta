@@ -2,6 +2,8 @@
 
 import { Check, Trophy, X } from "lucide-react";
 import { cn, formatPrice } from "@/lib/utils";
+import { formatUnitPrice, normalizedNote } from "../utils/format-unit-price";
+import { useLocale } from "../hooks/use-locale";
 import type { Product } from "../types/catalog.types";
 
 interface CompareGridProps {
@@ -10,22 +12,29 @@ interface CompareGridProps {
 }
 
 export function CompareGrid({ products, onRemove }: CompareGridProps) {
+  const locale = useLocale();
   // Winner global: produto com menor cheapestPrice entre os comparados.
   const winnerId = products
     .filter((p) => p.cheapestPrice != null)
     .sort((a, b) => (a.cheapestPrice ?? Infinity) - (b.cheapestPrice ?? Infinity))[0]?.id;
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      {products.map((p) => (
-        <ProductCompareCard
-          key={p.id}
-          product={p}
-          isWinner={p.id === winnerId}
-          onRemove={() => onRemove(p.id)}
-        />
-      ))}
-    </div>
+    <>
+      <div className="grid gap-4 md:grid-cols-2">
+        {products.map((p) => (
+          <ProductCompareCard
+            key={p.id}
+            product={p}
+            isWinner={p.id === winnerId}
+            onRemove={() => onRemove(p.id)}
+            locale={locale}
+          />
+        ))}
+      </div>
+      <p className="mt-3 text-center text-xs text-muted">
+        {normalizedNote(locale)}
+      </p>
+    </>
   );
 }
 
@@ -33,12 +42,15 @@ function ProductCompareCard({
   product,
   isWinner,
   onRemove,
+  locale,
 }: {
   product: Product;
   isWinner: boolean;
   onRemove: () => void;
+  locale: "es" | "pt-BR";
 }) {
   const cheapestSlug = product.cheapestSupermarketSlug;
+  const unitPriceStr = formatUnitPrice(product.cheapestUnitPrice, locale);
   const sortedPrices = [...product.prices].sort((a, b) => {
     if (a.isAvailable !== b.isAvailable) return a.isAvailable ? -1 : 1;
     return a.price - b.price;
@@ -56,16 +68,21 @@ function ProductCompareCard({
             <p className="mt-0.5 text-xs text-muted">{product.brand}</p>
           )}
           {product.cheapestPrice != null && (
-            <p className="mt-2 text-lg font-bold text-cesta-green">
-              {formatPrice(product.cheapestPrice)}
-              <span className="ml-1 text-xs font-normal text-muted">
-                en{" "}
-                {
-                  product.prices.find((p) => p.supermarketSlug === cheapestSlug)
-                    ?.supermarketName
-                }
-              </span>
-            </p>
+            <>
+              <p className="mt-2 text-lg font-bold text-cesta-green">
+                {formatPrice(product.cheapestPrice)}
+                <span className="ml-1 text-xs font-normal text-muted">
+                  en{" "}
+                  {
+                    product.prices.find((p) => p.supermarketSlug === cheapestSlug)
+                      ?.supermarketName
+                  }
+                </span>
+              </p>
+              {unitPriceStr && (
+                <p className="text-sm text-muted">{unitPriceStr}</p>
+              )}
+            </>
           )}
           {isWinner && (
             <span className="mt-2 inline-flex items-center gap-1 rounded-pill bg-cesta-green/10 px-2 py-0.5 text-[11px] font-semibold text-cesta-green">

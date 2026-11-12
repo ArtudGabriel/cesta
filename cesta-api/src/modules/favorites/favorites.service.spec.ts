@@ -91,6 +91,9 @@ describe('FavoritesService', () => {
             name: 'Leche 1L',
             brand: 'Hacendado',
             imageUrl: null,
+            packageSize: 1,
+            packageUnit: 'LITER',
+            comparisonUnit: 'LITER',
             prices: [
               {
                 currentPrice: 0.95,
@@ -113,6 +116,7 @@ describe('FavoritesService', () => {
         price: 0.93,
         supermarketSlug: 'lidl',
         supermarketName: 'LIDL',
+        unitPrice: { value: 0.93, unit: 'L' },
       });
     });
 
@@ -127,6 +131,9 @@ describe('FavoritesService', () => {
             name: 'Produto raro',
             brand: null,
             imageUrl: null,
+            packageSize: 1,
+            packageUnit: 'LITER',
+            comparisonUnit: 'LITER',
             prices: [],
           },
         },

@@ -25,14 +25,20 @@ export interface Category {
   children?: Category[];
 }
 
+export type UnitPriceSuffix = "L" | "kg" | "100g" | "100ml" | "un";
+
+export interface UnitPrice {
+  value: number;
+  unit: UnitPriceSuffix;
+}
+
 export interface PriceByMarket {
   supermarketId: string;
   supermarketSlug: string;
   supermarketName: string;
   supermarketColor: string | null;
   price: number;
-  pricePerUnit: number;
-  pricePerUnitLabel: string;
+  unitPrice: UnitPrice | null;
   onPromotion: boolean;
   previousPrice: number | null;
   isAvailable: boolean;
@@ -64,6 +70,7 @@ export interface Product {
   prices: PriceByMarket[];
   cheapestSupermarketSlug: string | null;
   cheapestPrice: number | null;
+  cheapestUnitPrice: UnitPrice | null;
 }
 
 export interface ProductFilters {

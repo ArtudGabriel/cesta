@@ -1,9 +1,17 @@
 import { Injectable } from '@nestjs/common';
+import { MeasureUnit } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import { calculateUnitPrice } from '../../common/utils/price-normalization';
 import {
   CheapestPriceDto,
   FavoriteResponseDto,
 } from './dtos/favorite-response.dto';
+
+interface RawCheapest {
+  price: number;
+  supermarketSlug: string;
+  supermarketName: string;
+}
 
 @Injectable()
 export class FavoritesService {
@@ -40,6 +48,9 @@ export class FavoritesService {
             name: true,
             brand: true,
             imageUrl: true,
+            packageSize: true,
+            packageUnit: true,
+            comparisonUnit: true,
             prices: {
               where: {
                 isAvailable: true,
@@ -56,13 +67,24 @@ export class FavoritesService {
     });
 
     return favorites.map((f) => {
-      const cheapest = this.pickCheapest(
+      const cheapestRaw = this.pickCheapest(
         f.product.prices.map((p) => ({
           price: Number(p.currentPrice),
           supermarketSlug: p.supermarket.slug,
           supermarketName: p.supermarket.name,
         })),
       );
+      const cheapest: CheapestPriceDto | null = cheapestRaw
+        ? {
+            ...cheapestRaw,
+            unitPrice: this.safeUnitPrice(
+              cheapestRaw.price,
+              Number(f.product.packageSize),
+              f.product.packageUnit,
+              f.product.comparisonUnit,
+            ),
+          }
+        : null;
       return {
         id: f.id,
         productId: f.productId,
@@ -97,10 +119,21 @@ export class FavoritesService {
     };
   }
 
-  private pickCheapest(
-    prices: CheapestPriceDto[],
-  ): CheapestPriceDto | null {
+  private pickCheapest(prices: RawCheapest[]): RawCheapest | null {
     if (prices.length === 0) return null;
     return prices.reduce((a, b) => (a.price <= b.price ? a : b));
+  }
+
+  private safeUnitPrice(
+    price: number,
+    packageSize: number,
+    packageUnit: MeasureUnit,
+    comparisonUnit: MeasureUnit,
+  ) {
+    try {
+      return calculateUnitPrice(price, packageSize, packageUnit, comparisonUnit);
+    } catch {
+      return null;
+    }
   }
 }

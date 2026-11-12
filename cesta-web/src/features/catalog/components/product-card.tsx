@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Tag } from "lucide-react";
 import { cn, formatPrice } from "@/lib/utils";
 import { FavoriteToggle } from "@/features/favorites/components/favorite-toggle";
+import { formatUnitPrice } from "../utils/format-unit-price";
+import { useLocale } from "../hooks/use-locale";
 import type { Product } from "../types/catalog.types";
 
 interface ProductCardProps {
@@ -12,9 +14,11 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, className }: ProductCardProps) {
+  const locale = useLocale();
   const cheapest = product.prices.find(
     (p) => p.supermarketSlug === product.cheapestSupermarketSlug,
   );
+  const unitPriceStr = formatUnitPrice(product.cheapestUnitPrice, locale);
 
   return (
     <div className="relative">
@@ -40,9 +44,9 @@ export function ProductCard({ product, className }: ProductCardProps) {
                   <span className="text-lg font-bold text-ink">
                     {formatPrice(cheapest.price)}
                   </span>
-                  <span className="text-xs text-muted">
-                    {cheapest.pricePerUnitLabel} {formatPrice(cheapest.pricePerUnit)}
-                  </span>
+                  {unitPriceStr && (
+                    <span className="text-xs text-muted">{unitPriceStr}</span>
+                  )}
                 </div>
                 <div className="mt-2 flex items-center gap-2">
                   <span

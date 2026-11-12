@@ -8,6 +8,8 @@ import { CreateAlertButton } from "@/features/alerts/components/create-alert-but
 import { PriceComparisonGrid } from "@/features/catalog/components/price-comparison-grid";
 import { PriceHistoryChart } from "@/features/catalog/components/price-history-chart";
 import { useProduct, useSupermarkets } from "@/features/catalog/hooks/use-catalog";
+import { useLocale } from "@/features/catalog/hooks/use-locale";
+import { formatUnitPrice } from "@/features/catalog/utils/format-unit-price";
 import { FavoriteToggle } from "@/features/favorites/components/favorite-toggle";
 import { ReviewsSection } from "@/features/reviews/components/reviews-section";
 import { formatPrice } from "@/lib/utils";
@@ -18,6 +20,7 @@ export default function ProductDetailPage() {
   const { data: product, isLoading, isError } = useProduct(params.pid);
   const supermarkets = useSupermarkets();
   const user = useAuthStore((s) => s.user);
+  const locale = useLocale();
 
   if (isLoading) {
     return (
@@ -76,11 +79,18 @@ export default function ProductDetailPage() {
           )}
 
           {product.cheapestPrice !== null && (
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-xs text-muted">Desde</span>
-              <span className="text-2xl font-extrabold text-cesta-green">
-                {formatPrice(product.cheapestPrice)}
-              </span>
+            <div className="mt-3">
+              <div className="flex items-baseline gap-2">
+                <span className="text-xs text-muted">Desde</span>
+                <span className="text-2xl font-extrabold text-cesta-green">
+                  {formatPrice(product.cheapestPrice)}
+                </span>
+              </div>
+              {product.cheapestUnitPrice && (
+                <p className="mt-1 text-sm text-muted">
+                  {formatUnitPrice(product.cheapestUnitPrice, locale)}
+                </p>
+              )}
             </div>
           )}
         </div>

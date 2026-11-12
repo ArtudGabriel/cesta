@@ -5,6 +5,17 @@ import {
   ProductPrice,
   Supermarket,
 } from '@prisma/client';
+import {
+  UnitPrice,
+  UnitPriceSuffix,
+  calculateUnitPrice,
+} from '../../../common/utils/price-normalization';
+
+export class UnitPriceDto {
+  @ApiProperty({ example: 4.2 }) value: number;
+  @ApiProperty({ example: 'L', enum: ['L', 'kg', '100g', '100ml', 'un'] })
+  unit: UnitPriceSuffix;
+}
 
 export class PriceByMarketDto {
   @ApiProperty() supermarketId: string;
@@ -12,9 +23,8 @@ export class PriceByMarketDto {
   @ApiProperty() supermarketName: string;
   @ApiProperty({ nullable: true }) supermarketColor: string | null;
   @ApiProperty({ example: 1.99 }) price: number;
-  @ApiProperty({ example: 1.33, description: 'Preço por unidade padronizada' })
-  pricePerUnit: number;
-  @ApiProperty({ example: 'per 1L' }) pricePerUnitLabel: string;
+  @ApiProperty({ type: () => UnitPriceDto, nullable: true })
+  unitPrice: UnitPrice | null;
   @ApiProperty() onPromotion: boolean;
   @ApiProperty({ nullable: true }) previousPrice: number | null;
   @ApiProperty() isAvailable: boolean;
@@ -58,6 +68,9 @@ export class ProductResponseDto {
   @ApiProperty({ nullable: true })
   cheapestPrice: number | null;
 
+  @ApiProperty({ type: () => UnitPriceDto, nullable: true })
+  cheapestUnitPrice: UnitPrice | null;
+
   static fromEntity(
     product: Product & {
       prices?: (ProductPrice & { supermarket: Supermarket })[];
@@ -96,12 +109,16 @@ export class ProductResponseDto {
 
     const availablePrices = prices.filter((p) => p.isAvailable);
     if (availablePrices.length > 0) {
-      const cheapest = availablePrices.reduce((a, b) => (a.price < b.price ? a : b));
+      const cheapest = availablePrices.reduce((a, b) =>
+        a.price < b.price ? a : b,
+      );
       dto.cheapestSupermarketSlug = cheapest.supermarketSlug;
       dto.cheapestPrice = cheapest.price;
+      dto.cheapestUnitPrice = cheapest.unitPrice;
     } else {
       dto.cheapestSupermarketSlug = null;
       dto.cheapestPrice = null;
+      dto.cheapestUnitPrice = null;
     }
 
     return dto;
@@ -111,24 +128,28 @@ export class ProductResponseDto {
 function mapPrice(
   p: ProductPrice & { supermarket: Supermarket },
   packageSize: number,
-  packageUnit: string,
-  comparisonUnit: string,
+  packageUnit: MeasureUnit,
+  comparisonUnit: MeasureUnit,
 ): PriceByMarketDto {
   const price = Number(p.currentPrice);
-  const { pricePerUnit, label } = calcPricePerUnit(
-    price,
-    packageSize,
-    packageUnit,
-    comparisonUnit,
-  );
+  let unitPrice: UnitPrice | null;
+  try {
+    unitPrice = calculateUnitPrice(
+      price,
+      packageSize,
+      packageUnit,
+      comparisonUnit,
+    );
+  } catch {
+    unitPrice = null;
+  }
   return {
     supermarketId: p.supermarketId,
     supermarketSlug: p.supermarket.slug,
     supermarketName: p.supermarket.name,
     supermarketColor: p.supermarket.color,
     price,
-    pricePerUnit,
-    pricePerUnitLabel: label,
+    unitPrice,
     onPromotion: p.onPromotion,
     previousPrice: p.previousPrice ? Number(p.previousPrice) : null,
     isAvailable: p.isAvailable,
@@ -136,56 +157,4 @@ function mapPrice(
     lastSyncedAt: p.lastSyncedAt,
     confidenceScore: Number(p.confidenceScore),
   };
-}
-
-export function calcPricePerUnit(
-  price: number,
-  packageSize: number,
-  packageUnit: string,
-  comparisonUnit: string,
-): { pricePerUnit: number; label: string } {
-  // Normaliza embalagem para unidade base (L, kg, un) e depois escala para comparisonUnit
-  let baseSize = packageSize;
-  switch (packageUnit) {
-    case 'MILLILITER':
-      baseSize = packageSize / 1000;
-      break;
-    case 'GRAM':
-      baseSize = packageSize / 1000;
-      break;
-  }
-
-  switch (comparisonUnit) {
-    case 'LITER':
-      return {
-        pricePerUnit: round2(price / baseSize),
-        label: 'por 1L',
-      };
-    case 'MILLILITER':
-      return {
-        pricePerUnit: round2((price / baseSize) * 0.1),
-        label: 'por 100ml',
-      };
-    case 'KILOGRAM':
-      return {
-        pricePerUnit: round2(price / baseSize),
-        label: 'por 1kg',
-      };
-    case 'GRAM':
-      return {
-        pricePerUnit: round2((price / baseSize) * 0.1),
-        label: 'por 100g',
-      };
-    case 'UNIT':
-      return {
-        pricePerUnit: round2(price / packageSize),
-        label: 'por unidad',
-      };
-    default:
-      return { pricePerUnit: price, label: '' };
-  }
-}
-
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
 }

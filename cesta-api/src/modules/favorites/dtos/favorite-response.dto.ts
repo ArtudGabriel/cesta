@@ -1,4 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { UnitPrice, UnitPriceSuffix } from '../../../common/utils/price-normalization';
+
+export class UnitPriceDto {
+  @ApiProperty({ example: 4.2 }) value: number;
+  @ApiProperty({ example: 'L', enum: ['L', 'kg', '100g', '100ml', 'un'] })
+  unit: UnitPriceSuffix;
+}
 
 export class CheapestPriceDto {
   @ApiProperty()
@@ -9,6 +16,9 @@ export class CheapestPriceDto {
 
   @ApiProperty()
   supermarketName: string;
+
+  @ApiProperty({ type: () => UnitPriceDto, nullable: true })
+  unitPrice: UnitPrice | null;
 }
 
 export class FavoriteProductDto {

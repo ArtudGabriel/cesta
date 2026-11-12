@@ -11,6 +11,8 @@ import {
 } from "@/features/favorites/hooks/use-favorites";
 import { useAuthStore } from "@/stores/auth.store";
 import { cn, formatPrice } from "@/lib/utils";
+import { formatUnitPrice } from "@/features/catalog/utils/format-unit-price";
+import { useLocale } from "@/features/catalog/hooks/use-locale";
 
 const COMPARE_MAX = 4;
 
@@ -20,6 +22,7 @@ export default function FavoritosPage() {
   const router = useRouter();
   const { data, isLoading } = useFavorites();
   const remove = useRemoveFavorite();
+  const locale = useLocale();
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
 
@@ -165,12 +168,19 @@ export default function FavoritosPage() {
                         </p>
                       )}
                       {fav.cheapestPrice ? (
-                        <p className="mt-1 text-sm font-semibold text-cesta-green">
-                          {formatPrice(fav.cheapestPrice.price)}{" "}
-                          <span className="text-xs font-normal text-muted">
-                            en {fav.cheapestPrice.supermarketName}
-                          </span>
-                        </p>
+                        <>
+                          <p className="mt-1 text-sm font-semibold text-cesta-green">
+                            {formatPrice(fav.cheapestPrice.price)}{" "}
+                            <span className="text-xs font-normal text-muted">
+                              en {fav.cheapestPrice.supermarketName}
+                            </span>
+                          </p>
+                          {fav.cheapestPrice.unitPrice && (
+                            <p className="text-xs text-muted">
+                              {formatUnitPrice(fav.cheapestPrice.unitPrice, locale)}
+                            </p>
+                          )}
+                        </>
                       ) : (
                         <p className="mt-1 text-xs text-muted">
                           Sin precio disponible

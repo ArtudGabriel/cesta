@@ -2,6 +2,8 @@
 
 import { Tag, AlertTriangle } from "lucide-react";
 import { cn, formatPrice } from "@/lib/utils";
+import { formatUnitPrice } from "../utils/format-unit-price";
+import { useLocale } from "../hooks/use-locale";
 import type { PriceByMarket } from "../types/catalog.types";
 
 interface PriceComparisonGridProps {
@@ -9,6 +11,8 @@ interface PriceComparisonGridProps {
 }
 
 export function PriceComparisonGrid({ prices }: PriceComparisonGridProps) {
+  const locale = useLocale();
+
   if (prices.length === 0) {
     return (
       <p className="text-sm text-muted">Sin precios disponibles por ahora.</p>
@@ -49,7 +53,7 @@ export function PriceComparisonGrid({ prices }: PriceComparisonGridProps) {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-ink">{p.supermarketName}</p>
               <p className="text-xs text-muted">
-                {p.pricePerUnitLabel} {formatPrice(p.pricePerUnit)}
+                {formatUnitPrice(p.unitPrice, locale) ?? ""}
                 {p.isStale && (
                   <span className="ml-2 inline-flex items-center gap-1 text-amber">
                     <AlertTriangle className="h-3 w-3" /> precio desactualizado
