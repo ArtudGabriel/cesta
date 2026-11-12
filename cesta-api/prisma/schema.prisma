@@ -23,6 +23,13 @@ model User {
   name         String?
   locale       String    @default("es") // "es" | "pt-BR"
   roles        String[]  @default(["user"])
+
+  // Preferências dietéticas (Sprint 18)
+  prefersVegan       Boolean @default(false) @map("prefers_vegan")
+  prefersVegetarian  Boolean @default(false) @map("prefers_vegetarian")
+  prefersGlutenFree  Boolean @default(false) @map("prefers_gluten_free")
+  prefersLactoseFree Boolean @default(false) @map("prefers_lactose_free")
+
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
