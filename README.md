@@ -1,5 +1,7 @@
 # Cesta
 
+[![CI](https://github.com/ArtudGabriel/cesta/actions/workflows/ci.yml/badge.svg)](https://github.com/ArtudGabriel/cesta/actions/workflows/ci.yml)
+
 App mobile-first (PWA) de comparação de preços de supermercados para a Comunidade de Madrid. Catálogo em tempo quase-real, controle de gastos via OCR de notas fiscais, alertas de preço, avaliações de produtos e cesta familiar personalizada.
 
 **Idiomas:** Español · Português (Brasil)
@@ -60,3 +62,27 @@ npm run dev                # http://localhost:3000
 - **Validação:** class-validator (back) + Zod (front)
 - **Auth:** JWT access 15min + refresh 7d
 - **Containers:** Docker + docker-compose
+
+---
+
+## CI & Branch Protection
+
+GitHub Actions executa `lint` + `test` + `build` em `cesta-api` e `cesta-web` a cada push/PR em `main` (`.github/workflows/ci.yml`).
+
+**Admin do repo**, para habilitar branch protection:
+
+1. Settings → Branches → Branch protection rule → `main`
+2. Require status checks to pass before merging:
+   - `API (lint + test + build)`
+   - `Web (lint + typecheck + build)`
+3. Require branches to be up to date before merging
+4. (Opcional) Require pull request reviews before merging
+
+Run local equivalente antes de abrir PR:
+
+```bash
+# API
+cd cesta-api && npm ci && npx prisma generate && npm run lint --if-present && npm run audit:dtos && npx jest && npm run build
+# Web
+cd cesta-web && npm ci && npm run lint --if-present && npx tsc --noEmit && npm run build
+```
