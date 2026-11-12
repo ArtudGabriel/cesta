@@ -1,16 +1,18 @@
 "use client";
 
-import { ArrowLeft, Heart, Loader2, X } from "lucide-react";
+import { ArrowLeft, Check, Heart, Loader2, Scale, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   useFavorites,
   useRemoveFavorite,
 } from "@/features/favorites/hooks/use-favorites";
 import { useAuthStore } from "@/stores/auth.store";
-import { formatPrice } from "@/lib/utils";
+import { cn, formatPrice } from "@/lib/utils";
+
+const COMPARE_MAX = 4;
 
 export default function FavoritosPage() {
   const user = useAuthStore((s) => s.user);
@@ -18,12 +20,12 @@ export default function FavoritosPage() {
   const router = useRouter();
   const { data, isLoading } = useFavorites();
   const remove = useRemoveFavorite();
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
 
   useEffect(() => {
     if (isHydrated && !user) {
-      router.replace(
-        `/login?returnUrl=${encodeURIComponent("/favoritos")}`,
-      );
+      router.replace(`/login?returnUrl=${encodeURIComponent("/favoritos")}`);
     }
   }, [isHydrated, user, router]);
 
@@ -37,8 +39,26 @@ export default function FavoritosPage() {
 
   const favorites = data ?? [];
 
+  function toggleSelect(productId: string) {
+    setSelected((prev) => {
+      if (prev.includes(productId)) return prev.filter((id) => id !== productId);
+      if (prev.length >= COMPARE_MAX) return prev;
+      return [...prev, productId];
+    });
+  }
+
+  function goCompare() {
+    if (selected.length < 2) return;
+    router.push(`/comparar?products=${selected.join(",")}`);
+  }
+
+  function cancelSelect() {
+    setSelectMode(false);
+    setSelected([]);
+  }
+
   return (
-    <main className="pb-16">
+    <main className="pb-24">
       <header className="sticky top-0 z-10 flex items-center gap-3 bg-cream px-4 py-3">
         <Button asChild size="icon" variant="ghost" aria-label="Volver">
           <Link href="/">
@@ -48,8 +68,26 @@ export default function FavoritosPage() {
         <h1 className="flex-1 font-display text-lg font-bold text-ink">
           Mis favoritos
         </h1>
-        {favorites.length > 0 && (
-          <span className="text-xs text-muted">{favorites.length}</span>
+        {favorites.length > 0 && !selectMode && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelectMode(true)}
+          >
+            <Scale className="h-4 w-4" />
+            Comparar
+          </Button>
+        )}
+        {selectMode && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={cancelSelect}
+          >
+            Cancelar
+          </Button>
         )}
       </header>
 
@@ -67,64 +105,115 @@ export default function FavoritosPage() {
           <EmptyState />
         ) : (
           <ul className="space-y-3">
-            {favorites.map((fav) => (
-              <li
-                key={fav.id}
-                className="flex items-center gap-3 rounded-card bg-white p-3 shadow-sm"
-              >
-                <Link
-                  href={`/produto/${fav.productId}`}
-                  className="flex min-w-0 flex-1 items-center gap-3"
+            {favorites.map((fav) => {
+              const isSelected = selected.includes(fav.productId);
+              return (
+                <li
+                  key={fav.id}
+                  className={cn(
+                    "flex items-center gap-3 rounded-card bg-white p-3 shadow-sm transition-all",
+                    selectMode && isSelected && "ring-2 ring-cesta-green",
+                  )}
                 >
-                  <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-md bg-surface text-muted">
-                    {fav.product?.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={fav.product.imageUrl}
-                        alt=""
-                        className="h-full w-full rounded-md object-cover"
-                      />
-                    ) : (
-                      <Heart className="h-6 w-6" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-ink">
-                      {fav.product?.name ?? "Produto"}
-                    </p>
-                    {fav.product?.brand && (
-                      <p className="truncate text-xs text-muted">
-                        {fav.product.brand}
+                  {selectMode && (
+                    <button
+                      type="button"
+                      onClick={() => toggleSelect(fav.productId)}
+                      aria-label={isSelected ? "Deseleccionar" : "Seleccionar"}
+                      aria-pressed={isSelected}
+                      className={cn(
+                        "inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full border-2 cursor-pointer",
+                        isSelected
+                          ? "border-cesta-green bg-cesta-green text-white"
+                          : "border-neutral-300 text-transparent",
+                      )}
+                    >
+                      <Check className="h-5 w-5" />
+                    </button>
+                  )}
+                  <Link
+                    href={
+                      selectMode ? "#" : `/produto/${fav.productId}`
+                    }
+                    onClick={(e) => {
+                      if (selectMode) {
+                        e.preventDefault();
+                        toggleSelect(fav.productId);
+                      }
+                    }}
+                    className="flex min-w-0 flex-1 items-center gap-3"
+                  >
+                    <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-md bg-surface text-muted">
+                      {fav.product?.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={fav.product.imageUrl}
+                          alt=""
+                          className="h-full w-full rounded-md object-cover"
+                        />
+                      ) : (
+                        <Heart className="h-6 w-6" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-ink">
+                        {fav.product?.name ?? "Produto"}
                       </p>
-                    )}
-                    {fav.cheapestPrice ? (
-                      <p className="mt-1 text-sm font-semibold text-cesta-green">
-                        {formatPrice(fav.cheapestPrice.price)}{" "}
-                        <span className="text-xs font-normal text-muted">
-                          en {fav.cheapestPrice.supermarketName}
-                        </span>
-                      </p>
-                    ) : (
-                      <p className="mt-1 text-xs text-muted">
-                        Sin precio disponible
-                      </p>
-                    )}
-                  </div>
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => remove.mutate(fav.productId)}
-                  disabled={remove.isPending}
-                  aria-label="Quitar de favoritos"
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted hover:bg-surface cursor-pointer"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </li>
-            ))}
+                      {fav.product?.brand && (
+                        <p className="truncate text-xs text-muted">
+                          {fav.product.brand}
+                        </p>
+                      )}
+                      {fav.cheapestPrice ? (
+                        <p className="mt-1 text-sm font-semibold text-cesta-green">
+                          {formatPrice(fav.cheapestPrice.price)}{" "}
+                          <span className="text-xs font-normal text-muted">
+                            en {fav.cheapestPrice.supermarketName}
+                          </span>
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-xs text-muted">
+                          Sin precio disponible
+                        </p>
+                      )}
+                    </div>
+                  </Link>
+                  {!selectMode && (
+                    <button
+                      type="button"
+                      onClick={() => remove.mutate(fav.productId)}
+                      disabled={remove.isPending}
+                      aria-label="Quitar de favoritos"
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted hover:bg-surface cursor-pointer"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
+
+      {selectMode && (
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-neutral-200 bg-white p-4 shadow-lg">
+          <div className="mx-auto flex max-w-md items-center gap-3">
+            <span className="text-sm text-muted">
+              {selected.length}/{COMPARE_MAX} seleccionados
+            </span>
+            <Button
+              type="button"
+              className="flex-1"
+              onClick={goCompare}
+              disabled={selected.length < 2}
+            >
+              <Scale className="h-4 w-4" />
+              Comparar {selected.length > 0 && `(${selected.length})`}
+            </Button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
