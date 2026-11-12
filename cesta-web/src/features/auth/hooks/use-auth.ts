@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { authService } from "../services/auth.service";
 import { useAuthStore } from "@/stores/auth.store";
 import { PROFILE_KEY } from "@/features/profile/hooks/use-profile";
@@ -32,6 +33,7 @@ export function useLogin() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const qc = useQueryClient();
+  const t = useTranslations("toast");
 
   return useMutation({
     mutationFn: (payload: LoginPayload) => authService.login(payload),
@@ -39,11 +41,11 @@ export function useLogin() {
       setSession(user, tokens);
       qc.setQueryData(AUTH_QUERY_KEY, user);
       qc.removeQueries({ queryKey: PROFILE_KEY });
-      toast.success("Bienvenido");
+      toast.success(t("success.welcome"));
       router.push(safeReturnUrl(searchParams.get("returnUrl")));
     },
     onError: (err: Error) => {
-      toast.error(err.message || "No pudimos iniciar sesión");
+      toast.error(err.message || t("error.login"));
     },
   });
 }
@@ -53,6 +55,7 @@ export function useRegister() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const qc = useQueryClient();
+  const t = useTranslations("toast");
 
   return useMutation({
     mutationFn: (payload: RegisterPayload) => authService.register(payload),
@@ -60,11 +63,11 @@ export function useRegister() {
       setSession(user, tokens);
       qc.setQueryData(AUTH_QUERY_KEY, user);
       qc.removeQueries({ queryKey: PROFILE_KEY });
-      toast.success("Cuenta creada");
+      toast.success(t("success.accountCreated"));
       router.push(safeReturnUrl(searchParams.get("returnUrl")));
     },
     onError: (err: Error) => {
-      toast.error(err.message || "No pudimos crear tu cuenta");
+      toast.error(err.message || t("error.register"));
     },
   });
 }

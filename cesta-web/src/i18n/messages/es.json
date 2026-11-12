@@ -1,4 +1,13 @@
 {
+  "nav": {
+    "home": "Inicio",
+    "myList": "Mi lista",
+    "favorites": "Favoritos",
+    "compare": "Comparar",
+    "account": "Cuenta",
+    "ariaLabel": "Navegación principal",
+    "back": "Volver"
+  },
   "compare": {
     "sortAbsolute": "Precio total",
     "sortUnit": "Precio por unidad",
@@ -14,5 +23,79 @@
   },
   "profile": {
     "localeHint": "La traducción se aplicará en breve."
+  },
+  "toast": {
+    "success": {
+      "welcome": "Bienvenido",
+      "accountCreated": "Cuenta creada",
+      "profileUpdated": "Perfil actualizado"
+    },
+    "error": {
+      "login": "No pudimos iniciar sesión",
+      "register": "No pudimos crear tu cuenta",
+      "profileUpdate": "No se pudo actualizar",
+      "favoriteAdd": "No se pudo añadir",
+      "favoriteRemove": "No se pudo quitar"
+    }
+  },
+  "product": {
+    "notFound": "No encontramos este producto.",
+    "backHome": "Volver al inicio",
+    "pricesHeader": "Precios en cada supermercado",
+    "reviewsHeader": "Opiniones",
+    "nutritionHeader": "Información nutricional",
+    "nutritionBasis": "Por 100g / 100ml",
+    "fromPrice": "Desde",
+    "tags": {
+      "vegan": "Vegano",
+      "vegetarian": "Vegetariano",
+      "glutenFree": "Sin gluten",
+      "lactoseFree": "Sin lactosa"
+    },
+    "nutrition": {
+      "calories": "Calorías",
+      "protein": "Proteínas",
+      "fat": "Grasas",
+      "carbs": "Carbohidratos",
+      "sugar": "Azúcares",
+      "salt": "Sal",
+      "fiber": "Fibra"
+    }
+  },
+  "expenses": {
+    "title": "Mis gastos",
+    "loginRequired": "Inicia sesión para ver tus gastos.",
+    "loginCta": "Entrar",
+    "recentReceipts": "Últimos tickets",
+    "empty": "Aún no has escaneado ningún ticket.",
+    "unknownMarket": "Supermercado desconocido",
+    "processing": "Procesando…",
+    "failed": "Falló"
+  },
+  "alerts": {
+    "title": "Mis alertas",
+    "loginRequired": "Inicia sesión para gestionar alertas.",
+    "loginCta": "Entrar",
+    "pushHeader": "Notificaciones push",
+    "pushUnsupported": "Tu navegador no soporta push.",
+    "pushActive": "Activadas. Recibirás alertas al instante.",
+    "pushInactive": "Activa para recibir alertas al momento.",
+    "pushEnable": "Activar",
+    "pushDisable": "Desactivar",
+    "activeHeader": "Alertas activas",
+    "empty": "Aún no tienes alertas. Añade una desde la página de producto.",
+    "anyMarket": "Cualquier supermercado",
+    "lastTriggered": "Última alerta:",
+    "confirmDelete": "¿Eliminar esta alerta?",
+    "actionActivate": "Activar",
+    "actionDeactivate": "Desactivar",
+    "actionDelete": "Eliminar",
+    "types": {
+      "promotion": "En promoción",
+      "targetPrice": "Precio ≤ {price}",
+      "unknownPrice": "?",
+      "promotionEnding": "Promoción terminando",
+      "backInStock": "Vuelve a stock"
+    }
   }
 }

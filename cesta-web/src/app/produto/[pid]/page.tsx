@@ -3,6 +3,7 @@
 import { ArrowLeft, Leaf, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { CreateAlertButton } from "@/features/alerts/components/create-alert-button";
 import { PriceComparisonGrid } from "@/features/catalog/components/price-comparison-grid";
@@ -21,6 +22,8 @@ export default function ProductDetailPage() {
   const supermarkets = useSupermarkets();
   const user = useAuthStore((s) => s.user);
   const locale = useLocale();
+  const t = useTranslations("product");
+  const tNav = useTranslations("nav");
 
   if (isLoading) {
     return (
@@ -33,19 +36,19 @@ export default function ProductDetailPage() {
   if (isError || !product) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-4 px-4">
-        <p className="text-sm text-coral">No encontramos este producto.</p>
+        <p className="text-sm text-coral">{t("notFound")}</p>
         <Button asChild variant="secondary" size="sm">
-          <Link href="/">Volver al inicio</Link>
+          <Link href="/">{t("backHome")}</Link>
         </Button>
       </main>
     );
   }
 
   const tags = [
-    product.isVegan && "Vegano",
-    product.isVegetarian && "Vegetariano",
-    product.isGlutenFree && "Sin gluten",
-    product.isLactoseFree && "Sin lactosa",
+    product.isVegan && t("tags.vegan"),
+    product.isVegetarian && t("tags.vegetarian"),
+    product.isGlutenFree && t("tags.glutenFree"),
+    product.isLactoseFree && t("tags.lactoseFree"),
   ].filter(Boolean) as string[];
 
   return (
@@ -55,7 +58,7 @@ export default function ProductDetailPage() {
           asChild
           size="icon"
           variant="ghost"
-          aria-label="Volver"
+          aria-label={tNav("back")}
         >
           <Link href="/">
             <ArrowLeft className="h-5 w-5" />
@@ -81,7 +84,7 @@ export default function ProductDetailPage() {
           {product.cheapestPrice !== null && (
             <div className="mt-3">
               <div className="flex items-baseline gap-2">
-                <span className="text-xs text-muted">Desde</span>
+                <span className="text-xs text-muted">{t("fromPrice")}</span>
                 <span className="text-2xl font-extrabold text-cesta-green">
                   {formatPrice(product.cheapestPrice)}
                 </span>
@@ -111,7 +114,7 @@ export default function ProductDetailPage() {
 
       <section className="px-4 py-4">
         <h3 className="mb-3 font-display text-lg font-bold text-ink">
-          Precios en cada supermercado
+          {t("pricesHeader")}
         </h3>
         <PriceComparisonGrid prices={product.prices} />
       </section>
@@ -131,7 +134,7 @@ export default function ProductDetailPage() {
 
       <section className="px-4 py-4">
         <h3 className="mb-3 font-display text-lg font-bold text-ink">
-          Opiniones
+          {t("reviewsHeader")}
         </h3>
         <ReviewsSection productId={product.id} />
       </section>
@@ -141,31 +144,31 @@ export default function ProductDetailPage() {
         product.fat !== null) && (
         <section className="px-4 py-4">
           <h3 className="mb-3 font-display text-lg font-bold text-ink">
-            Información nutricional
+            {t("nutritionHeader")}
           </h3>
           <div className="rounded-card bg-white p-4 shadow-card">
-            <p className="mb-3 text-xs text-muted">Por 100g / 100ml</p>
+            <p className="mb-3 text-xs text-muted">{t("nutritionBasis")}</p>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
               {product.calories !== null && (
-                <NutritionRow label="Calorías" value={`${product.calories} kcal`} />
+                <NutritionRow label={t("nutrition.calories")} value={`${product.calories} kcal`} />
               )}
               {product.protein !== null && (
-                <NutritionRow label="Proteínas" value={`${product.protein} g`} />
+                <NutritionRow label={t("nutrition.protein")} value={`${product.protein} g`} />
               )}
               {product.fat !== null && (
-                <NutritionRow label="Grasas" value={`${product.fat} g`} />
+                <NutritionRow label={t("nutrition.fat")} value={`${product.fat} g`} />
               )}
               {product.carbs !== null && (
-                <NutritionRow label="Carbohidratos" value={`${product.carbs} g`} />
+                <NutritionRow label={t("nutrition.carbs")} value={`${product.carbs} g`} />
               )}
               {product.sugar !== null && (
-                <NutritionRow label="Azúcares" value={`${product.sugar} g`} />
+                <NutritionRow label={t("nutrition.sugar")} value={`${product.sugar} g`} />
               )}
               {product.salt !== null && (
-                <NutritionRow label="Sal" value={`${product.salt} g`} />
+                <NutritionRow label={t("nutrition.salt")} value={`${product.salt} g`} />
               )}
               {product.fiber !== null && (
-                <NutritionRow label="Fibra" value={`${product.fiber} g`} />
+                <NutritionRow label={t("nutrition.fiber")} value={`${product.fiber} g`} />
               )}
             </dl>
           </div>

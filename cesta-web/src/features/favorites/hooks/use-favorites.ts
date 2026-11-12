@@ -6,6 +6,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { favoritesService } from "../services/favorites.service";
 import type { Favorite } from "../types/favorite.types";
 import { useAuthStore } from "@/stores/auth.store";
@@ -30,6 +31,7 @@ export function useIsFavorite(productId: string) {
 
 export function useAddFavorite() {
   const qc = useQueryClient();
+  const t = useTranslations("toast");
   return useMutation({
     mutationFn: (productId: string) => favoritesService.add(productId),
     onMutate: async (productId) => {
@@ -45,7 +47,7 @@ export function useAddFavorite() {
     },
     onError: (err: Error, _productId, ctx) => {
       if (ctx?.prev) qc.setQueryData(FAV_KEYS.list, ctx.prev);
-      toast.error(err.message || "No se pudo añadir");
+      toast.error(err.message || t("error.favoriteAdd"));
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: FAV_KEYS.list });
@@ -55,6 +57,7 @@ export function useAddFavorite() {
 
 export function useRemoveFavorite() {
   const qc = useQueryClient();
+  const t = useTranslations("toast");
   return useMutation({
     mutationFn: (productId: string) => favoritesService.remove(productId),
     onMutate: async (productId) => {
@@ -68,7 +71,7 @@ export function useRemoveFavorite() {
     },
     onError: (err: Error, _productId, ctx) => {
       if (ctx?.prev) qc.setQueryData(FAV_KEYS.list, ctx.prev);
-      toast.error(err.message || "No se pudo quitar");
+      toast.error(err.message || t("error.favoriteRemove"));
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: FAV_KEYS.list });

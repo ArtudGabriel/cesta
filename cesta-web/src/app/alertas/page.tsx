@@ -10,6 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   useAlerts,
@@ -25,13 +26,15 @@ export default function AlertsPage() {
   const user = useAuthStore((s) => s.user);
   const alerts = useAlerts();
   const push = usePush();
+  const t = useTranslations("alerts");
+  const tNav = useTranslations("nav");
 
   if (!user) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-3 px-4">
-        <p className="text-sm text-muted">Inicia sesión para gestionar alertas.</p>
+        <p className="text-sm text-muted">{t("loginRequired")}</p>
         <Button asChild size="sm">
-          <Link href="/login">Entrar</Link>
+          <Link href="/login">{t("loginCta")}</Link>
         </Button>
       </main>
     );
@@ -40,12 +43,12 @@ export default function AlertsPage() {
   return (
     <main className="flex-1 pb-24">
       <header className="sticky top-0 z-10 flex items-center gap-3 bg-cream px-4 py-3">
-        <Button asChild size="icon" variant="ghost" aria-label="Volver">
+        <Button asChild size="icon" variant="ghost" aria-label={tNav("back")}>
           <Link href="/">
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>
-        <h1 className="font-display text-lg font-bold text-ink">Mis alertas</h1>
+        <h1 className="font-display text-lg font-bold text-ink">{t("title")}</h1>
       </header>
 
       <section className="px-4 py-4">
@@ -53,14 +56,14 @@ export default function AlertsPage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="font-display text-sm font-bold text-ink">
-                Notificaciones push
+                {t("pushHeader")}
               </p>
               <p className="text-xs text-muted">
                 {!push.supported
-                  ? "Tu navegador no soporta push."
+                  ? t("pushUnsupported")
                   : push.subscribed
-                    ? "Activadas. Recibirás alertas al instante."
-                    : "Activa para recibir alertas al momento."}
+                    ? t("pushActive")
+                    : t("pushInactive")}
               </p>
             </div>
             {push.supported && (
@@ -79,7 +82,7 @@ export default function AlertsPage() {
                 ) : (
                   <Bell className="h-4 w-4" />
                 )}
-                {push.subscribed ? "Desactivar" : "Activar"}
+                {push.subscribed ? t("pushDisable") : t("pushEnable")}
               </Button>
             )}
           </div>
@@ -88,16 +91,14 @@ export default function AlertsPage() {
 
       <section className="px-4">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-          Alertas activas
+          {t("activeHeader")}
         </h2>
         {alerts.isLoading ? (
           <div className="flex justify-center py-6">
             <Loader2 className="h-5 w-5 animate-spin text-cesta-green" />
           </div>
         ) : !alerts.data || alerts.data.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted">
-            Aún no tienes alertas. Añade una desde la página de producto.
-          </p>
+          <p className="py-6 text-center text-sm text-muted">{t("empty")}</p>
         ) : (
           <ul className="space-y-2">
             {alerts.data.map((alert) => (
@@ -115,8 +116,9 @@ export default function AlertsPage() {
 function AlertCard({ alert }: { alert: Alert }) {
   const toggle = useToggleAlert();
   const remove = useDeleteAlert();
+  const t = useTranslations("alerts");
 
-  const label = describeType(alert);
+  const label = describeType(alert, t);
 
   return (
     <div
@@ -134,7 +136,7 @@ function AlertCard({ alert }: { alert: Alert }) {
             {alert.productName}
           </Link>
           <p className="mt-1 text-xs text-muted">
-            {alert.supermarketName ?? "Cualquier supermercado"}
+            {alert.supermarketName ?? t("anyMarket")}
           </p>
           <p className="mt-2 inline-flex items-center gap-1 rounded-pill bg-surface px-2 py-0.5 text-[10px] font-medium text-ink">
             {label.icon}
@@ -142,7 +144,7 @@ function AlertCard({ alert }: { alert: Alert }) {
           </p>
           {alert.lastTriggeredAt && (
             <p className="mt-2 text-[11px] text-muted">
-              Última alerta:{" "}
+              {t("lastTriggered")}{" "}
               {new Date(alert.lastTriggeredAt).toLocaleDateString("es-ES")}
             </p>
           )}
@@ -152,7 +154,7 @@ function AlertCard({ alert }: { alert: Alert }) {
           <Button
             size="icon"
             variant="ghost"
-            aria-label={alert.isActive ? "Desactivar" : "Activar"}
+            aria-label={alert.isActive ? t("actionDeactivate") : t("actionActivate")}
             onClick={() =>
               toggle.mutate({ id: alert.id, isActive: !alert.isActive })
             }
@@ -166,9 +168,9 @@ function AlertCard({ alert }: { alert: Alert }) {
           <Button
             size="icon"
             variant="ghost"
-            aria-label="Eliminar"
+            aria-label={t("actionDelete")}
             onClick={() => {
-              if (confirm("¿Eliminar esta alerta?")) remove.mutate(alert.id);
+              if (confirm(t("confirmDelete"))) remove.mutate(alert.id);
             }}
           >
             <Trash2 className="h-4 w-4 text-coral" />
@@ -179,19 +181,26 @@ function AlertCard({ alert }: { alert: Alert }) {
   );
 }
 
-function describeType(alert: Alert): { icon: React.ReactNode; text: string } {
+type TFn = (key: string, values?: Record<string, string>) => string;
+
+function describeType(alert: Alert, t: TFn): { icon: React.ReactNode; text: string } {
   switch (alert.type) {
     case "promotion":
-      return { icon: <Tag className="h-3 w-3" />, text: "En promoción" };
+      return { icon: <Tag className="h-3 w-3" />, text: t("types.promotion") };
     case "target_price":
       return {
         icon: <Target className="h-3 w-3" />,
-        text: `Precio ≤ ${alert.targetPrice ? formatPrice(alert.targetPrice) : "?"}`,
+        text: t("types.targetPrice", {
+          price: alert.targetPrice ? formatPrice(alert.targetPrice) : t("types.unknownPrice"),
+        }),
       };
     case "promotion_ending":
-      return { icon: <Tag className="h-3 w-3" />, text: "Promoción terminando" };
+      return {
+        icon: <Tag className="h-3 w-3" />,
+        text: t("types.promotionEnding"),
+      };
     case "back_in_stock":
-      return { icon: <Bell className="h-3 w-3" />, text: "Vuelve a stock" };
+      return { icon: <Bell className="h-3 w-3" />, text: t("types.backInStock") };
     default:
       return { icon: <Bell className="h-3 w-3" />, text: alert.type };
   }

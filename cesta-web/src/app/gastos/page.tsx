@@ -2,6 +2,7 @@
 
 import { ArrowLeft, Loader2, Receipt } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { ExpenseDashboard } from "@/features/expenses/components/expense-summary";
 import { ScanButton } from "@/features/expenses/components/scan-button";
@@ -12,13 +13,15 @@ import { useAuthStore } from "@/stores/auth.store";
 export default function GastosPage() {
   const user = useAuthStore((s) => s.user);
   const receipts = useReceipts();
+  const t = useTranslations("expenses");
+  const tNav = useTranslations("nav");
 
   if (!user) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-3 px-4">
-        <p className="text-sm text-muted">Inicia sesión para ver tus gastos.</p>
+        <p className="text-sm text-muted">{t("loginRequired")}</p>
         <Button asChild size="sm">
-          <Link href="/login">Entrar</Link>
+          <Link href="/login">{t("loginCta")}</Link>
         </Button>
       </main>
     );
@@ -27,12 +30,12 @@ export default function GastosPage() {
   return (
     <main className="flex-1 pb-24">
       <header className="sticky top-0 z-10 flex items-center gap-3 bg-cream px-4 py-3">
-        <Button asChild size="icon" variant="ghost" aria-label="Volver">
+        <Button asChild size="icon" variant="ghost" aria-label={tNav("back")}>
           <Link href="/">
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>
-        <h1 className="font-display text-lg font-bold text-ink">Mis gastos</h1>
+        <h1 className="font-display text-lg font-bold text-ink">{t("title")}</h1>
       </header>
 
       <div className="px-4 py-4 space-y-6">
@@ -42,7 +45,7 @@ export default function GastosPage() {
 
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-            Últimos tickets
+            {t("recentReceipts")}
           </h2>
           {receipts.isLoading ? (
             <div className="flex justify-center py-6">
@@ -50,7 +53,7 @@ export default function GastosPage() {
             </div>
           ) : !receipts.data || receipts.data.length === 0 ? (
             <div className="rounded-card border border-dashed border-border bg-white/50 p-6 text-center text-sm text-muted">
-              Aún no has escaneado ningún ticket.
+              {t("empty")}
             </div>
           ) : (
             <ul className="space-y-2">
@@ -65,7 +68,7 @@ export default function GastosPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium text-ink">
-                        {r.supermarketName ?? "Supermercado desconocido"}
+                        {r.supermarketName ?? t("unknownMarket")}
                       </p>
                       <p className="text-xs text-muted">
                         {r.purchaseDate
@@ -73,7 +76,7 @@ export default function GastosPage() {
                           : new Date(r.createdAt).toLocaleDateString("es-ES")}
                         {r.status !== "ready" && (
                           <span className="ml-2 text-amber">
-                            · {r.status === "failed" ? "Falló" : "Procesando…"}
+                            · {r.status === "failed" ? t("failed") : t("processing")}
                           </span>
                         )}
                       </p>

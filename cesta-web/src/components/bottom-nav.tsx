@@ -9,44 +9,40 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useProfile } from "@/features/profile/hooks/use-profile";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
   href: string;
-  label: string;
+  key: "home" | "myList" | "favorites" | "compare" | "account";
   Icon: typeof Heart;
   matches: (path: string) => boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  {
-    href: "/",
-    label: "Inicio",
-    Icon: House,
-    matches: (p) => p === "/",
-  },
+  { href: "/", key: "home", Icon: House, matches: (p) => p === "/" },
   {
     href: "/minha-lista",
-    label: "Mi lista",
+    key: "myList",
     Icon: ShoppingCart,
     matches: (p) => p.startsWith("/minha-lista"),
   },
   {
     href: "/favoritos",
-    label: "Favoritos",
+    key: "favorites",
     Icon: Heart,
     matches: (p) => p.startsWith("/favoritos"),
   },
   {
     href: "/comparar",
-    label: "Comparar",
+    key: "compare",
     Icon: Scale,
     matches: (p) => p.startsWith("/comparar"),
   },
   {
     href: "/perfil",
-    label: "Cuenta",
+    key: "account",
     Icon: UserCircle,
     matches: (p) => p.startsWith("/perfil"),
   },
@@ -58,15 +54,15 @@ const HIDDEN_PREFIXES = ["/login", "/register"];
 export function BottomNav() {
   const pathname = usePathname();
   const { data: profile, isError } = useProfile();
+  const t = useTranslations("nav");
 
   const isAuthRoute = HIDDEN_PREFIXES.some((p) => pathname.startsWith(p));
-  // Não renderiza: rotas de auth OU usuário não logado (profile 401 → isError)
   if (isAuthRoute) return null;
   if (isError || !profile) return null;
 
   return (
     <nav
-      aria-label="Navegación principal"
+      aria-label={t("ariaLabel")}
       className={cn(
         "fixed inset-x-0 bottom-0 z-40",
         "border-t border-neutral-200 bg-white/95 backdrop-blur",
@@ -74,8 +70,9 @@ export function BottomNav() {
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0)" }}
     >
       <ul className="mx-auto flex max-w-lg">
-        {NAV_ITEMS.map(({ href, label, Icon, matches }) => {
+        {NAV_ITEMS.map(({ href, key, Icon, matches }) => {
           const active = matches(pathname);
+          const label = t(key);
           return (
             <li key={href} className="flex-1">
               <Link

@@ -49,6 +49,8 @@ npm install
 npm run dev                # http://localhost:3000
 ```
 
+> **Nota:** mudanças em `cesta-web/next.config.ts` ou em `src/i18n/messages/*.json` exigem `Ctrl+C` + `npm run dev` novamente — Turbopack não hot-reload esses arquivos.
+
 ---
 
 ## Stack
