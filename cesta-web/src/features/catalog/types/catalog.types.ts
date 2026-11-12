@@ -59,10 +59,12 @@ export interface Product {
   calories: number | null;
   protein: number | null;
   fat: number | null;
+  saturatedFat: number | null;
   carbs: number | null;
   sugar: number | null;
   salt: number | null;
   fiber: number | null;
+  nutritionPer: number | null;
   isVegan: boolean;
   isVegetarian: boolean;
   isGlutenFree: boolean;

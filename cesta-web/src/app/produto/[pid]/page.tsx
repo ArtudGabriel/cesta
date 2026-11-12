@@ -1,11 +1,13 @@
 "use client";
 
-import { ArrowLeft, Leaf, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { CreateAlertButton } from "@/features/alerts/components/create-alert-button";
+import { DietaryBadges } from "@/features/catalog/components/dietary-badges";
+import { NutritionTable } from "@/features/catalog/components/nutrition-table";
 import { PriceComparisonGrid } from "@/features/catalog/components/price-comparison-grid";
 import { PriceHistoryChart } from "@/features/catalog/components/price-history-chart";
 import { useProduct, useSupermarkets } from "@/features/catalog/hooks/use-catalog";
@@ -43,13 +45,6 @@ export default function ProductDetailPage() {
       </main>
     );
   }
-
-  const tags = [
-    product.isVegan && t("tags.vegan"),
-    product.isVegetarian && t("tags.vegetarian"),
-    product.isGlutenFree && t("tags.glutenFree"),
-    product.isLactoseFree && t("tags.lactoseFree"),
-  ].filter(Boolean) as string[];
 
   return (
     <main className="flex-1 pb-16">
@@ -98,18 +93,9 @@ export default function ProductDetailPage() {
           )}
         </div>
 
-        {tags.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {tags.map((t) => (
-              <span
-                key={t}
-                className="inline-flex items-center gap-1 rounded-pill bg-lima/20 px-3 py-1 text-xs font-medium text-cesta-green-dark"
-              >
-                <Leaf className="h-3 w-3" /> {t}
-              </span>
-            ))}
-          </div>
-        )}
+        <div className="mt-4">
+          <DietaryBadges product={product} />
+        </div>
       </div>
 
       <section className="px-4 py-4">
@@ -139,50 +125,12 @@ export default function ProductDetailPage() {
         <ReviewsSection productId={product.id} />
       </section>
 
-      {(product.calories !== null ||
-        product.protein !== null ||
-        product.fat !== null) && (
-        <section className="px-4 py-4">
-          <h3 className="mb-3 font-display text-lg font-bold text-ink">
-            {t("nutritionHeader")}
-          </h3>
-          <div className="rounded-card bg-white p-4 shadow-card">
-            <p className="mb-3 text-xs text-muted">{t("nutritionBasis")}</p>
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-              {product.calories !== null && (
-                <NutritionRow label={t("nutrition.calories")} value={`${product.calories} kcal`} />
-              )}
-              {product.protein !== null && (
-                <NutritionRow label={t("nutrition.protein")} value={`${product.protein} g`} />
-              )}
-              {product.fat !== null && (
-                <NutritionRow label={t("nutrition.fat")} value={`${product.fat} g`} />
-              )}
-              {product.carbs !== null && (
-                <NutritionRow label={t("nutrition.carbs")} value={`${product.carbs} g`} />
-              )}
-              {product.sugar !== null && (
-                <NutritionRow label={t("nutrition.sugar")} value={`${product.sugar} g`} />
-              )}
-              {product.salt !== null && (
-                <NutritionRow label={t("nutrition.salt")} value={`${product.salt} g`} />
-              )}
-              {product.fiber !== null && (
-                <NutritionRow label={t("nutrition.fiber")} value={`${product.fiber} g`} />
-              )}
-            </dl>
-          </div>
-        </section>
-      )}
+      <section className="px-4 py-4">
+        <h3 className="mb-3 font-display text-lg font-bold text-ink">
+          {t("nutritionHeader")}
+        </h3>
+        <NutritionTable product={product} />
+      </section>
     </main>
-  );
-}
-
-function NutritionRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between border-b border-border/50 py-1 last:border-0">
-      <dt className="text-muted">{label}</dt>
-      <dd className="font-medium text-ink">{value}</dd>
-    </div>
   );
 }

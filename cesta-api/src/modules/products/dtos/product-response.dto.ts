@@ -47,10 +47,13 @@ export class ProductResponseDto {
   @ApiProperty({ nullable: true }) calories: number | null;
   @ApiProperty({ nullable: true }) protein: number | null;
   @ApiProperty({ nullable: true }) fat: number | null;
+  @ApiProperty({ nullable: true }) saturatedFat: number | null;
   @ApiProperty({ nullable: true }) carbs: number | null;
   @ApiProperty({ nullable: true }) sugar: number | null;
   @ApiProperty({ nullable: true }) salt: number | null;
   @ApiProperty({ nullable: true }) fiber: number | null;
+  @ApiProperty({ nullable: true, description: 'Base amount (100 for per-100g/ml, 1 for per-unit)' })
+  nutritionPer: number | null;
 
   // Tags
   @ApiProperty() isVegan: boolean;
@@ -88,10 +91,12 @@ export class ProductResponseDto {
     dto.calories = product.calories ? Number(product.calories) : null;
     dto.protein = product.protein ? Number(product.protein) : null;
     dto.fat = product.fat ? Number(product.fat) : null;
+    dto.saturatedFat = product.saturatedFat ? Number(product.saturatedFat) : null;
     dto.carbs = product.carbs ? Number(product.carbs) : null;
     dto.sugar = product.sugar ? Number(product.sugar) : null;
     dto.salt = product.salt ? Number(product.salt) : null;
     dto.fiber = product.fiber ? Number(product.fiber) : null;
+    dto.nutritionPer = product.nutritionPer ? Number(product.nutritionPer) : null;
     dto.isVegan = product.isVegan;
     dto.isVegetarian = product.isVegetarian;
     dto.isGlutenFree = product.isGlutenFree;

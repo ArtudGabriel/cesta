@@ -55,13 +55,26 @@
       "lactoseFree": "Sem lactose"
     },
     "nutrition": {
+      "title": "Informação nutricional",
+      "per100g": "por 100g",
+      "per100ml": "por 100ml",
+      "perUnit": "por unidade",
+      "empty": "Informação nutricional não disponível",
+      "ofWhich": "dos quais",
       "calories": "Calorias",
       "protein": "Proteínas",
       "fat": "Gorduras",
+      "saturatedFat": "saturadas",
       "carbs": "Carboidratos",
-      "sugar": "Açúcares",
+      "sugar": "açúcares",
       "salt": "Sal",
       "fiber": "Fibra"
+    },
+    "dietary": {
+      "vegan": "Vegano",
+      "vegetarian": "Vegetariano",
+      "glutenFree": "Sem glúten",
+      "lactoseFree": "Sem lactose"
     }
   },
   "expenses": {
