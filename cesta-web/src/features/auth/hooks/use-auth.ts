@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { authService } from "../services/auth.service";
 import { useAuthStore } from "@/stores/auth.store";
+import { PROFILE_KEY } from "@/features/profile/hooks/use-profile";
 import type { LoginPayload, RegisterPayload } from "../types/auth.types";
 
 export const AUTH_QUERY_KEY = ["auth", "me"] as const;
@@ -37,6 +38,7 @@ export function useLogin() {
     onSuccess: ({ user, tokens }) => {
       setSession(user, tokens);
       qc.setQueryData(AUTH_QUERY_KEY, user);
+      qc.removeQueries({ queryKey: PROFILE_KEY });
       toast.success("Bienvenido");
       router.push(safeReturnUrl(searchParams.get("returnUrl")));
     },
@@ -57,6 +59,7 @@ export function useRegister() {
     onSuccess: ({ user, tokens }) => {
       setSession(user, tokens);
       qc.setQueryData(AUTH_QUERY_KEY, user);
+      qc.removeQueries({ queryKey: PROFILE_KEY });
       toast.success("Cuenta creada");
       router.push(safeReturnUrl(searchParams.get("returnUrl")));
     },
@@ -77,6 +80,7 @@ export function useLogout() {
     onSettled: () => {
       clear();
       qc.removeQueries({ queryKey: AUTH_QUERY_KEY });
+      qc.removeQueries({ queryKey: PROFILE_KEY });
       router.push("/login");
     },
   });
