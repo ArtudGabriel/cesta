@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { Bell, Receipt, ShoppingBasket } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { CategoryChipSkeleton } from "@/features/catalog/components/category-chip-skeleton";
+import { DietaryFilters, type DietaryFlag } from "@/features/catalog/components/dietary-filters";
 import { HomeEmptyState } from "@/features/catalog/components/home-empty-state";
 import { ProductCard } from "@/features/catalog/components/product-card";
 import { ProductCardSkeleton } from "@/features/catalog/components/product-card-skeleton";
@@ -19,11 +21,26 @@ import { useAuthStore } from "@/stores/auth.store";
 import { useDebounce } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
 
+const DIETARY_FLAGS: DietaryFlag[] = ["vegan", "vegetarian", "glutenFree", "lactoseFree"];
+
+function parseDietFromUrl(raw: string | null): Set<DietaryFlag> {
+  if (!raw) return new Set();
+  const valid = new Set<DietaryFlag>();
+  for (const token of raw.split(",")) {
+    const t = token.trim() as DietaryFlag;
+    if (DIETARY_FLAGS.includes(t)) valid.add(t);
+  }
+  return valid;
+}
+
 type SortMode = "absolute" | "unit";
 
 export default function HomePage() {
   const user = useAuthStore((s) => s.user);
   const isHydrated = useAuthStore((s) => s.isHydrated);
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 250);
@@ -32,12 +49,38 @@ export default function HomePage() {
   const [sortMode, setSortMode] = useState<SortMode>("absolute");
   const t = useTranslations("home");
 
+  const dietary = useMemo(
+    () => parseDietFromUrl(searchParams.get("diet")),
+    [searchParams],
+  );
+
+  const toggleDietary = useCallback(
+    (flag: DietaryFlag) => {
+      const next = new Set(dietary);
+      if (next.has(flag)) next.delete(flag);
+      else next.add(flag);
+      const params = new URLSearchParams(searchParams.toString());
+      if (next.size === 0) params.delete("diet");
+      else {
+        const sorted = DIETARY_FLAGS.filter((f) => next.has(f));
+        params.set("diet", sorted.join(","));
+      }
+      const qs = params.toString();
+      router.replace(qs ? `/?${qs}` : "/", { scroll: false });
+    },
+    [dietary, router, searchParams],
+  );
+
   const supermarkets = useSupermarkets();
   const categories = useCategories();
   const products = useProducts({
     search: debouncedSearch || undefined,
     category,
     onPromotion: onPromotion || undefined,
+    isVegan: dietary.has("vegan") || undefined,
+    isVegetarian: dietary.has("vegetarian") || undefined,
+    isGlutenFree: dietary.has("glutenFree") || undefined,
+    isLactoseFree: dietary.has("lactoseFree") || undefined,
     limit: 20,
   });
 
@@ -168,6 +211,11 @@ export default function HomePage() {
             </>
           )}
         </div>
+      </div>
+
+      {/* Dietary filters */}
+      <div className="mb-3">
+        <DietaryFilters active={dietary} onToggle={toggleDietary} />
       </div>
 
       {/* Promotion toggle + sort mode */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Leaf } from "lucide-react";
+import { Leaf, MilkOff, Salad, Wheat, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { Product } from "../types/catalog.types";
 
@@ -13,26 +13,35 @@ interface DietaryBadgesProps {
 
 export function DietaryBadges({ product }: DietaryBadgesProps) {
   const t = useTranslations("product.dietary");
-  const items: Array<{ show: boolean; label: string; className: string }> = [
+  const items: Array<{
+    show: boolean;
+    label: string;
+    Icon: LucideIcon;
+    className: string;
+  }> = [
     {
       show: product.isVegan,
       label: t("vegan"),
+      Icon: Leaf,
       className: "bg-lima/20 text-cesta-green-dark",
     },
     {
       show: product.isVegetarian,
       label: t("vegetarian"),
+      Icon: Salad,
       className: "bg-lima/20 text-cesta-green-dark",
     },
     {
       show: product.isGlutenFree,
       label: t("glutenFree"),
+      Icon: Wheat,
       className: "bg-amber/20 text-amber-700",
     },
     {
       show: product.isLactoseFree,
       label: t("lactoseFree"),
-      className: "bg-violet-100 text-violet-700",
+      Icon: MilkOff,
+      className: "bg-cream text-cesta-green-dark border border-cesta-green/30",
     },
   ];
 
@@ -46,7 +55,7 @@ export function DietaryBadges({ product }: DietaryBadgesProps) {
           key={item.label}
           className={`inline-flex items-center gap-1 rounded-pill px-3 py-1 text-xs font-medium ${item.className}`}
         >
-          <Leaf className="h-3 w-3" aria-hidden />
+          <item.Icon className="h-3 w-3" aria-hidden />
           {item.label}
         </span>
       ))}

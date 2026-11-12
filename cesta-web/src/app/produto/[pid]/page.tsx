@@ -125,12 +125,7 @@ export default function ProductDetailPage() {
         <ReviewsSection productId={product.id} />
       </section>
 
-      <section className="px-4 py-4">
-        <h3 className="mb-3 font-display text-lg font-bold text-ink">
-          {t("nutritionHeader")}
-        </h3>
-        <NutritionTable product={product} />
-      </section>
+      <NutritionTable product={product} />
     </main>
   );
 }

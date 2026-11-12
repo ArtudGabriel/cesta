@@ -45,8 +45,12 @@ export function NutritionTable({ product }: { product: NutritionProduct }) {
   if (!hasAny) return null;
 
   return (
-    <div className="rounded-card bg-white p-4 shadow-card">
-      <p className="mb-3 text-xs text-muted">{t(perLabelKey(product.comparisonUnit))}</p>
+    <section className="px-4 py-4">
+      <h3 className="mb-3 font-display text-lg font-bold text-ink">
+        {t("title")}
+      </h3>
+      <div className="rounded-card bg-white p-4 shadow-card">
+        <p className="mb-3 text-xs text-muted">{t(perLabelKey(product.comparisonUnit))}</p>
       <dl className="divide-y divide-border/50 text-sm">
         <Row label={t("calories")} value={formatValue(product.calories, "kcal")} />
         <Row label={t("fat")} value={formatValue(product.fat, "g")}>
@@ -69,7 +73,8 @@ export function NutritionTable({ product }: { product: NutritionProduct }) {
         <Row label={t("protein")} value={formatValue(product.protein, "g")} />
         <Row label={t("salt")} value={formatValue(product.salt, "g")} />
       </dl>
-    </div>
+      </div>
+    </section>
   );
 }
 
