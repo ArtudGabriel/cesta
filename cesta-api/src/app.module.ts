@@ -14,6 +14,7 @@ import { CatalogSyncModule } from './modules/catalog-sync/catalog-sync.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { FamilyBasketsModule } from './modules/family-baskets/family-baskets.module';
+import { FavoritesModule } from './modules/favorites/favorites.module';
 import { FamilyProfilesModule } from './modules/family-profiles/family-profiles.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ProductsModule } from './modules/products/products.module';
@@ -66,6 +67,7 @@ import { UsersModule } from './modules/users/users.module';
     CatalogSyncModule,
     ReceiptsModule,
     ExpensesModule,
+    FavoritesModule,
   ],
   controllers: [AppController],
   providers: [

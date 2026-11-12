@@ -8,6 +8,7 @@ import { CreateAlertButton } from "@/features/alerts/components/create-alert-but
 import { PriceComparisonGrid } from "@/features/catalog/components/price-comparison-grid";
 import { PriceHistoryChart } from "@/features/catalog/components/price-history-chart";
 import { useProduct, useSupermarkets } from "@/features/catalog/hooks/use-catalog";
+import { FavoriteToggle } from "@/features/favorites/components/favorite-toggle";
 import { ReviewsSection } from "@/features/reviews/components/reviews-section";
 import { formatPrice } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth.store";
@@ -57,9 +58,10 @@ export default function ProductDetailPage() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>
-        <h1 className="line-clamp-1 font-display text-lg font-bold text-ink">
+        <h1 className="line-clamp-1 flex-1 font-display text-lg font-bold text-ink">
           {product.name}
         </h1>
+        <FavoriteToggle productId={product.id} returnUrl={`/produto/${product.id}`} />
       </header>
 
       <div className="px-4 pb-4">
