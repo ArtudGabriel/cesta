@@ -188,6 +188,16 @@
       "vegetarian": "Vegetariano",
       "glutenFree": "Sem glúten",
       "lactoseFree": "Sem lactose"
+    },
+    "nutriScore": {
+      "label": "Nota nutricional",
+      "aria": {
+        "badge": "Nota nutricional: {grade}"
+      },
+      "tooltip": {
+        "info": "Baseado em calorias, gorduras saturadas, açúcares, sal, fibra e proteínas (por 100g/ml)"
+      },
+      "unavailable": "Sem nota disponível"
     }
   },
   "expenses": {

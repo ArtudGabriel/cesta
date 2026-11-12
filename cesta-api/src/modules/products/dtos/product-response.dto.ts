@@ -10,6 +10,16 @@ import {
   UnitPriceSuffix,
   calculateUnitPrice,
 } from '../../../common/utils/price-normalization';
+import {
+  NutriGrade,
+  calculateNutriScore,
+} from '../../../common/utils/nutri-score';
+
+export class NutriScoreDto {
+  @ApiProperty({ example: -2 }) score: number;
+  @ApiProperty({ example: 'A', enum: ['A', 'B', 'C', 'D', 'E'] })
+  grade: NutriGrade;
+}
 
 export class UnitPriceDto {
   @ApiProperty({ example: 4.2 }) value: number;
@@ -55,6 +65,9 @@ export class ProductResponseDto {
   @ApiProperty({ nullable: true, description: 'Base amount (100 for per-100g/ml, 1 for per-unit)' })
   nutritionPer: number | null;
 
+  @ApiProperty({ type: () => NutriScoreDto, nullable: true })
+  nutriScore: { score: number; grade: NutriGrade } | null;
+
   // Tags
   @ApiProperty() isVegan: boolean;
   @ApiProperty() isVegetarian: boolean;
@@ -97,6 +110,16 @@ export class ProductResponseDto {
     dto.salt = product.salt ? Number(product.salt) : null;
     dto.fiber = product.fiber ? Number(product.fiber) : null;
     dto.nutritionPer = product.nutritionPer ? Number(product.nutritionPer) : null;
+    dto.nutriScore = calculateNutriScore({
+      calories: dto.calories,
+      sugar: dto.sugar,
+      saturatedFat: dto.saturatedFat,
+      salt: dto.salt,
+      fiber: dto.fiber,
+      protein: dto.protein,
+      nutritionPer: dto.nutritionPer,
+      comparisonUnit: product.comparisonUnit,
+    });
     dto.isVegan = product.isVegan;
     dto.isVegetarian = product.isVegetarian;
     dto.isGlutenFree = product.isGlutenFree;

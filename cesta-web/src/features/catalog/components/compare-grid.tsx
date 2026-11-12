@@ -9,6 +9,7 @@ import { computeWinnerSets, type Nutrient } from "../utils/nutrition-winner";
 import { useLocale } from "../hooks/use-locale";
 import { DietaryBadges } from "./dietary-badges";
 import { DietaryWarning } from "./dietary-warning";
+import { NutriScoreBadge } from "./nutri-score-badge";
 import { NutritionTable } from "./nutrition-table";
 import { useDietaryPreferences } from "@/features/profile/hooks/use-dietary-preferences";
 import type { Product } from "../types/catalog.types";
@@ -272,9 +273,14 @@ function ProductNutritionCard({
       <header className="flex items-start gap-3 p-4">
         <div className="h-12 w-12 flex-shrink-0 rounded-md bg-surface" />
         <div className="min-w-0 flex-1">
-          <h3 className="line-clamp-2 text-sm font-semibold text-ink">
-            {product.name}
-          </h3>
+          <div className="flex items-start gap-2">
+            <h3 className="line-clamp-2 flex-1 text-sm font-semibold text-ink">
+              {product.name}
+            </h3>
+            {product.nutriScore && (
+              <NutriScoreBadge grade={product.nutriScore.grade} size="md" />
+            )}
+          </div>
           {product.brand && (
             <p className="mt-0.5 text-xs text-muted">{product.brand}</p>
           )}

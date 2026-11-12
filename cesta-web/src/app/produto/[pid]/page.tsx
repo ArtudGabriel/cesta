@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { CreateAlertButton } from "@/features/alerts/components/create-alert-button";
 import { DietaryBadges } from "@/features/catalog/components/dietary-badges";
+import { NutriScoreBadge } from "@/features/catalog/components/nutri-score-badge";
 import { NutritionTable } from "@/features/catalog/components/nutrition-table";
 import { PriceComparisonGrid } from "@/features/catalog/components/price-comparison-grid";
 import { PriceHistoryChart } from "@/features/catalog/components/price-history-chart";
@@ -68,13 +69,20 @@ export default function ProductDetailPage() {
       <div className="px-4 pb-4">
         <div className="h-48 w-full rounded-card bg-surface" />
 
-        <div className="mt-4">
-          <h2 className="font-display text-xl font-bold text-ink">
-            {product.name}
-          </h2>
-          {product.brand && (
-            <p className="mt-1 text-sm text-muted">{product.brand}</p>
+        <div className="mt-4 flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <h2 className="font-display text-xl font-bold text-ink">
+              {product.name}
+            </h2>
+            {product.brand && (
+              <p className="mt-1 text-sm text-muted">{product.brand}</p>
+            )}
+          </div>
+          {product.nutriScore && (
+            <NutriScoreBadge grade={product.nutriScore.grade} size="lg" />
           )}
+        </div>
+        <div className="mt-4">
 
           {product.cheapestPrice !== null && (
             <div className="mt-3">

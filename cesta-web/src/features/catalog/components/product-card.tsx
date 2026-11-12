@@ -7,6 +7,7 @@ import { FavoriteToggle } from "@/features/favorites/components/favorite-toggle"
 import { formatUnitPrice } from "../utils/format-unit-price";
 import { useLocale } from "../hooks/use-locale";
 import { HighlightedText } from "./highlighted-text";
+import { NutriScoreBadge } from "./nutri-score-badge";
 import type { Product } from "../types/catalog.types";
 
 interface ProductCardProps {
@@ -39,7 +40,13 @@ export function ProductCard({
         )}
       >
         <div className="flex items-start gap-3">
-          <div className="h-16 w-16 flex-shrink-0 rounded-btn bg-surface" />
+          <div className="relative h-16 w-16 flex-shrink-0 rounded-btn bg-surface">
+            {product.nutriScore && (
+              <div className="absolute left-1 top-1 rounded-md bg-white/80 p-0.5 backdrop-blur-sm">
+                <NutriScoreBadge grade={product.nutriScore.grade} size="sm" />
+              </div>
+            )}
+          </div>
           <div className="min-w-0 flex-1 pr-10">
             <h3 className="line-clamp-2 text-sm font-medium text-ink group-hover:text-cesta-green">
               <HighlightedText text={product.name} highlight={highlight} />

@@ -27,6 +27,13 @@ export interface Category {
 
 export type UnitPriceSuffix = "L" | "kg" | "100g" | "100ml" | "un";
 
+export type NutriGrade = "A" | "B" | "C" | "D" | "E";
+
+export interface NutriScore {
+  score: number;
+  grade: NutriGrade;
+}
+
 export interface UnitPrice {
   value: number;
   unit: UnitPriceSuffix;
@@ -65,6 +72,7 @@ export interface Product {
   salt: number | null;
   fiber: number | null;
   nutritionPer: number | null;
+  nutriScore: NutriScore | null;
   isVegan: boolean;
   isVegetarian: boolean;
   isGlutenFree: boolean;
