@@ -1,0 +1,32 @@
+{
+  "name": "Cesta — Comparador de Supermercados",
+  "short_name": "Cesta",
+  "description": "Compara precios de Mercadona, Carrefour, Alcampo, LIDL, Froiz, DIA y Aldi en la Comunidad de Madrid.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1b6b48",
+  "background_color": "#ffffff",
+  "lang": "es",
+  "categories": ["shopping", "food", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
