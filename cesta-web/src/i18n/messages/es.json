@@ -1,0 +1,18 @@
+{
+  "compare": {
+    "sortAbsolute": "Precio total",
+    "sortUnit": "Precio por unidad",
+    "winnerBadge": "Mejor precio general",
+    "noUnitComparison": "Sin comparación unitaria",
+    "normalizedNoteAbsolute": "Mostrando precios totales — alterna arriba para comparar por unidad",
+    "normalizedNoteUnit": "Comparando precios por unidad — fairness en embalajes distintos"
+  },
+  "home": {
+    "sortLabel": "Ordenar:",
+    "sortAbsolute": "Precio",
+    "sortUnit": "Por unidad"
+  },
+  "profile": {
+    "localeHint": "La traducción se aplicará en breve."
+  }
+}

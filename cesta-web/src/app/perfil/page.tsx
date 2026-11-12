@@ -14,6 +14,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLogout } from "@/features/auth/hooks/use-auth";
@@ -42,6 +43,7 @@ export default function PerfilPage() {
   const { data: profile, isPending, isError } = useProfile();
   const update = useUpdateProfile();
   const logout = useLogout();
+  const t = useTranslations("profile");
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
 
@@ -83,7 +85,10 @@ export default function PerfilPage() {
 
   function pickLocale(next: "es" | "pt-BR") {
     if (next === profile?.locale) return;
-    update.mutate({ locale: next });
+    document.cookie = `cesta:locale=${next}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+    update.mutate({ locale: next }, {
+      onSuccess: () => router.refresh(),
+    });
   }
 
   return (
@@ -173,9 +178,7 @@ export default function PerfilPage() {
               );
             })}
           </div>
-          <p className="mt-2 text-xs text-muted">
-            La traducción se aplicará en breve.
-          </p>
+          <p className="mt-2 text-xs text-muted">{t("localeHint")}</p>
         </div>
       </section>
 

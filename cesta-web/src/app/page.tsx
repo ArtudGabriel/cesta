@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { Bell, Receipt, ShoppingBasket } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { CategoryChipSkeleton } from "@/features/catalog/components/category-chip-skeleton";
 import { HomeEmptyState } from "@/features/catalog/components/home-empty-state";
@@ -15,6 +16,9 @@ import {
   useSupermarkets,
 } from "@/features/catalog/hooks/use-catalog";
 import { useAuthStore } from "@/stores/auth.store";
+import { cn } from "@/lib/utils";
+
+type SortMode = "absolute" | "unit";
 
 export default function HomePage() {
   const user = useAuthStore((s) => s.user);
@@ -23,6 +27,8 @@ export default function HomePage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [onPromotion, setOnPromotion] = useState(false);
+  const [sortMode, setSortMode] = useState<SortMode>("absolute");
+  const t = useTranslations("home");
 
   const supermarkets = useSupermarkets();
   const categories = useCategories();
@@ -32,6 +38,17 @@ export default function HomePage() {
     onPromotion: onPromotion || undefined,
     limit: 20,
   });
+
+  const sortedItems = useMemo(() => {
+    const items = products.data?.items ?? [];
+    if (sortMode === "absolute") return items;
+    // Unit mode: sort by cheapestUnitPrice.value ASC; produtos sem unitPrice vão ao fim
+    return items.slice().sort((a, b) => {
+      const au = a.cheapestUnitPrice?.value ?? Infinity;
+      const bu = b.cheapestUnitPrice?.value ?? Infinity;
+      return au - bu;
+    });
+  }, [products.data, sortMode]);
 
   return (
     <main className="flex-1 flex flex-col px-4 py-6 pb-16">
@@ -130,16 +147,40 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Promotion toggle */}
-      <label className="mb-4 inline-flex items-center gap-2 text-sm text-ink cursor-pointer">
-        <input
-          type="checkbox"
-          checked={onPromotion}
-          onChange={(e) => setOnPromotion(e.target.checked)}
-          className="h-4 w-4 accent-cesta-green"
-        />
-        Solo en promoción
-      </label>
+      {/* Promotion toggle + sort mode */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <label className="inline-flex items-center gap-2 text-sm text-ink cursor-pointer">
+          <input
+            type="checkbox"
+            checked={onPromotion}
+            onChange={(e) => setOnPromotion(e.target.checked)}
+            className="h-4 w-4 accent-cesta-green"
+          />
+          Solo en promoción
+        </label>
+        <div className="inline-flex items-center gap-2 text-xs text-muted">
+          <span>{t("sortLabel")}</span>
+          {(["absolute", "unit"] as const).map((mode) => {
+            const active = sortMode === mode;
+            return (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setSortMode(mode)}
+                aria-pressed={active}
+                className={cn(
+                  "rounded-pill px-2.5 py-1 text-[11px] font-semibold cursor-pointer transition-colors",
+                  active
+                    ? "bg-cesta-green text-white"
+                    : "bg-surface text-muted hover:text-ink",
+                )}
+              >
+                {mode === "absolute" ? t("sortAbsolute") : t("sortUnit")}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Products list */}
       {products.isPending ? (
@@ -152,10 +193,10 @@ export default function HomePage() {
         <p className="py-6 text-center text-sm text-coral">
           Error al cargar productos.
         </p>
-      ) : products.data && products.data.items.length > 0 ? (
+      ) : sortedItems.length > 0 ? (
         <div className="grid grid-cols-1 gap-3">
-          {products.data.items.map((p) => (
-            <ProductCard key={p.id} product={p} />
+          {sortedItems.map((p) => (
+            <ProductCard key={p.id} product={p} sortMode={sortMode} />
           ))}
         </div>
       ) : (

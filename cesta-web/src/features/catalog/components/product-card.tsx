@@ -11,14 +11,20 @@ import type { Product } from "../types/catalog.types";
 interface ProductCardProps {
   product: Product;
   className?: string;
+  sortMode?: "absolute" | "unit";
 }
 
-export function ProductCard({ product, className }: ProductCardProps) {
+export function ProductCard({
+  product,
+  className,
+  sortMode = "absolute",
+}: ProductCardProps) {
   const locale = useLocale();
   const cheapest = product.prices.find(
     (p) => p.supermarketSlug === product.cheapestSupermarketSlug,
   );
   const unitPriceStr = formatUnitPrice(product.cheapestUnitPrice, locale);
+  const unitPrimary = sortMode === "unit" && unitPriceStr != null;
 
   return (
     <div className="relative">
@@ -41,11 +47,24 @@ export function ProductCard({ product, className }: ProductCardProps) {
             {cheapest && (
               <>
                 <div className="mt-2 flex items-baseline gap-2">
-                  <span className="text-lg font-bold text-ink">
-                    {formatPrice(cheapest.price)}
-                  </span>
-                  {unitPriceStr && (
-                    <span className="text-xs text-muted">{unitPriceStr}</span>
+                  {unitPrimary ? (
+                    <>
+                      <span className="text-lg font-bold text-ink">
+                        {unitPriceStr}
+                      </span>
+                      <span className="text-xs text-muted">
+                        {formatPrice(cheapest.price)}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-lg font-bold text-ink">
+                        {formatPrice(cheapest.price)}
+                      </span>
+                      {unitPriceStr && (
+                        <span className="text-xs text-muted">{unitPriceStr}</span>
+                      )}
+                    </>
                   )}
                 </div>
                 <div className="mt-2 flex items-center gap-2">

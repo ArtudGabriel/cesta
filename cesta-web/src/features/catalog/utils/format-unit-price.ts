@@ -1,4 +1,4 @@
-import type { UnitPrice, UnitPriceSuffix } from "../types/catalog.types";
+import type { UnitPrice } from "../types/catalog.types";
 
 type Locale = "es" | "pt-BR";
 
@@ -19,14 +19,4 @@ export function formatUnitPrice(
     maximumFractionDigits: 2,
   }).format(up.value);
   return `${value}/${up.unit}`;
-}
-
-export function normalizedNote(locale: Locale = "es"): string {
-  return locale === "pt-BR"
-    ? "Comparação normalizada por unidade"
-    : "Comparación normalizada por unidad";
-}
-
-export function unitSuffix(unit: UnitPriceSuffix): string {
-  return unit;
 }

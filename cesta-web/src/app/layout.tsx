@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
 import { InstallPrompt } from "@/components/install-prompt";
@@ -33,9 +35,11 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const locale = await getLocale();
+  const messages = await getMessages();
   return (
-    <html lang="es" className="h-full antialiased">
+    <html lang={locale} className="h-full antialiased">
       <head>
         <link
           rel="stylesheet"
@@ -45,12 +49,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body className="min-h-full flex flex-col bg-cream text-ink pb-16">
-        <QueryProvider>
-          {children}
-          <BottomNav />
-        </QueryProvider>
-        <InstallPrompt />
-        <Toaster position="top-center" richColors />
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <QueryProvider>
+            {children}
+            <BottomNav />
+          </QueryProvider>
+          <InstallPrompt />
+          <Toaster position="top-center" richColors />
+        </NextIntlClientProvider>
       </body>
     </html>
   );

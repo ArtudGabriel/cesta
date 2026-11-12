@@ -1,11 +1,11 @@
+import type { UnitPrice } from "@/features/catalog/types/catalog.types";
+
 export interface FavoriteProduct {
   id: string;
   name: string;
   brand: string | null;
   imageUrl: string | null;
 }
-
-import type { UnitPrice } from "@/features/catalog/types/catalog.types";
 
 export interface CheapestPrice {
   price: number;

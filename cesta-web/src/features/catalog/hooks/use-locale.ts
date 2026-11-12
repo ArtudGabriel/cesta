@@ -1,10 +1,10 @@
 "use client";
 
-import { useAuthStore } from "@/stores/auth.store";
+import { useLocale as useNextIntlLocale } from "next-intl";
 
 export type UILocale = "es" | "pt-BR";
 
 export function useLocale(): UILocale {
-  const locale = useAuthStore((s) => s.user?.locale);
-  return (locale ?? "es") as UILocale;
+  const locale = useNextIntlLocale();
+  return locale === "pt-BR" ? "pt-BR" : "es";
 }

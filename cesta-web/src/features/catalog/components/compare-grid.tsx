@@ -1,22 +1,36 @@
 "use client";
 
-import { Check, Trophy, X } from "lucide-react";
+import { AlertCircle, Check, Trophy, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn, formatPrice } from "@/lib/utils";
-import { formatUnitPrice, normalizedNote } from "../utils/format-unit-price";
+import { formatUnitPrice } from "../utils/format-unit-price";
 import { useLocale } from "../hooks/use-locale";
 import type { Product } from "../types/catalog.types";
+
+export type SortMode = "absolute" | "unit";
 
 interface CompareGridProps {
   products: Product[];
   onRemove: (productId: string) => void;
+  sortMode?: SortMode;
 }
 
-export function CompareGrid({ products, onRemove }: CompareGridProps) {
+export function CompareGrid({
+  products,
+  onRemove,
+  sortMode = "absolute",
+}: CompareGridProps) {
   const locale = useLocale();
-  // Winner global: produto com menor cheapestPrice entre os comparados.
-  const winnerId = products
-    .filter((p) => p.cheapestPrice != null)
-    .sort((a, b) => (a.cheapestPrice ?? Infinity) - (b.cheapestPrice ?? Infinity))[0]?.id;
+  const t = useTranslations("compare");
+
+  // Winner: menor métrica conforme modo. Modo 'unit' exclui produtos sem unitPrice.
+  const eligibleForWinner = products.filter((p) => {
+    if (sortMode === "absolute") return p.cheapestPrice != null;
+    return p.cheapestUnitPrice != null;
+  });
+  const winnerId = eligibleForWinner
+    .slice()
+    .sort((a, b) => metric(a, sortMode) - metric(b, sortMode))[0]?.id;
 
   return (
     <>
@@ -28,14 +42,22 @@ export function CompareGrid({ products, onRemove }: CompareGridProps) {
             isWinner={p.id === winnerId}
             onRemove={() => onRemove(p.id)}
             locale={locale}
+            sortMode={sortMode}
           />
         ))}
       </div>
       <p className="mt-3 text-center text-xs text-muted">
-        {normalizedNote(locale)}
+        {sortMode === "unit"
+          ? t("normalizedNoteUnit")
+          : t("normalizedNoteAbsolute")}
       </p>
     </>
   );
+}
+
+function metric(p: Product, mode: SortMode): number {
+  if (mode === "unit") return p.cheapestUnitPrice?.value ?? Infinity;
+  return p.cheapestPrice ?? Infinity;
 }
 
 function ProductCompareCard({
@@ -43,14 +65,18 @@ function ProductCompareCard({
   isWinner,
   onRemove,
   locale,
+  sortMode,
 }: {
   product: Product;
   isWinner: boolean;
   onRemove: () => void;
   locale: "es" | "pt-BR";
+  sortMode: SortMode;
 }) {
   const cheapestSlug = product.cheapestSupermarketSlug;
   const unitPriceStr = formatUnitPrice(product.cheapestUnitPrice, locale);
+  const noUnit = sortMode === "unit" && product.cheapestUnitPrice == null;
+  const t = useTranslations("compare");
   const sortedPrices = [...product.prices].sort((a, b) => {
     if (a.isAvailable !== b.isAvailable) return a.isAvailable ? -1 : 1;
     return a.price - b.price;
@@ -84,9 +110,14 @@ function ProductCompareCard({
               )}
             </>
           )}
-          {isWinner && (
+          {noUnit && (
+            <span className="mt-2 inline-flex items-center gap-1 rounded-pill bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-500">
+              <AlertCircle className="h-3 w-3" /> {t("noUnitComparison")}
+            </span>
+          )}
+          {isWinner && !noUnit && (
             <span className="mt-2 inline-flex items-center gap-1 rounded-pill bg-cesta-green/10 px-2 py-0.5 text-[11px] font-semibold text-cesta-green">
-              <Trophy className="h-3 w-3" /> Mejor precio general
+              <Trophy className="h-3 w-3" /> {t("winnerBadge")}
             </span>
           )}
         </div>
