@@ -4,7 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { User } from '@prisma/client';
+import { Prisma, User } from '@prisma/client';
+import { UpdateProfileDto } from './dtos/update-profile.dto';
+import { UserResponseDto } from './dtos/user-response.dto';
 import { UsersRepository } from './users.repository';
 
 export interface CreateUserInput {
@@ -54,5 +56,27 @@ export class UsersService {
       name: input.name ?? null,
       locale: input.locale ?? 'es',
     });
+  }
+
+  async updateProfile(
+    userId: string,
+    dto: UpdateProfileDto,
+  ): Promise<UserResponseDto> {
+    const data: Prisma.UserUpdateInput = {};
+    if (dto.name !== undefined) data.name = dto.name;
+    if (dto.locale !== undefined) data.locale = dto.locale;
+
+    if (Object.keys(data).length === 0) {
+      const current = await this.findById(userId);
+      return UserResponseDto.fromEntity(current);
+    }
+
+    const updated = await this.usersRepository.update(userId, data);
+    return UserResponseDto.fromEntity(updated);
+  }
+
+  async getProfile(userId: string): Promise<UserResponseDto> {
+    const user = await this.findById(userId);
+    return UserResponseDto.fromEntity(user);
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, Heart, List, Receipt, Scale, ShoppingBasket } from "lucide-react";
+import { Bell, Heart, List, Receipt, Scale, ShoppingBasket, UserCircle } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CategoryChipSkeleton } from "@/features/catalog/components/category-chip-skeleton";
@@ -76,6 +76,11 @@ export default function HomePage() {
               <Button asChild size="icon" variant="secondary" aria-label="Mi Lista">
                 <Link href="/minha-lista">
                   <List className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button asChild size="icon" variant="secondary" aria-label="Mi cuenta">
+                <Link href="/perfil">
+                  <UserCircle className="h-4 w-4" />
                 </Link>
               </Button>
             </>
