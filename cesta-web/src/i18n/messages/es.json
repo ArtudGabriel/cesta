@@ -32,6 +32,10 @@
     "sortUnit": "Por unidad",
     "searching": "Buscando…",
     "clearSearch": "Limpiar búsqueda",
+    "filters": {
+      "sortByNutri": "Ordenar por Nutri-Score",
+      "onlyHealthy": "Solo A+B"
+    },
     "suggestions": {
       "empty": "Sin sugerencias para \"{query}\"",
       "loading": "Buscando sugerencias…",
