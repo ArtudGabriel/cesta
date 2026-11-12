@@ -17,6 +17,7 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AddFavoriteDto } from './dtos/add-favorite.dto';
@@ -29,6 +30,7 @@ export class FavoritesController {
   constructor(private readonly favorites: FavoritesService) {}
 
   @Post()
+  @Throttle({ write: { limit: 30, ttl: 60_000 } })
   @ApiOperation({
     summary:
       'Favorita produto (idempotente). 201 quando criado, 200 quando já existia.',

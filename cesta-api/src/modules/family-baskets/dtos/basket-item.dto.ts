@@ -1,10 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional, Min } from 'class-validator';
+import { IsCuid } from '../../../common/validators/is-cuid.validator';
 
 export class AddBasketItemDto {
   @ApiProperty()
-  @IsString()
+  @IsCuid()
   productId: string;
 
   @ApiPropertyOptional({ default: 1, minimum: 0.001 })

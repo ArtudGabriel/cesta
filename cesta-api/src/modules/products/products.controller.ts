@@ -1,6 +1,7 @@
 import { BadRequestException, Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
+import { CUID_PATTERN } from '../../common/validators/is-cuid.validator';
 import { PriceHistoryQueryDto } from './dtos/price-history-query.dto';
 import { ProductFiltersDto } from './dtos/product-filters.dto';
 import { PriceHistoryService } from './price-history.service';
@@ -29,15 +30,28 @@ export class ProductsController {
   @ApiQuery({ name: 'ids', description: 'IDs separados por vírgula' })
   compare(@Query('ids') ids: string) {
     if (!ids) throw new BadRequestException('Parâmetro "ids" é obrigatório');
-    return this.productsService.compare(
-      ids.split(',').map((id) => id.trim()).filter(Boolean),
-    );
+    if (ids.length > 600) {
+      throw new BadRequestException('Parâmetro "ids" excede tamanho máximo');
+    }
+    const parsed = ids
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+    for (const id of parsed) {
+      if (!CUID_PATTERN.test(id)) {
+        throw new BadRequestException(`id "${id}" não é um CUID válido`);
+      }
+    }
+    return this.productsService.compare(parsed);
   }
 
   @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Detalhe do produto com preços em todos os mercados' })
   findOne(@Param('id') id: string) {
+    if (!CUID_PATTERN.test(id)) {
+      throw new BadRequestException('id não é um CUID válido');
+    }
     return this.productsService.findById(id);
   }
 
@@ -48,6 +62,9 @@ export class ProductsController {
       'Histórico de preços por mercado (últimos N dias, max 90). Agrupa por mercado se supermarketId omitido.',
   })
   priceHistory(@Param('id') id: string, @Query() query: PriceHistoryQueryDto) {
+    if (!CUID_PATTERN.test(id)) {
+      throw new BadRequestException('id não é um CUID válido');
+    }
     return this.priceHistoryService.getSeries(id, {
       supermarketId: query.supermarketId,
       days: query.days,

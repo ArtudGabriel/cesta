@@ -1,13 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsCuid } from '../../../common/validators/is-cuid.validator';
 
 export class PriceHistoryQueryDto {
   @ApiPropertyOptional({
     description: 'ID do supermercado; omitir retorna todos agrupados',
   })
   @IsOptional()
-  @IsString()
+  @IsCuid()
   supermarketId?: string;
 
   @ApiPropertyOptional({

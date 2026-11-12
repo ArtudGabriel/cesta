@@ -32,11 +32,9 @@ import { UsersModule } from './modules/users/users.module';
       validate: validateEnv,
     }),
     ThrottlerModule.forRoot([
-      {
-        name: 'default',
-        ttl: 60_000,
-        limit: 120,
-      },
+      { name: 'default', ttl: 60_000, limit: 120 },
+      { name: 'strict', ttl: 60_000, limit: 5 },
+      { name: 'write', ttl: 60_000, limit: 30 },
     ]),
     BullModule.forRootAsync({
       imports: [ConfigModule],

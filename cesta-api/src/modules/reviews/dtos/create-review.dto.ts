@@ -8,10 +8,11 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { IsCuid } from '../../../common/validators/is-cuid.validator';
 
 export class CreateReviewDto {
   @ApiProperty()
-  @IsString()
+  @IsCuid()
   productId: string;
 
   @ApiProperty({ minimum: 1, maximum: 5 })

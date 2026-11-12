@@ -8,6 +8,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 import {
   AuthenticatedUser,
@@ -33,6 +34,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @Throttle({ strict: { limit: 5, ttl: 60_000 } })
   @Post('register')
   @ApiOperation({ summary: 'Cadastro por email ou telefone' })
   @HttpCode(HttpStatus.CREATED)
@@ -41,6 +43,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ strict: { limit: 5, ttl: 60_000 } })
   @Post('login')
   @ApiOperation({ summary: 'Login por email ou telefone' })
   @HttpCode(HttpStatus.OK)
@@ -49,6 +52,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('refresh')
   @ApiOperation({ summary: 'Rotaciona access + refresh tokens' })
   @HttpCode(HttpStatus.OK)

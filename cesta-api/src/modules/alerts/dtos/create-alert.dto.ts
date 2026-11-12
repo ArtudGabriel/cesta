@@ -5,9 +5,9 @@ import {
   IsIn,
   IsNumber,
   IsOptional,
-  IsString,
   Min,
 } from 'class-validator';
+import { IsCuid } from '../../../common/validators/is-cuid.validator';
 
 export const ALERT_TYPES = [
   'promotion',
@@ -20,12 +20,12 @@ export type AlertType = (typeof ALERT_TYPES)[number];
 
 export class CreateAlertDto {
   @ApiProperty()
-  @IsString()
+  @IsCuid()
   productId: string;
 
   @ApiPropertyOptional({ description: 'null = qualquer mercado' })
   @IsOptional()
-  @IsString()
+  @IsCuid()
   supermarketId?: string;
 
   @ApiProperty({ enum: ALERT_TYPES })

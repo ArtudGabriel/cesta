@@ -21,6 +21,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node prisma/seed.ts",
+    "audit:dtos": "ts-node scripts/audit-dtos.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {
