@@ -72,6 +72,8 @@ export class UsersService {
       data.prefersGlutenFree = dto.prefersGlutenFree;
     if (dto.prefersLactoseFree !== undefined)
       data.prefersLactoseFree = dto.prefersLactoseFree;
+    if (dto.sortUnitPreference !== undefined)
+      data.sortUnitPreference = dto.sortUnitPreference;
 
     if (Object.keys(data).length === 0) {
       const current = await this.findById(userId);

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { DietaryQuestion } from "../types/family-basket.types";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +17,7 @@ export function QuestionCard({
   value,
   onChange,
 }: QuestionCardProps) {
+  const t = useTranslations("familyBasket.question");
   const label = locale === "pt-BR" ? question.labelPt : question.labelEs;
 
   if (question.type === "boolean") {
@@ -34,7 +36,7 @@ export function QuestionCard({
                 : "bg-surface text-muted hover:text-ink",
             )}
           >
-            {locale === "pt-BR" ? "Sim" : "Sí"}
+            {t("yes")}
           </button>
           <button
             type="button"
@@ -46,7 +48,7 @@ export function QuestionCard({
                 : "bg-surface text-muted hover:text-ink",
             )}
           >
-            {locale === "pt-BR" ? "Não" : "No"}
+            {t("no")}
           </button>
         </div>
       </div>

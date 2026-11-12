@@ -6,7 +6,8 @@ import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { UnitSortToggle, type UnitSortMode } from "@/features/catalog/components/unit-sort-toggle";
+import { UnitSortToggle } from "@/features/catalog/components/unit-sort-toggle";
+import { useSortUnitPreference } from "@/features/profile/hooks/use-sort-unit-preference";
 import { AddProductModal } from "@/features/shopping-lists/components/add-product-modal";
 import { ListItemRow } from "@/features/shopping-lists/components/list-item-row";
 import { TotalsByMarket } from "@/features/shopping-lists/components/totals-by-market";
@@ -24,7 +25,7 @@ export default function ListDetailPage() {
   const { data: totals } = useListTotals(listId);
   const deleteList = useDeleteList();
   const [showAdd, setShowAdd] = useState(false);
-  const [sortMode, setSortMode] = useState<UnitSortMode>("absolute");
+  const { value: sortMode, setValue: setSortMode } = useSortUnitPreference();
   const t = useTranslations("myList");
   const tNav = useTranslations("nav");
 

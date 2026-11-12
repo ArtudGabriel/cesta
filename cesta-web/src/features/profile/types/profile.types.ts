@@ -1,3 +1,5 @@
+export type SortUnitPreference = "absolute" | "unit";
+
 export interface Profile {
   id: string;
   email: string | null;
@@ -9,6 +11,7 @@ export interface Profile {
   prefersVegetarian: boolean;
   prefersGlutenFree: boolean;
   prefersLactoseFree: boolean;
+  sortUnitPreference: SortUnitPreference;
   createdAt: string;
 }
 
@@ -19,4 +22,5 @@ export interface UpdateProfilePayload {
   prefersVegetarian?: boolean;
   prefersGlutenFree?: boolean;
   prefersLactoseFree?: boolean;
+  sortUnitPreference?: SortUnitPreference;
 }

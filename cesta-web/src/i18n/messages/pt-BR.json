@@ -125,7 +125,11 @@
     "memberAdults": "Adultos",
     "memberAdultsHint": "18 — 59 anos",
     "memberSeniors": "Idosos",
-    "memberSeniorsHint": "60+ anos"
+    "memberSeniorsHint": "60+ anos",
+    "question": {
+      "yes": "Sim",
+      "no": "Não"
+    }
   },
   "profile": {
     "localeHint": "A tradução será aplicada em breve.",

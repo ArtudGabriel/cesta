@@ -7,8 +7,9 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { CompareAddSheet } from "@/features/catalog/components/compare-add-sheet";
-import { CompareGrid, type SortMode, type ViewMode } from "@/features/catalog/components/compare-grid";
+import { CompareGrid, type ViewMode } from "@/features/catalog/components/compare-grid";
 import { useCompare } from "@/features/catalog/hooks/use-compare";
+import { useSortUnitPreference } from "@/features/profile/hooks/use-sort-unit-preference";
 import { cn } from "@/lib/utils";
 
 const MAX = 4;
@@ -25,7 +26,7 @@ function CompararContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [sortMode, setSortMode] = useState<SortMode>("absolute");
+  const { value: sortMode, setValue: setSortMode } = useSortUnitPreference();
   const [viewMode, setViewMode] = useState<ViewMode>("prices");
   const t = useTranslations("compare");
 

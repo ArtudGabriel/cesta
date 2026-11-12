@@ -19,6 +19,7 @@ import {
   useSupermarkets,
 } from "@/features/catalog/hooks/use-catalog";
 import { useProfile } from "@/features/profile/hooks/use-profile";
+import { useSortUnitPreference } from "@/features/profile/hooks/use-sort-unit-preference";
 import { useAuthStore } from "@/stores/auth.store";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useOnClickOutside } from "@/hooks/use-on-click-outside";
@@ -49,7 +50,7 @@ export default function HomePage() {
   const debouncedSearch = useDebounce(search, 250);
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [onPromotion, setOnPromotion] = useState(false);
-  const [sortMode, setSortMode] = useState<SortMode>("absolute");
+  const { value: sortMode, setValue: setSortMode } = useSortUnitPreference();
   const [suggestOpen, setSuggestOpen] = useState(false);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
   const t = useTranslations("home");

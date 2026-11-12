@@ -32,6 +32,9 @@ export class UserResponseDto {
   @ApiProperty()
   prefersLactoseFree: boolean;
 
+  @ApiProperty({ enum: ['absolute', 'unit'] })
+  sortUnitPreference: 'absolute' | 'unit';
+
   @ApiProperty()
   createdAt: Date;
 
@@ -47,6 +50,7 @@ export class UserResponseDto {
     dto.prefersVegetarian = user.prefersVegetarian;
     dto.prefersGlutenFree = user.prefersGlutenFree;
     dto.prefersLactoseFree = user.prefersLactoseFree;
+    dto.sortUnitPreference = user.sortUnitPreference as 'absolute' | 'unit';
     dto.createdAt = user.createdAt;
     return dto;
   }

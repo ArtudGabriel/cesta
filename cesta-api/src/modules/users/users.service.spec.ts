@@ -21,6 +21,7 @@ describe('UsersService.updateProfile', () => {
     prefersVegetarian: false,
     prefersGlutenFree: false,
     prefersLactoseFree: false,
+    sortUnitPreference: 'absolute',
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
     deletedAt: null,
@@ -100,6 +101,14 @@ describe('UsersService.updateProfile', () => {
     expect(result.prefersVegan).toBe(true);
     expect(result.prefersGlutenFree).toBe(true);
     expect(result.prefersVegetarian).toBe(false);
+  });
+
+  it('patch sortUnitPreference unit persiste', async () => {
+    repoMock.update.mockResolvedValue(fakeUser({ sortUnitPreference: 'unit' }));
+    const result = await service.updateProfile('u1', { sortUnitPreference: 'unit' });
+
+    expect(repoMock.update).toHaveBeenCalledWith('u1', { sortUnitPreference: 'unit' });
+    expect(result.sortUnitPreference).toBe('unit');
   });
 
   it('DTO vazio: não chama update, retorna user atual via findById', async () => {

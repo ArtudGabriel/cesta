@@ -38,4 +38,9 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsBoolean()
   prefersLactoseFree?: boolean;
+
+  @ApiPropertyOptional({ enum: ['absolute', 'unit'] })
+  @IsOptional()
+  @IsIn(['absolute', 'unit'])
+  sortUnitPreference?: 'absolute' | 'unit';
 }

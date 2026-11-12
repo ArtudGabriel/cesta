@@ -15,8 +15,9 @@ import { cn, formatPrice } from "@/lib/utils";
 import { formatUnitPrice } from "@/features/catalog/utils/format-unit-price";
 import { useLocale } from "@/features/catalog/hooks/use-locale";
 import { DietaryFilters, type DietaryFlag } from "@/features/catalog/components/dietary-filters";
-import { UnitSortToggle, type UnitSortMode } from "@/features/catalog/components/unit-sort-toggle";
+import { UnitSortToggle } from "@/features/catalog/components/unit-sort-toggle";
 import { useProfile } from "@/features/profile/hooks/use-profile";
+import { useSortUnitPreference } from "@/features/profile/hooks/use-sort-unit-preference";
 
 const COMPARE_MAX = 4;
 const DIETARY_FLAGS: DietaryFlag[] = ["vegan", "vegetarian", "glutenFree", "lactoseFree"];
@@ -111,7 +112,7 @@ export default function FavoritosPage() {
   }, [favorites, dietary]);
   const hasActiveFilters = dietary.size > 0;
 
-  const [sortMode, setSortMode] = useState<UnitSortMode>("absolute");
+  const { value: sortMode, setValue: setSortMode } = useSortUnitPreference();
   const sorted = useMemo(() => {
     if (sortMode === "absolute") return filtered;
     return filtered.slice().sort((a, b) => {
