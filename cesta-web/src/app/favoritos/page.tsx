@@ -106,7 +106,7 @@ export default function FavoritosPage() {
                       </p>
                     ) : (
                       <p className="mt-1 text-xs text-muted">
-                        Sin preço disponible
+                        Sin precio disponible
                       </p>
                     )}
                   </div>

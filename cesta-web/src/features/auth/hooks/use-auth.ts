@@ -1,13 +1,20 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { authService } from "../services/auth.service";
 import { useAuthStore } from "@/stores/auth.store";
 import type { LoginPayload, RegisterPayload } from "../types/auth.types";
 
 export const AUTH_QUERY_KEY = ["auth", "me"] as const;
+
+// Garante que returnUrl seja relativo (evita open redirect pra outro domínio).
+function safeReturnUrl(raw: string | null): string {
+  if (!raw) return "/";
+  if (!raw.startsWith("/") || raw.startsWith("//")) return "/";
+  return raw;
+}
 
 export function useMe() {
   const user = useAuthStore((s) => s.user);
@@ -22,6 +29,7 @@ export function useMe() {
 export function useLogin() {
   const setSession = useAuthStore((s) => s.setSession);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const qc = useQueryClient();
 
   return useMutation({
@@ -30,7 +38,7 @@ export function useLogin() {
       setSession(user, tokens);
       qc.setQueryData(AUTH_QUERY_KEY, user);
       toast.success("Bienvenido");
-      router.push("/");
+      router.push(safeReturnUrl(searchParams.get("returnUrl")));
     },
     onError: (err: Error) => {
       toast.error(err.message || "No pudimos iniciar sesión");
@@ -41,6 +49,7 @@ export function useLogin() {
 export function useRegister() {
   const setSession = useAuthStore((s) => s.setSession);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const qc = useQueryClient();
 
   return useMutation({
@@ -49,7 +58,7 @@ export function useRegister() {
       setSession(user, tokens);
       qc.setQueryData(AUTH_QUERY_KEY, user);
       toast.success("Cuenta creada");
-      router.push("/");
+      router.push(safeReturnUrl(searchParams.get("returnUrl")));
     },
     onError: (err: Error) => {
       toast.error(err.message || "No pudimos crear tu cuenta");
