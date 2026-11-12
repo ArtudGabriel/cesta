@@ -11,6 +11,9 @@ interface SearchBarProps {
   isPending?: boolean;
   clearLabel?: string;
   className?: string;
+  onFocus?: () => void;
+  ariaExpanded?: boolean;
+  ariaActivedescendant?: string;
 }
 
 export function SearchBar({
@@ -20,6 +23,9 @@ export function SearchBar({
   isPending = false,
   clearLabel = "Limpiar búsqueda",
   className,
+  onFocus,
+  ariaExpanded,
+  ariaActivedescendant,
 }: SearchBarProps) {
   return (
     <div className={cn("relative", className)}>
@@ -27,8 +33,14 @@ export function SearchBar({
       <Input
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onFocus={onFocus}
         placeholder={placeholder}
         className="pl-12 pr-16"
+        role="combobox"
+        aria-expanded={ariaExpanded}
+        aria-autocomplete="list"
+        aria-controls="search-suggestions-list"
+        aria-activedescendant={ariaActivedescendant}
       />
       <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
         {isPending && (

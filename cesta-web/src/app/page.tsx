@@ -167,16 +167,23 @@ export default function HomePage() {
           value={search}
           onChange={(v) => {
             setSearch(v);
-            setSuggestOpen(v.trim().length >= 2);
+            setSuggestOpen(true);
           }}
+          onFocus={() => setSuggestOpen(true)}
           isPending={searchPending || products.isFetching}
           clearLabel={t("clearSearch")}
+          ariaExpanded={suggestOpen}
           className="mb-1"
         />
         {suggestOpen && (
           <SearchSuggestions
             query={search}
             onSelect={() => setSuggestOpen(false)}
+            onSelectRecent={(q) => {
+              setSearch(q);
+              setSuggestOpen(false);
+            }}
+            onClose={() => setSuggestOpen(false)}
           />
         )}
       </div>

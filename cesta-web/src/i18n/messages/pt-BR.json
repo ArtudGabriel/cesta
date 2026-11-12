@@ -34,7 +34,10 @@
     "clearSearch": "Limpar busca",
     "suggestions": {
       "empty": "Sem sugestões para \"{query}\"",
-      "loading": "Buscando sugestões…"
+      "loading": "Buscando sugestões…",
+      "recentsTitle": "Recentes",
+      "clearAll": "Limpar histórico",
+      "removeRecent": "Remover do histórico"
     }
   },
   "favorites": {
