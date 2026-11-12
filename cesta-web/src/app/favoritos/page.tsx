@@ -15,6 +15,7 @@ import { cn, formatPrice } from "@/lib/utils";
 import { formatUnitPrice } from "@/features/catalog/utils/format-unit-price";
 import { useLocale } from "@/features/catalog/hooks/use-locale";
 import { DietaryFilters, type DietaryFlag } from "@/features/catalog/components/dietary-filters";
+import { UnitSortToggle, type UnitSortMode } from "@/features/catalog/components/unit-sort-toggle";
 import { useProfile } from "@/features/profile/hooks/use-profile";
 
 const COMPARE_MAX = 4;
@@ -110,6 +111,16 @@ export default function FavoritosPage() {
   }, [favorites, dietary]);
   const hasActiveFilters = dietary.size > 0;
 
+  const [sortMode, setSortMode] = useState<UnitSortMode>("absolute");
+  const sorted = useMemo(() => {
+    if (sortMode === "absolute") return filtered;
+    return filtered.slice().sort((a, b) => {
+      const au = a.cheapestPrice?.unitPrice?.value ?? Infinity;
+      const bu = b.cheapestPrice?.unitPrice?.value ?? Infinity;
+      return au - bu;
+    });
+  }, [filtered, sortMode]);
+
   function toggleSelect(productId: string) {
     setSelected((prev) => {
       if (prev.includes(productId)) return prev.filter((id) => id !== productId);
@@ -168,8 +179,9 @@ export default function FavoritosPage() {
       </header>
 
       {favorites.length > 0 && (
-        <section className="px-4 pt-2">
+        <section className="px-4 pt-2 space-y-2">
           <DietaryFilters active={dietary} onToggle={toggleDietary} />
+          <UnitSortToggle value={sortMode} onChange={setSortMode} variant="compact" />
         </section>
       )}
 
@@ -189,7 +201,7 @@ export default function FavoritosPage() {
           <FilteredEmptyState onClear={clearFilters} />
         ) : (
           <ul className="space-y-3">
-            {filtered.map((fav) => {
+            {sorted.map((fav) => {
               const isSelected = selected.includes(fav.productId);
               return (
                 <li
@@ -249,19 +261,33 @@ export default function FavoritosPage() {
                         </p>
                       )}
                       {fav.cheapestPrice ? (
-                        <>
-                          <p className="mt-1 text-sm font-semibold text-cesta-green">
-                            {formatPrice(fav.cheapestPrice.price)}{" "}
-                            <span className="text-xs font-normal text-muted">
-                              en {fav.cheapestPrice.supermarketName}
-                            </span>
-                          </p>
-                          {fav.cheapestPrice.unitPrice && (
-                            <p className="text-xs text-muted">
+                        sortMode === "unit" && fav.cheapestPrice.unitPrice ? (
+                          <>
+                            <p className="mt-1 text-sm font-semibold text-cesta-green">
                               {formatUnitPrice(fav.cheapestPrice.unitPrice, locale)}
+                              <span className="ml-1 text-xs font-normal text-muted">
+                                en {fav.cheapestPrice.supermarketName}
+                              </span>
                             </p>
-                          )}
-                        </>
+                            <p className="text-xs text-muted">
+                              {formatPrice(fav.cheapestPrice.price)}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="mt-1 text-sm font-semibold text-cesta-green">
+                              {formatPrice(fav.cheapestPrice.price)}{" "}
+                              <span className="text-xs font-normal text-muted">
+                                en {fav.cheapestPrice.supermarketName}
+                              </span>
+                            </p>
+                            {fav.cheapestPrice.unitPrice && (
+                              <p className="text-xs text-muted">
+                                {formatUnitPrice(fav.cheapestPrice.unitPrice, locale)}
+                              </p>
+                            )}
+                          </>
+                        )
                       ) : (
                         <p className="mt-1 text-xs text-muted">
                           Sin precio disponible

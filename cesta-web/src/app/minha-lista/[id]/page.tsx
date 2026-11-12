@@ -3,9 +3,10 @@
 import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { UnitSortToggle, type UnitSortMode } from "@/features/catalog/components/unit-sort-toggle";
 import { AddProductModal } from "@/features/shopping-lists/components/add-product-modal";
 import { ListItemRow } from "@/features/shopping-lists/components/list-item-row";
 import { TotalsByMarket } from "@/features/shopping-lists/components/totals-by-market";
@@ -23,8 +24,19 @@ export default function ListDetailPage() {
   const { data: totals } = useListTotals(listId);
   const deleteList = useDeleteList();
   const [showAdd, setShowAdd] = useState(false);
+  const [sortMode, setSortMode] = useState<UnitSortMode>("absolute");
   const t = useTranslations("myList");
   const tNav = useTranslations("nav");
+
+  const sortedItems = useMemo(() => {
+    const items = list?.items ?? [];
+    if (sortMode === "absolute") return items;
+    return items.slice().sort((a, b) => {
+      const au = a.product.cheapestUnitPrice?.value ?? Infinity;
+      const bu = b.product.cheapestUnitPrice?.value ?? Infinity;
+      return au - bu;
+    });
+  }, [list?.items, sortMode]);
 
   if (isLoading) {
     return (
@@ -78,12 +90,21 @@ export default function ListDetailPage() {
       </div>
 
       <section className="px-4 py-4">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-          {t("productsHeader", { count: list.items?.length ?? 0 })}
-        </h2>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+            {t("productsHeader", { count: list.items?.length ?? 0 })}
+          </h2>
+          {list.items && list.items.length > 1 && (
+            <UnitSortToggle
+              value={sortMode}
+              onChange={setSortMode}
+              variant="compact"
+            />
+          )}
+        </div>
         {list.items && list.items.length > 0 ? (
           <div className="space-y-2">
-            {list.items.map((item) => (
+            {sortedItems.map((item) => (
               <ListItemRow key={item.id} listId={list.id} item={item} />
             ))}
           </div>

@@ -61,7 +61,22 @@
     "addProduct": "Agregar producto",
     "productsHeader": "Productos ({count})",
     "emptyItems": "Agrega productos para comparar precios entre supermercados.",
-    "totalsHeader": "Total por supermercado"
+    "totalsHeader": "Total por supermercado",
+    "closeModal": "Cerrar",
+    "searchPlaceholder": "Buscar producto…",
+    "addToList": "Añadir a la lista",
+    "decreaseQty": "Disminuir cantidad",
+    "increaseQty": "Aumentar cantidad",
+    "removeItem": "Eliminar",
+    "totals": {
+      "empty": "Agrega productos para ver el total en cada supermercado.",
+      "availableCount": "{count, plural, =1 {# producto} other {# productos}}",
+      "missingCount": "Faltan {count, plural, =1 {# producto} other {# productos}}",
+      "hybridTitle": "Lista híbrida",
+      "hybridSubtitle": "Comprar cada producto en el supermercado más barato",
+      "hybridTotal": "Total híbrido",
+      "hybridSavings": "Ahorras {amount} vs el supermercado más barato ({market})"
+    }
   },
   "familyBasket": {
     "title": "Mi Cesta familiar",

@@ -2,6 +2,7 @@
 
 import { Minus, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { cn, formatPrice } from "@/lib/utils";
 import type { ShoppingListItem } from "../types/shopping-list.types";
@@ -16,6 +17,7 @@ export function ListItemRow({ listId, item }: ListItemRowProps) {
   const [qty, setQty] = useState(item.quantity);
   const updateItem = useUpdateItem(listId);
   const removeItem = useRemoveItem(listId);
+  const t = useTranslations("myList");
 
   const cheapest = item.product.prices.find(
     (p) => p.supermarketSlug === item.product.cheapestSupermarketSlug,
@@ -58,7 +60,7 @@ export function ListItemRow({ listId, item }: ListItemRowProps) {
             "h-8 w-8 rounded-btn bg-surface flex items-center justify-center cursor-pointer",
             "hover:bg-border/40 active:scale-95",
           )}
-          aria-label="Disminuir cantidad"
+          aria-label={t("decreaseQty")}
         >
           <Minus className="h-4 w-4 text-ink" />
         </button>
@@ -71,7 +73,7 @@ export function ListItemRow({ listId, item }: ListItemRowProps) {
             "h-8 w-8 rounded-btn bg-surface flex items-center justify-center cursor-pointer",
             "hover:bg-border/40 active:scale-95",
           )}
-          aria-label="Aumentar cantidad"
+          aria-label={t("increaseQty")}
         >
           <Plus className="h-4 w-4 text-ink" />
         </button>
@@ -82,7 +84,7 @@ export function ListItemRow({ listId, item }: ListItemRowProps) {
         variant="ghost"
         onClick={() => removeItem.mutate(item.id)}
         disabled={removeItem.isPending}
-        aria-label="Eliminar"
+        aria-label={t("removeItem")}
       >
         <Trash2 className="h-4 w-4 text-coral" />
       </Button>

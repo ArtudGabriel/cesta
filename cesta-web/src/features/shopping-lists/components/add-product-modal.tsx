@@ -2,6 +2,7 @@
 
 import { Loader2, Plus, X } from "lucide-react";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useProducts } from "@/features/catalog/hooks/use-catalog";
@@ -21,6 +22,7 @@ export function AddProductModal({ listId, open, onClose }: AddProductModalProps)
     limit: 15,
   });
   const addItem = useAddItem(listId);
+  const t = useTranslations("myList");
 
   if (!open) return null;
 
@@ -29,11 +31,11 @@ export function AddProductModal({ listId, open, onClose }: AddProductModalProps)
       <div className="w-full max-h-[85vh] overflow-hidden rounded-t-card bg-white sm:max-w-md sm:rounded-card">
         <header className="flex items-center justify-between border-b border-border p-4">
           <h3 className="font-display text-lg font-bold text-ink">
-            Agregar producto
+            {t("addProduct")}
           </h3>
           <button
             onClick={onClose}
-            aria-label="Cerrar"
+            aria-label={t("closeModal")}
             className="cursor-pointer rounded-btn p-1 hover:bg-surface"
           >
             <X className="h-5 w-5 text-ink" />
@@ -43,7 +45,7 @@ export function AddProductModal({ listId, open, onClose }: AddProductModalProps)
         <div className="p-4">
           <Input
             autoFocus
-            placeholder="Buscar producto…"
+            placeholder={t("searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -68,23 +70,17 @@ export function AddProductModal({ listId, open, onClose }: AddProductModalProps)
                     </p>
                     {product.cheapestPrice !== null && (
                       <p className="text-xs text-muted">
-                        desde {formatPrice(product.cheapestPrice)}
+                        {t("fromPrice")} {formatPrice(product.cheapestPrice)}
                       </p>
                     )}
                   </div>
                   <Button
                     size="sm"
                     onClick={() => {
-                      addItem.mutate(
-                        { productId: product.id, quantity: 1 },
-                        {
-                          onSuccess: () => {
-                            // mantém modal aberto pra adicionar múltiplos
-                          },
-                        },
-                      );
+                      addItem.mutate({ productId: product.id, quantity: 1 });
                     }}
                     disabled={addItem.isPending}
+                    aria-label={t("addToList")}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
