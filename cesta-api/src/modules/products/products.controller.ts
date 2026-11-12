@@ -4,6 +4,7 @@ import { Public } from '../../common/decorators/public.decorator';
 import { CUID_PATTERN } from '../../common/validators/is-cuid.validator';
 import { PriceHistoryQueryDto } from './dtos/price-history-query.dto';
 import { ProductFiltersDto } from './dtos/product-filters.dto';
+import { SuggestQueryDto } from './dtos/suggest-query.dto';
 import { PriceHistoryService } from './price-history.service';
 import { ProductsService } from './products.service';
 
@@ -22,6 +23,13 @@ export class ProductsController {
   })
   findMany(@Query() filters: ProductFiltersDto) {
     return this.productsService.findMany(filters);
+  }
+
+  @Public()
+  @Get('suggest')
+  @ApiOperation({ summary: 'Autocomplete de busca por nome/marca (min 2 chars, max 20 resultados)' })
+  suggest(@Query() query: SuggestQueryDto) {
+    return this.productsService.suggest(query.q, query.limit);
   }
 
   @Public()

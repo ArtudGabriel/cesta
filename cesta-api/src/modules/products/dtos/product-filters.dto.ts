@@ -19,7 +19,7 @@ function toBool({ value }: { value: unknown }): boolean | undefined {
 }
 
 // Permissivo: letras unicode + dígitos + espaço + pontuação varejo (hífen, apóstrofo, parênteses, ponto, vírgula, %, &).
-const SEARCH_PATTERN = /^[\p{L}\p{N}\s\-'().,%&]*$/u;
+export const SEARCH_PATTERN = /^[\p{L}\p{N}\s\-'().,%&]*$/u;
 // Slug ou CUID: a-z0-9- (CUIDs são lowercase alnum, slugs idem com hífen).
 const SLUG_OR_CUID_PATTERN = /^[a-z0-9-]{1,64}$/;
 

@@ -52,6 +52,57 @@ export class ProductsRepository {
     });
   }
 
+  async findSuggestions(q: string, limit: number): Promise<
+    Array<{
+      id: string;
+      name: string;
+      brand: string | null;
+      imageUrl: string | null;
+      prices: { currentPrice: Prisma.Decimal; supermarket: Supermarket }[];
+    }>
+  > {
+    // startsWith prefere, depois contains. Prisma nao tem relevance score;
+    // buscamos (limit*2) e priorizamos startsWith no sort em memoria.
+    const take = Math.min(limit * 2, 40);
+    const rows = await this.prisma.product.findMany({
+      where: {
+        deletedAt: null,
+        OR: [
+          { name: { contains: q, mode: 'insensitive' } },
+          { brand: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+      take,
+      select: {
+        id: true,
+        name: true,
+        brand: true,
+        imageUrl: true,
+        prices: {
+          where: { isAvailable: true, supermarket: { isActive: true } },
+          orderBy: { currentPrice: 'asc' },
+          take: 1,
+          select: {
+            currentPrice: true,
+            supermarket: true,
+          },
+        },
+      },
+    });
+
+    const qLower = q.toLowerCase();
+    const scored = rows.map((r) => {
+      const name = r.name.toLowerCase();
+      const brand = r.brand?.toLowerCase() ?? '';
+      const startsName = name.startsWith(qLower);
+      const startsBrand = brand.startsWith(qLower);
+      const score = startsName ? 0 : startsBrand ? 1 : 2;
+      return { row: r, score };
+    });
+    scored.sort((a, b) => a.score - b.score);
+    return scored.slice(0, limit).map((s) => s.row);
+  }
+
   private async buildWhere(filters: ProductFiltersDto): Promise<Prisma.ProductWhereInput> {
     const where: Prisma.ProductWhereInput = { deletedAt: null };
 

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ProductFiltersDto } from './dtos/product-filters.dto';
 import { ProductResponseDto } from './dtos/product-response.dto';
+import { SuggestResponseDto, SuggestionDto } from './dtos/suggest-query.dto';
 import { ProductsRepository } from './products.repository';
 
 @Injectable()
@@ -33,5 +34,26 @@ export class ProductsService {
     if (ids.length > 20) throw new BadRequestException('Máximo 20 produtos por comparação');
     const products = await this.repo.findManyByIds(ids);
     return products.map(ProductResponseDto.fromEntity);
+  }
+
+  async suggest(q: string, limit: number): Promise<SuggestResponseDto> {
+    const rows = await this.repo.findSuggestions(q.trim(), limit);
+    const suggestions: SuggestionDto[] = rows.map((r) => {
+      const cheapest = r.prices[0];
+      return {
+        id: r.id,
+        name: r.name,
+        brand: r.brand,
+        imageUrl: r.imageUrl,
+        cheapestPrice: cheapest
+          ? {
+              value: Number(cheapest.currentPrice),
+              supermarketSlug: cheapest.supermarket.slug,
+              supermarketName: cheapest.supermarket.name,
+            }
+          : null,
+      };
+    });
+    return { suggestions };
   }
 }

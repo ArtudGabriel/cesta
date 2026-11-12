@@ -41,4 +41,24 @@ export const catalogService = {
     });
     return data.data;
   },
+
+  async suggest(q: string, limit = 8): Promise<Suggestion[]> {
+    const { data } = await api.get<Envelope<{ suggestions: Suggestion[] }>>(
+      "/products/suggest",
+      { params: { q, limit } },
+    );
+    return data.data.suggestions;
+  },
 };
+
+export interface Suggestion {
+  id: string;
+  name: string;
+  brand: string | null;
+  imageUrl: string | null;
+  cheapestPrice: {
+    value: number;
+    supermarketSlug: string;
+    supermarketName: string;
+  } | null;
+}

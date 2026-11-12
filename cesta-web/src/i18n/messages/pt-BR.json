@@ -27,7 +27,11 @@
     "sortAbsolute": "Preço",
     "sortUnit": "Por unidade",
     "searching": "Buscando…",
-    "clearSearch": "Limpar busca"
+    "clearSearch": "Limpar busca",
+    "suggestions": {
+      "empty": "Sem sugestões para \"{query}\"",
+      "loading": "Buscando sugestões…"
+    }
   },
   "profile": {
     "localeHint": "A tradução será aplicada em breve.",

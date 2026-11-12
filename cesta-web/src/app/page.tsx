@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Bell, Receipt, ShoppingBasket } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { HomeEmptyState } from "@/features/catalog/components/home-empty-state";
 import { ProductCard } from "@/features/catalog/components/product-card";
 import { ProductCardSkeleton } from "@/features/catalog/components/product-card-skeleton";
 import { SearchBar } from "@/features/catalog/components/search-bar";
+import { SearchSuggestions } from "@/features/catalog/components/search-suggestions";
 import {
   useCategories,
   useProducts,
@@ -20,6 +21,7 @@ import {
 import { useProfile } from "@/features/profile/hooks/use-profile";
 import { useAuthStore } from "@/stores/auth.store";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useOnClickOutside } from "@/hooks/use-on-click-outside";
 import { cn } from "@/lib/utils";
 
 const DIETARY_FLAGS: DietaryFlag[] = ["vegan", "vegetarian", "glutenFree", "lactoseFree"];
@@ -48,7 +50,11 @@ export default function HomePage() {
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [onPromotion, setOnPromotion] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("absolute");
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const searchWrapperRef = useRef<HTMLDivElement>(null);
   const t = useTranslations("home");
+
+  useOnClickOutside(searchWrapperRef, () => setSuggestOpen(false), suggestOpen);
 
   const { data: profile } = useProfile();
 
@@ -156,13 +162,24 @@ export default function HomePage() {
       </header>
 
       {/* Search */}
-      <SearchBar
-        value={search}
-        onChange={setSearch}
-        isPending={searchPending || products.isFetching}
-        clearLabel={t("clearSearch")}
-        className="mb-1"
-      />
+      <div className="relative" ref={searchWrapperRef}>
+        <SearchBar
+          value={search}
+          onChange={(v) => {
+            setSearch(v);
+            setSuggestOpen(v.trim().length >= 2);
+          }}
+          isPending={searchPending || products.isFetching}
+          clearLabel={t("clearSearch")}
+          className="mb-1"
+        />
+        {suggestOpen && (
+          <SearchSuggestions
+            query={search}
+            onSelect={() => setSuggestOpen(false)}
+          />
+        )}
+      </div>
       {searching ? (
         <p className="mb-3 text-sm text-muted">{t("searching")}</p>
       ) : (
