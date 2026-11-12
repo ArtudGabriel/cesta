@@ -17,6 +17,7 @@ import {
   useProducts,
   useSupermarkets,
 } from "@/features/catalog/hooks/use-catalog";
+import { useProfile } from "@/features/profile/hooks/use-profile";
 import { useAuthStore } from "@/stores/auth.store";
 import { useDebounce } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
@@ -49,10 +50,20 @@ export default function HomePage() {
   const [sortMode, setSortMode] = useState<SortMode>("absolute");
   const t = useTranslations("home");
 
-  const dietary = useMemo(
-    () => parseDietFromUrl(searchParams.get("diet")),
-    [searchParams],
-  );
+  const { data: profile } = useProfile();
+
+  // Preferências dietéticas: URL vence; se ausente E user tem prefers*, usa profile.
+  const urlDietRaw = searchParams.get("diet");
+  const dietary = useMemo(() => {
+    if (urlDietRaw !== null) return parseDietFromUrl(urlDietRaw);
+    if (!profile) return new Set<DietaryFlag>();
+    const fromProfile = new Set<DietaryFlag>();
+    if (profile.prefersVegan) fromProfile.add("vegan");
+    if (profile.prefersVegetarian) fromProfile.add("vegetarian");
+    if (profile.prefersGlutenFree) fromProfile.add("glutenFree");
+    if (profile.prefersLactoseFree) fromProfile.add("lactoseFree");
+    return fromProfile;
+  }, [urlDietRaw, profile]);
 
   const toggleDietary = useCallback(
     (flag: DietaryFlag) => {
@@ -60,13 +71,12 @@ export default function HomePage() {
       if (next.has(flag)) next.delete(flag);
       else next.add(flag);
       const params = new URLSearchParams(searchParams.toString());
-      if (next.size === 0) params.delete("diet");
-      else {
-        const sorted = DIETARY_FLAGS.filter((f) => next.has(f));
-        params.set("diet", sorted.join(","));
-      }
-      const qs = params.toString();
-      router.replace(qs ? `/?${qs}` : "/", { scroll: false });
+      // Sempre grava o param diet (vazio inclusive) pra sinalizar override local
+      // vs. "ausente -> cai no profile". Profile preferences so dirigem o estado
+      // inicial quando URL nao tem ?diet=.
+      const sorted = DIETARY_FLAGS.filter((f) => next.has(f));
+      params.set("diet", sorted.join(","));
+      router.replace(`/?${params.toString()}`, { scroll: false });
     },
     [dietary, router, searchParams],
   );

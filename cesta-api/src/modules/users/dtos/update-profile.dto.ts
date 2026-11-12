@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsString, Length, Matches } from 'class-validator';
+import { IsBoolean, IsIn, IsOptional, IsString, Length, Matches } from 'class-validator';
 
 export const USER_LOCALES = ['es', 'pt-BR'] as const;
 export type UserLocale = (typeof USER_LOCALES)[number];
@@ -9,7 +9,6 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   @Length(1, 80)
-  // Nome livre (incluindo acentos e espaços) sem caracteres perigosos
   @Matches(/^[\p{L}\p{M}\s'.\-]+$/u, {
     message: 'name contém caracteres inválidos',
   })
@@ -19,4 +18,24 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsIn(USER_LOCALES as unknown as string[])
   locale?: UserLocale;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  prefersVegan?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  prefersVegetarian?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  prefersGlutenFree?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  prefersLactoseFree?: boolean;
 }

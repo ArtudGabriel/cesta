@@ -65,6 +65,13 @@ export class UsersService {
     const data: Prisma.UserUpdateInput = {};
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.locale !== undefined) data.locale = dto.locale;
+    if (dto.prefersVegan !== undefined) data.prefersVegan = dto.prefersVegan;
+    if (dto.prefersVegetarian !== undefined)
+      data.prefersVegetarian = dto.prefersVegetarian;
+    if (dto.prefersGlutenFree !== undefined)
+      data.prefersGlutenFree = dto.prefersGlutenFree;
+    if (dto.prefersLactoseFree !== undefined)
+      data.prefersLactoseFree = dto.prefersLactoseFree;
 
     if (Object.keys(data).length === 0) {
       const current = await this.findById(userId);

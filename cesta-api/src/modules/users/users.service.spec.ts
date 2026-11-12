@@ -17,6 +17,10 @@ describe('UsersService.updateProfile', () => {
     name: 'Original',
     locale: 'es',
     roles: ['user'],
+    prefersVegan: false,
+    prefersVegetarian: false,
+    prefersGlutenFree: false,
+    prefersLactoseFree: false,
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
     deletedAt: null,
@@ -69,6 +73,33 @@ describe('UsersService.updateProfile', () => {
     });
     expect(result.name).toBe('Ambos');
     expect(result.locale).toBe('pt-BR');
+  });
+
+  it('patch prefersVegan sozinho', async () => {
+    repoMock.update.mockResolvedValue(fakeUser({ prefersVegan: true }));
+    const result = await service.updateProfile('u1', { prefersVegan: true });
+
+    expect(repoMock.update).toHaveBeenCalledWith('u1', { prefersVegan: true });
+    expect(result.prefersVegan).toBe(true);
+    expect(result).not.toHaveProperty('passwordHash');
+  });
+
+  it('patch prefersVegan + prefersGlutenFree juntos', async () => {
+    repoMock.update.mockResolvedValue(
+      fakeUser({ prefersVegan: true, prefersGlutenFree: true }),
+    );
+    const result = await service.updateProfile('u1', {
+      prefersVegan: true,
+      prefersGlutenFree: true,
+    });
+
+    expect(repoMock.update).toHaveBeenCalledWith('u1', {
+      prefersVegan: true,
+      prefersGlutenFree: true,
+    });
+    expect(result.prefersVegan).toBe(true);
+    expect(result.prefersGlutenFree).toBe(true);
+    expect(result.prefersVegetarian).toBe(false);
   });
 
   it('DTO vazio: não chama update, retorna user atual via findById', async () => {

@@ -24,7 +24,11 @@
     "clearSearch": "Limpiar búsqueda"
   },
   "profile": {
-    "localeHint": "La traducción se aplicará en breve."
+    "localeHint": "La traducción se aplicará en breve.",
+    "dietary": {
+      "title": "Mis restricciones dietéticas",
+      "subtitle": "Se aplicarán como filtro inicial en la búsqueda"
+    }
   },
   "toast": {
     "success": {

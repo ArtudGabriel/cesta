@@ -21,6 +21,18 @@ export class UserResponseDto {
   roles: string[];
 
   @ApiProperty()
+  prefersVegan: boolean;
+
+  @ApiProperty()
+  prefersVegetarian: boolean;
+
+  @ApiProperty()
+  prefersGlutenFree: boolean;
+
+  @ApiProperty()
+  prefersLactoseFree: boolean;
+
+  @ApiProperty()
   createdAt: Date;
 
   static fromEntity(user: User): UserResponseDto {
@@ -31,6 +43,10 @@ export class UserResponseDto {
     dto.name = user.name;
     dto.locale = user.locale;
     dto.roles = user.roles;
+    dto.prefersVegan = user.prefersVegan;
+    dto.prefersVegetarian = user.prefersVegetarian;
+    dto.prefersGlutenFree = user.prefersGlutenFree;
+    dto.prefersLactoseFree = user.prefersLactoseFree;
     dto.createdAt = user.createdAt;
     return dto;
   }

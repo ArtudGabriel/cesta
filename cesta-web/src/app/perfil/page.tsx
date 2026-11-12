@@ -4,12 +4,17 @@ import {
   Bell,
   ChevronRight,
   Heart,
+  Leaf,
   List,
   Loader2,
   LogOut,
+  MilkOff,
   Pencil,
   Receipt,
+  Salad,
   ShoppingBasket,
+  Wheat,
+  type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -182,6 +187,10 @@ export default function PerfilPage() {
         </div>
       </section>
 
+      {/* Preferências dietéticas */}
+      <DietarySection profile={profile} />
+
+
       {/* Atajos */}
       <section className="px-4 pt-4">
         <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-muted">
@@ -229,6 +238,87 @@ export default function PerfilPage() {
         </ul>
       </section>
     </main>
+  );
+}
+
+type PrefKey =
+  | "prefersVegan"
+  | "prefersVegetarian"
+  | "prefersGlutenFree"
+  | "prefersLactoseFree";
+
+type DietLabel = "vegan" | "vegetarian" | "glutenFree" | "lactoseFree";
+
+const DIETARY_ROWS: Array<{ key: PrefKey; label: DietLabel; Icon: LucideIcon }> = [
+  { key: "prefersVegan", label: "vegan", Icon: Leaf },
+  { key: "prefersVegetarian", label: "vegetarian", Icon: Salad },
+  { key: "prefersGlutenFree", label: "glutenFree", Icon: Wheat },
+  { key: "prefersLactoseFree", label: "lactoseFree", Icon: MilkOff },
+];
+
+function DietarySection({
+  profile,
+}: {
+  profile: {
+    prefersVegan: boolean;
+    prefersVegetarian: boolean;
+    prefersGlutenFree: boolean;
+    prefersLactoseFree: boolean;
+  };
+}) {
+  const t = useTranslations("profile.dietary");
+  const tDiet = useTranslations("product.dietary");
+  const update = useUpdateProfile();
+  const [pending, setPending] = useState<PrefKey | null>(null);
+
+  async function toggle(key: PrefKey) {
+    setPending(key);
+    try {
+      await update.mutateAsync({ [key]: !profile[key] });
+    } finally {
+      setPending(null);
+    }
+  }
+
+  return (
+    <section className="px-4 pt-4">
+      <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-muted">
+        {t("title")}
+      </h2>
+      <div className="rounded-card bg-white p-4 shadow-sm">
+        <p className="mb-3 text-xs text-muted">{t("subtitle")}</p>
+        <ul className="divide-y divide-neutral-100">
+          {DIETARY_ROWS.map(({ key, label, Icon }) => {
+            const active = profile[key];
+            const isPending = pending === key;
+            return (
+              <li key={key} className="flex items-center gap-3 py-3">
+                <Icon className="h-5 w-5 text-muted" aria-hidden />
+                <span className="flex-1 text-sm text-ink">{tDiet(label)}</span>
+                <button
+                  type="button"
+                  onClick={() => toggle(key)}
+                  disabled={isPending}
+                  role="switch"
+                  aria-checked={active}
+                  className={cn(
+                    "relative inline-flex h-7 w-12 flex-shrink-0 items-center rounded-full transition-colors cursor-pointer disabled:opacity-60",
+                    active ? "bg-cesta-green" : "bg-neutral-300",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "inline-block h-5 w-5 transform rounded-full bg-white transition-transform",
+                      active ? "translate-x-6" : "translate-x-1",
+                    )}
+                  />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </section>
   );
 }
 
