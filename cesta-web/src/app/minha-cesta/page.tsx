@@ -13,6 +13,7 @@ import {
   UserCog,
 } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   useLatestBasket,
@@ -27,13 +28,15 @@ import { useAuthStore } from "@/stores/auth.store";
 export default function MyBasketPage() {
   const user = useAuthStore((s) => s.user);
   const { data: basket, isLoading } = useLatestBasket(Boolean(user));
+  const t = useTranslations("familyBasket");
+  const tNav = useTranslations("nav");
 
   if (!user) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-3 px-4">
-        <p className="text-sm text-muted">Inicia sesión para ver tu cesta familiar.</p>
+        <p className="text-sm text-muted">{t("loginRequired")}</p>
         <Button asChild size="sm">
-          <Link href="/login">Entrar</Link>
+          <Link href="/login">{t("loginCta")}</Link>
         </Button>
       </main>
     );
@@ -42,15 +45,15 @@ export default function MyBasketPage() {
   return (
     <main className="flex-1 pb-24">
       <header className="sticky top-0 z-10 flex items-center gap-3 bg-cream px-4 py-3">
-        <Button asChild size="icon" variant="ghost" aria-label="Volver">
+        <Button asChild size="icon" variant="ghost" aria-label={tNav("back")}>
           <Link href="/">
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>
         <h1 className="flex-1 font-display text-lg font-bold text-ink">
-          Mi Cesta familiar
+          {t("title")}
         </h1>
-        <Button asChild size="icon" variant="ghost" aria-label="Configurar">
+        <Button asChild size="icon" variant="ghost" aria-label={t("configure")}>
           <Link href="/minha-cesta/configurar">
             <UserCog className="h-5 w-5" />
           </Link>
@@ -75,39 +78,37 @@ export default function MyBasketPage() {
 }
 
 function EmptyState() {
+  const t = useTranslations("familyBasket");
   return (
     <div className="flex flex-col items-center gap-3 px-4 py-16 text-center">
       <h2 className="font-display text-xl font-bold text-ink">
-        Aún no tienes cesta
+        {t("emptyTitle")}
       </h2>
-      <p className="max-w-xs text-sm text-muted">
-        Configura el perfil de tu familia y Cesta generará una cesta de compras
-        mensual con costo estimado en cada supermercado.
-      </p>
+      <p className="max-w-xs text-sm text-muted">{t("emptySubtitle")}</p>
       <Button asChild className="mt-4">
-        <Link href="/minha-cesta/configurar">Configurar perfil</Link>
+        <Link href="/minha-cesta/configurar">{t("emptyCta")}</Link>
       </Button>
     </div>
   );
 }
 
 function PendingState() {
+  const t = useTranslations("familyBasket");
   return (
     <div className="flex flex-col items-center gap-3 px-4 py-16 text-center">
       <Loader2 className="h-6 w-6 animate-spin text-cesta-green" />
-      <p className="text-sm text-muted">Generando tu cesta…</p>
+      <p className="text-sm text-muted">{t("pending")}</p>
     </div>
   );
 }
 
 function FailedState({ message }: { message: string | null }) {
+  const t = useTranslations("familyBasket");
   return (
     <div className="flex flex-col items-center gap-3 px-4 py-16 text-center">
-      <p className="text-sm text-coral">
-        {message ?? "Error al generar la cesta."}
-      </p>
+      <p className="text-sm text-coral">{message ?? t("failedDefault")}</p>
       <Button asChild size="sm">
-        <Link href="/minha-cesta/configurar">Reintentar</Link>
+        <Link href="/minha-cesta/configurar">{t("failedCta")}</Link>
       </Button>
     </div>
   );
@@ -119,18 +120,18 @@ function ReadyBasket({
   basket: NonNullable<ReturnType<typeof useLatestBasket>["data"]>;
 }) {
   const regenerate = useRegenerateBasket(basket.id);
+  const t = useTranslations("familyBasket");
 
   return (
     <>
       <section className="px-4 py-4">
         <div className="rounded-card bg-cesta-green p-4 text-white">
-          <p className="text-xs opacity-80">Coste mensual estimado</p>
+          <p className="text-xs opacity-80">{t("costLabel")}</p>
           <p className="font-display text-3xl font-extrabold">
             {formatPrice(basket.estimatedCost)}
           </p>
           <p className="mt-1 text-xs opacity-80">
-            {basket.items.length}{" "}
-            {basket.items.length === 1 ? "producto" : "productos"}
+            {t("itemsCount", { count: basket.items.length })}
           </p>
         </div>
 
@@ -143,13 +144,13 @@ function ReadyBasket({
           <RefreshCw
             className={cn("h-4 w-4", regenerate.isPending && "animate-spin")}
           />
-          Regenerar (mantiene fijados y obligatorios)
+          {t("regenerate")}
         </Button>
       </section>
 
       <section className="px-4 py-4">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-          Productos
+          {t("productsHeader")}
         </h2>
         <ul className="space-y-2">
           {basket.items.map((item) => (
@@ -172,6 +173,7 @@ function BasketItemRow({
 }) {
   const updateItem = useUpdateBasketItem(basketId);
   const removeItem = useRemoveBasketItem(basketId);
+  const t = useTranslations("familyBasket");
 
   return (
     <div className="flex items-center gap-3 rounded-card bg-white p-3 shadow-card">
@@ -189,12 +191,12 @@ function BasketItemRow({
         <div className="mt-1 flex gap-1">
           {item.isRequired && (
             <span className="rounded-pill bg-amber/20 px-2 py-0.5 text-[10px] font-medium text-amber">
-              Obligatorio
+              {t("itemRequired")}
             </span>
           )}
           {item.isLocked && (
             <span className="rounded-pill bg-violet/20 px-2 py-0.5 text-[10px] font-medium text-violet">
-              Fijado
+              {t("itemLocked")}
             </span>
           )}
         </div>
@@ -209,7 +211,7 @@ function BasketItemRow({
             })
           }
           className="h-8 w-8 rounded-btn bg-surface flex items-center justify-center cursor-pointer hover:bg-border/40"
-          aria-label="Disminuir"
+          aria-label={t("itemDecrease")}
         >
           <Minus className="h-4 w-4" />
         </button>
@@ -224,7 +226,7 @@ function BasketItemRow({
             })
           }
           className="h-8 w-8 rounded-btn bg-surface flex items-center justify-center cursor-pointer hover:bg-border/40"
-          aria-label="Aumentar"
+          aria-label={t("itemIncrease")}
         >
           <Plus className="h-4 w-4" />
         </button>
@@ -239,7 +241,7 @@ function BasketItemRow({
             payload: { isLocked: !item.isLocked },
           })
         }
-        aria-label={item.isLocked ? "Desfijar" : "Fijar"}
+        aria-label={item.isLocked ? t("itemUnlock") : t("itemLock")}
       >
         {item.isLocked ? (
           <Lock className="h-4 w-4 text-violet" />
@@ -257,7 +259,7 @@ function BasketItemRow({
             payload: { isRequired: !item.isRequired },
           })
         }
-        aria-label={item.isRequired ? "Quitar obligatorio" : "Marcar obligatorio"}
+        aria-label={item.isRequired ? t("itemUnmarkRequired") : t("itemMarkRequired")}
       >
         <Pin
           className={cn("h-4 w-4", item.isRequired ? "text-amber" : "text-muted")}
@@ -268,7 +270,7 @@ function BasketItemRow({
         size="icon"
         variant="ghost"
         onClick={() => removeItem.mutate(item.id)}
-        aria-label="Eliminar"
+        aria-label={t("itemDelete")}
       >
         <Trash2 className="h-4 w-4 text-coral" />
       </Button>

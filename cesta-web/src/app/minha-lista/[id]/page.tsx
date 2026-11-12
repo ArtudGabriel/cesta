@@ -4,6 +4,7 @@ import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { AddProductModal } from "@/features/shopping-lists/components/add-product-modal";
 import { ListItemRow } from "@/features/shopping-lists/components/list-item-row";
@@ -22,6 +23,8 @@ export default function ListDetailPage() {
   const { data: totals } = useListTotals(listId);
   const deleteList = useDeleteList();
   const [showAdd, setShowAdd] = useState(false);
+  const t = useTranslations("myList");
+  const tNav = useTranslations("nav");
 
   if (isLoading) {
     return (
@@ -34,9 +37,9 @@ export default function ListDetailPage() {
   if (!list) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-4 px-4">
-        <p className="text-sm text-coral">Lista no encontrada.</p>
+        <p className="text-sm text-coral">{t("notFound")}</p>
         <Button asChild variant="secondary" size="sm">
-          <Link href="/minha-lista">Volver</Link>
+          <Link href="/minha-lista">{t("backToLists")}</Link>
         </Button>
       </main>
     );
@@ -45,7 +48,7 @@ export default function ListDetailPage() {
   return (
     <main className="flex-1 pb-24">
       <header className="sticky top-0 z-10 flex items-center gap-3 bg-cream px-4 py-3">
-        <Button asChild size="icon" variant="ghost" aria-label="Volver">
+        <Button asChild size="icon" variant="ghost" aria-label={tNav("back")}>
           <Link href="/minha-lista">
             <ArrowLeft className="h-5 w-5" />
           </Link>
@@ -56,9 +59,9 @@ export default function ListDetailPage() {
         <Button
           size="icon"
           variant="ghost"
-          aria-label="Eliminar lista"
+          aria-label={t("deleteList")}
           onClick={() => {
-            if (confirm("¿Eliminar esta lista?")) {
+            if (confirm(t("confirmDelete"))) {
               deleteList.mutate(list.id);
             }
           }}
@@ -70,13 +73,13 @@ export default function ListDetailPage() {
       <div className="px-4 py-2">
         <Button className="w-full" onClick={() => setShowAdd(true)}>
           <Plus className="h-4 w-4" />
-          Agregar producto
+          {t("addProduct")}
         </Button>
       </div>
 
       <section className="px-4 py-4">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-          Productos ({list.items?.length ?? 0})
+          {t("productsHeader", { count: list.items?.length ?? 0 })}
         </h2>
         {list.items && list.items.length > 0 ? (
           <div className="space-y-2">
@@ -85,16 +88,14 @@ export default function ListDetailPage() {
             ))}
           </div>
         ) : (
-          <p className="py-6 text-center text-sm text-muted">
-            Agrega productos para comparar precios entre supermercados.
-          </p>
+          <p className="py-6 text-center text-sm text-muted">{t("emptyItems")}</p>
         )}
       </section>
 
       {totals && list.items && list.items.length > 0 && (
         <section className="px-4 py-4">
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-            Total por supermercado
+            {t("totalsHeader")}
           </h2>
           <TotalsByMarket totals={totals} />
         </section>

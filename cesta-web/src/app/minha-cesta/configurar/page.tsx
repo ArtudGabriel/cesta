@@ -3,6 +3,7 @@
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,17 +27,17 @@ const INITIAL_MEMBERS: FamilyMembers = {
   seniors: 0,
 };
 
-const MEMBER_LABELS: Array<{
+const MEMBER_KEYS: Array<{
   key: keyof FamilyMembers;
-  label: string;
-  hint: string;
+  labelKey: "memberBabies" | "memberKids" | "memberChildren" | "memberTeens" | "memberAdults" | "memberSeniors";
+  hintKey: "memberBabiesHint" | "memberKidsHint" | "memberChildrenHint" | "memberTeensHint" | "memberAdultsHint" | "memberSeniorsHint";
 }> = [
-  { key: "babies", label: "Bebés", hint: "0 — 2 años" },
-  { key: "kids", label: "Niños pequeños", hint: "3 — 6 años" },
-  { key: "children", label: "Niños", hint: "7 — 12 años" },
-  { key: "teens", label: "Adolescentes", hint: "13 — 17 años" },
-  { key: "adults", label: "Adultos", hint: "18 — 59 años" },
-  { key: "seniors", label: "Mayores", hint: "60+ años" },
+  { key: "babies", labelKey: "memberBabies", hintKey: "memberBabiesHint" },
+  { key: "kids", labelKey: "memberKids", hintKey: "memberKidsHint" },
+  { key: "children", labelKey: "memberChildren", hintKey: "memberChildrenHint" },
+  { key: "teens", labelKey: "memberTeens", hintKey: "memberTeensHint" },
+  { key: "adults", labelKey: "memberAdults", hintKey: "memberAdultsHint" },
+  { key: "seniors", labelKey: "memberSeniors", hintKey: "memberSeniorsHint" },
 ];
 
 export default function ConfigurarCestaPage() {
@@ -47,6 +48,8 @@ export default function ConfigurarCestaPage() {
   const profile = useFamilyProfile(Boolean(user));
   const upsert = useUpsertProfile();
   const generate = useGenerateBasket();
+  const t = useTranslations("familyBasket");
+  const tNav = useTranslations("nav");
 
   const [step, setStep] = useState(1);
   const [members, setMembers] = useState<FamilyMembers>(INITIAL_MEMBERS);
@@ -76,9 +79,9 @@ export default function ConfigurarCestaPage() {
   if (!user) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-3 px-4">
-        <p className="text-sm text-muted">Inicia sesión para configurar tu cesta.</p>
+        <p className="text-sm text-muted">{t("configureLoginRequired")}</p>
         <Button asChild size="sm">
-          <Link href="/login">Entrar</Link>
+          <Link href="/login">{t("loginCta")}</Link>
         </Button>
       </main>
     );
@@ -87,43 +90,38 @@ export default function ConfigurarCestaPage() {
   return (
     <main className="flex-1 pb-24">
       <header className="sticky top-0 z-10 flex items-center gap-3 bg-cream px-4 py-3">
-        <Button asChild size="icon" variant="ghost" aria-label="Volver">
+        <Button asChild size="icon" variant="ghost" aria-label={tNav("back")}>
           <Link href="/minha-cesta">
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>
-        <h1 className="font-display text-lg font-bold text-ink">
-          Mi Cesta familiar
-        </h1>
+        <h1 className="font-display text-lg font-bold text-ink">{t("title")}</h1>
       </header>
 
       <div className="px-4 py-2">
         <div className="flex items-center gap-2 text-xs text-muted">
           <span className={step >= 1 ? "font-bold text-cesta-green" : ""}>
-            1. Familia
+            {t("wizardStep1")}
           </span>
           <span>›</span>
           <span className={step >= 2 ? "font-bold text-cesta-green" : ""}>
-            2. Hábitos
+            {t("wizardStep2")}
           </span>
           <span>›</span>
           <span className={step >= 3 ? "font-bold text-cesta-green" : ""}>
-            3. Restricciones
+            {t("wizardStep3")}
           </span>
         </div>
       </div>
 
-      {/* Step 1: membros */}
       {step === 1 && (
         <section className="space-y-3 px-4 py-4">
-          <p className="text-sm text-muted">
-            ¿Cuántas personas viven contigo? Separa por franja de edad.
-          </p>
-          {MEMBER_LABELS.map(({ key, label, hint }) => (
+          <p className="text-sm text-muted">{t("wizardMembersIntro")}</p>
+          {MEMBER_KEYS.map(({ key, labelKey, hintKey }) => (
             <MemberCounter
               key={key}
-              label={label}
-              hint={hint}
+              label={t(labelKey)}
+              hint={t(hintKey)}
               value={members[key]}
               onChange={(v) => setMembers((m) => ({ ...m, [key]: v }))}
             />
@@ -135,16 +133,15 @@ export default function ConfigurarCestaPage() {
               onClick={() => setStep(2)}
               disabled={totalMembers === 0}
             >
-              Siguiente
+              {t("wizardNext")}
             </Button>
           </div>
         </section>
       )}
 
-      {/* Step 2: perguntas */}
       {step === 2 && (
         <section className="space-y-3 px-4 py-4">
-          <p className="text-sm text-muted">Cuéntanos sobre los hábitos alimentarios.</p>
+          <p className="text-sm text-muted">{t("wizardHabitsIntro")}</p>
           {questions.isLoading ? (
             <div className="flex justify-center py-6">
               <Loader2 className="h-5 w-5 animate-spin text-cesta-green" />
@@ -163,26 +160,23 @@ export default function ConfigurarCestaPage() {
 
           <div className="sticky bottom-4 flex gap-2 pt-2">
             <Button variant="secondary" onClick={() => setStep(1)}>
-              Atrás
+              {t("wizardBack")}
             </Button>
             <Button className="flex-1" onClick={() => setStep(3)}>
-              Siguiente
+              {t("wizardNext")}
             </Button>
           </div>
         </section>
       )}
 
-      {/* Step 3: restrições */}
       {step === 3 && (
         <section className="space-y-3 px-4 py-4">
           <div className="rounded-card bg-white p-4 shadow-card">
-            <Label htmlFor="restrictions">Restricciones (opcional)</Label>
-            <p className="mb-2 text-xs text-muted">
-              Palabras clave separadas por comas (ej: sin_palma, sin_azucar).
-            </p>
+            <Label htmlFor="restrictions">{t("wizardRestrictionsLabel")}</Label>
+            <p className="mb-2 text-xs text-muted">{t("wizardRestrictionsHint")}</p>
             <Input
               id="restrictions"
-              placeholder="sin_palma, sin_azucar"
+              placeholder={t("wizardRestrictionsPlaceholder")}
               value={restrictionsText}
               onChange={(e) => setRestrictionsText(e.target.value)}
             />
@@ -190,7 +184,7 @@ export default function ConfigurarCestaPage() {
 
           <div className="sticky bottom-4 flex gap-2 pt-2">
             <Button variant="secondary" onClick={() => setStep(2)}>
-              Atrás
+              {t("wizardBack")}
             </Button>
             <Button
               className="flex-1"
@@ -200,7 +194,7 @@ export default function ConfigurarCestaPage() {
               {(upsert.isPending || generate.isPending) && (
                 <Loader2 className="h-4 w-4 animate-spin" />
               )}
-              Generar cesta
+              {t("wizardSubmit")}
             </Button>
           </div>
         </section>

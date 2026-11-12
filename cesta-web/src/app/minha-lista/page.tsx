@@ -3,6 +3,7 @@
 import { ArrowLeft, Loader2, Plus, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,29 +17,31 @@ export default function MyListsPage() {
   const createList = useCreateList();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
+  const t = useTranslations("myList");
+  const tNav = useTranslations("nav");
 
   return (
     <main className="flex-1 pb-16">
       <header className="sticky top-0 z-10 flex items-center gap-3 bg-cream px-4 py-3">
-        <Button asChild size="icon" variant="ghost" aria-label="Volver">
+        <Button asChild size="icon" variant="ghost" aria-label={tNav("back")}>
           <Link href="/">
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>
-        <h1 className="font-display text-xl font-bold text-ink">Mi Lista</h1>
+        <h1 className="font-display text-xl font-bold text-ink">{t("title")}</h1>
       </header>
 
       <div className="px-4 py-4">
         {!creating ? (
           <Button className="w-full" onClick={() => setCreating(true)}>
             <Plus className="h-4 w-4" />
-            Crear nueva lista
+            {t("createNew")}
           </Button>
         ) : (
           <div className="flex gap-2">
             <Input
               autoFocus
-              placeholder="Nombre de la lista"
+              placeholder={t("namePlaceholder")}
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => {
@@ -58,7 +61,7 @@ export default function MyListsPage() {
               {createList.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                "Crear"
+                t("createButton")
               )}
             </Button>
           </div>
@@ -73,11 +76,8 @@ export default function MyListsPage() {
         ) : !lists || lists.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <ShoppingBag className="h-12 w-12 text-muted" />
-            <p className="text-sm text-muted">Aún no tienes listas.</p>
-            <p className="text-xs text-muted">
-              Crea una lista con los productos que compras siempre y compara
-              precios entre supermercados.
-            </p>
+            <p className="text-sm text-muted">{t("emptyLists")}</p>
+            <p className="text-xs text-muted">{t("emptyListsHint")}</p>
           </div>
         ) : (
           <ul className="space-y-3">
@@ -93,13 +93,12 @@ export default function MyListsPage() {
                         {list.name}
                       </h3>
                       <p className="text-xs text-muted">
-                        {list.itemCount}{" "}
-                        {list.itemCount === 1 ? "producto" : "productos"}
+                        {t("productsCount", { count: list.itemCount })}
                       </p>
                     </div>
                     {list.cheapestTotal !== null && (
                       <div className="text-right">
-                        <p className="text-xs text-muted">desde</p>
+                        <p className="text-xs text-muted">{t("fromPrice")}</p>
                         <p className="text-lg font-bold text-cesta-green">
                           {formatPrice(list.cheapestTotal)}
                         </p>
