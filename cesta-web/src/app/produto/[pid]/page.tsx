@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { CreateAlertButton } from "@/features/alerts/components/create-alert-button";
 import { PriceComparisonGrid } from "@/features/catalog/components/price-comparison-grid";
+import { PriceHistoryChart } from "@/features/catalog/components/price-history-chart";
 import { useProduct, useSupermarkets } from "@/features/catalog/hooks/use-catalog";
 import { ReviewsSection } from "@/features/reviews/components/reviews-section";
 import { formatPrice } from "@/lib/utils";
@@ -111,6 +112,10 @@ export default function ProductDetailPage() {
           />
         </section>
       )}
+
+      <section className="px-4 py-4">
+        <PriceHistoryChart productId={product.id} />
+      </section>
 
       <section className="px-4 py-4">
         <h3 className="mb-3 font-display text-lg font-bold text-ink">

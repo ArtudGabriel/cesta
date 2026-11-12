@@ -1,13 +1,18 @@
 import { BadRequestException, Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/public.decorator';
+import { PriceHistoryQueryDto } from './dtos/price-history-query.dto';
 import { ProductFiltersDto } from './dtos/product-filters.dto';
+import { PriceHistoryService } from './price-history.service';
 import { ProductsService } from './products.service';
 
 @ApiTags('Products')
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly priceHistoryService: PriceHistoryService,
+  ) {}
 
   @Public()
   @Get()
@@ -34,5 +39,18 @@ export class ProductsController {
   @ApiOperation({ summary: 'Detalhe do produto com preços em todos os mercados' })
   findOne(@Param('id') id: string) {
     return this.productsService.findById(id);
+  }
+
+  @Public()
+  @Get(':id/price-history')
+  @ApiOperation({
+    summary:
+      'Histórico de preços por mercado (últimos N dias, max 90). Agrupa por mercado se supermarketId omitido.',
+  })
+  priceHistory(@Param('id') id: string, @Query() query: PriceHistoryQueryDto) {
+    return this.priceHistoryService.getSeries(id, {
+      supermarketId: query.supermarketId,
+      days: query.days,
+    });
   }
 }
