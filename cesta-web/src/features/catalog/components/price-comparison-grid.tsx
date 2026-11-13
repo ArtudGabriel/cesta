@@ -1,6 +1,7 @@
 "use client";
 
 import { Tag, AlertTriangle } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn, formatPrice } from "@/lib/utils";
 import { formatUnitPrice } from "../utils/format-unit-price";
 import { useLocale } from "../hooks/use-locale";
@@ -12,6 +13,7 @@ interface PriceComparisonGridProps {
 
 export function PriceComparisonGrid({ prices }: PriceComparisonGridProps) {
   const locale = useLocale();
+  const t = useTranslations("product");
 
   if (prices.length === 0) {
     return (
@@ -56,7 +58,7 @@ export function PriceComparisonGrid({ prices }: PriceComparisonGridProps) {
                 {formatUnitPrice(p.unitPrice, locale) ?? ""}
                 {p.isStale && (
                   <span className="ml-2 inline-flex items-center gap-1 text-amber">
-                    <AlertTriangle className="h-3 w-3" /> precio desactualizado
+                    <AlertTriangle className="h-3 w-3" /> {t("priceStale")}
                   </span>
                 )}
               </p>

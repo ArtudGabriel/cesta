@@ -270,6 +270,7 @@
     "notFound": "Produto não encontrado.",
     "backHome": "Voltar ao início",
     "pricesHeader": "Preços em cada supermercado",
+    "priceStale": "preço desatualizado",
     "reviewsHeader": "Avaliações",
     "nutritionHeader": "Informação nutricional",
     "nutritionBasis": "Por 100g / 100ml",
