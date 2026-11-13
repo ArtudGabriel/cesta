@@ -89,15 +89,7 @@ export default function FavoritosPage() {
     }
   }, [isHydrated, user, router]);
 
-  if (!isHydrated || !user) {
-    return (
-      <main className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-cesta-green" />
-      </main>
-    );
-  }
-
-  const favorites = data ?? [];
+  const favorites = useMemo(() => data ?? [], [data]);
   const filtered = useMemo(() => {
     if (dietary.size === 0) return favorites;
     return favorites.filter((fav) => {
@@ -121,6 +113,14 @@ export default function FavoritosPage() {
       return au - bu;
     });
   }, [filtered, sortMode]);
+
+  if (!isHydrated || !user) {
+    return (
+      <main className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-cesta-green" />
+      </main>
+    );
+  }
 
   function toggleSelect(productId: string) {
     setSelected((prev) => {
