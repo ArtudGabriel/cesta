@@ -219,6 +219,16 @@
     "dietary": {
       "title": "Minhas restrições alimentares",
       "subtitle": "Serão aplicadas como filtro inicial na busca"
+    },
+    "displayPrefs": {
+      "title": "Preferências de visualização",
+      "subtitle": "Serão aplicadas em todas as vistas",
+      "sortUnit": "Mostrar preço por unidade",
+      "sortUnitHelp": "Útil para comparar embalagens distintas",
+      "healthyOnly": "Destacar Nutri-Score A+B",
+      "healthyOnlyHelp": "Filtra a Home só com graus A ou B",
+      "sortNutri": "Ordenar por Nutri-Score",
+      "sortNutriHelp": "Prioriza produtos com melhor nota"
     }
   },
   "toast": {

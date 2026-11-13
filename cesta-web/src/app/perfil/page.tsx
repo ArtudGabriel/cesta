@@ -23,6 +23,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLogout } from "@/features/auth/hooks/use-auth";
+import { DisplayPreferencesSection } from "@/features/profile/components/display-preferences-section";
 import {
   useProfile,
   useUpdateProfile,
@@ -201,6 +202,8 @@ export default function PerfilPage() {
       {/* Preferências dietéticas */}
       <DietarySection profile={profile} />
 
+      {/* Preferências de visualização (Sprint 44) */}
+      <DisplayPreferencesSection profile={profile} />
 
       {/* Atajos */}
       <section className="px-4 pt-4">
