@@ -4,6 +4,9 @@ export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1",
   timeout: 15000,
   headers: { "Content-Type": "application/json" },
+  // fetch adapter garante intercept por MSW (setupServer/fetch) em testes jsdom.
+  // Em browser real axios escolhe XHR — zero diff funcional.
+  adapter: "fetch",
 });
 
 const ACCESS_TOKEN_KEY = "cesta_access_token";
