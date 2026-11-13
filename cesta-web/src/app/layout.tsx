@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { NextIntlClientProvider } from "next-intl";
-import { getLocale, getMessages } from "next-intl/server";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
 import { InstallPrompt } from "@/components/install-prompt";
@@ -8,26 +8,32 @@ import { SentryBoundary } from "@/components/sentry-boundary";
 import { QueryProvider } from "@/providers/query-provider";
 import { Toaster } from "sonner";
 
-export const metadata: Metadata = {
-  title: "Cesta — precios de supermercado en Madrid",
-  description:
-    "Compara precios, promociones y nutrición de Mercadona, Carrefour, Alcampo, LIDL y Froiz en Madrid, y controla tus gastos.",
-  applicationName: "Cesta",
-  manifest: "/manifest.webmanifest",
-  formatDetection: { telephone: false },
-  appleWebApp: {
-    capable: true,
-    title: "Cesta",
-    statusBarStyle: "default",
-  },
-  icons: {
-    icon: [
-      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
-    ],
-    apple: [{ url: "/icons/icon-192.png", sizes: "192x192" }],
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("meta.title");
+  return {
+    title: {
+      default: `${t("home")} · Cesta`,
+      template: "%s",
+    },
+    description:
+      "Compara precios, promociones y nutrición de Mercadona, Carrefour, Alcampo, LIDL y Froiz en Madrid, y controla tus gastos.",
+    applicationName: "Cesta",
+    manifest: "/manifest.webmanifest",
+    formatDetection: { telephone: false },
+    appleWebApp: {
+      capable: true,
+      title: "Cesta",
+      statusBarStyle: "default",
+    },
+    icons: {
+      icon: [
+        { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+        { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+      ],
+      apple: [{ url: "/icons/icon-192.png", sizes: "192x192" }],
+    },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#1b6b48",
