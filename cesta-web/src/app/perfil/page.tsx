@@ -47,7 +47,8 @@ export default function PerfilPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const isHydrated = useAuthStore((s) => s.isHydrated);
-  const { data: profile } = useProfile();
+  const clearSession = useAuthStore((s) => s.clear);
+  const { data: profile, isError } = useProfile();
   const update = useUpdateProfile();
   const logout = useLogout();
   const t = useTranslations("profile");
@@ -55,10 +56,18 @@ export default function PerfilPage() {
   const [nameDraft, setNameDraft] = useState("");
 
   useEffect(() => {
-    if (isHydrated && !user) {
+    if (!isHydrated) return;
+    if (!user) {
+      router.replace(`/login?returnUrl=${encodeURIComponent("/perfil")}`);
+      return;
+    }
+    // user existe mas fetch /users/me falhou → sessão inválida (token expirado
+    // sem refresh logic implementado). Limpa + redireciona.
+    if (isError) {
+      clearSession();
       router.replace(`/login?returnUrl=${encodeURIComponent("/perfil")}`);
     }
-  }, [isHydrated, user, router]);
+  }, [isHydrated, user, isError, router, clearSession]);
 
   if (!isHydrated || !user || !profile) {
     return (
