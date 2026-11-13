@@ -8,6 +8,22 @@
       }
     }
   },
+  "meta": {
+    "title": {
+      "home": "Inicio",
+      "alertas": "Mis alertas",
+      "comparar": "Comparar productos",
+      "favoritos": "Mis favoritos",
+      "gastos": "Mis gastos",
+      "gastosDetail": "Detalle del ticket",
+      "perfil": "Mi cuenta",
+      "minhaCesta": "Mi cesta familiar",
+      "configurar": "Configurar mi cesta",
+      "minhaLista": "Mis listas",
+      "minhaListaDetail": "Detalle de lista",
+      "produto": "Producto"
+    }
+  },
   "nav": {
     "home": "Inicio",
     "myList": "Mi lista",
@@ -78,7 +94,7 @@
     "deleteList": "Eliminar lista",
     "confirmDelete": "¿Eliminar esta lista?",
     "addProduct": "Agregar producto",
-    "productsHeader": "Productos ({count})",
+    "productsHeader": "{count, plural, =0 {Sin productos} =1 {1 producto} other {# productos distintos}} · {units, plural, =1 {1 unidad} other {# unidades}}",
     "emptyItems": "Agrega productos para comparar precios entre supermercados.",
     "totalsHeader": "Total por supermercado",
     "closeModal": "Cerrar",

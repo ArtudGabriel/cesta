@@ -116,7 +116,10 @@ export default function ListDetailPage() {
       <section className="px-4 py-4">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
-            {t("productsHeader", { count: list.items?.length ?? 0 })}
+            {t("productsHeader", {
+              count: list.items?.length ?? 0,
+              units: (list.items ?? []).reduce((sum, i) => sum + i.quantity, 0),
+            })}
           </h2>
           {list.items && list.items.length > 1 && (
             <UnitSortToggle
