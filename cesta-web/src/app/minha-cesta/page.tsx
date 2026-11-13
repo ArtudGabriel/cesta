@@ -13,6 +13,8 @@ import {
   UserCog,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,17 +29,22 @@ import { useAuthStore } from "@/stores/auth.store";
 
 export default function MyBasketPage() {
   const user = useAuthStore((s) => s.user);
+  const isHydrated = useAuthStore((s) => s.isHydrated);
+  const router = useRouter();
   const { data: basket, isLoading } = useLatestBasket(Boolean(user));
   const t = useTranslations("familyBasket");
   const tNav = useTranslations("nav");
 
-  if (!user) {
+  useEffect(() => {
+    if (isHydrated && !user) {
+      router.replace(`/login?returnUrl=${encodeURIComponent("/minha-cesta")}`);
+    }
+  }, [isHydrated, user, router]);
+
+  if (!isHydrated || !user) {
     return (
-      <main className="flex flex-1 flex-col items-center justify-center gap-3 px-4">
-        <p className="text-sm text-muted">{t("loginRequired")}</p>
-        <Button asChild size="sm">
-          <Link href="/login">{t("loginCta")}</Link>
-        </Button>
+      <main className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-cesta-green" />
       </main>
     );
   }

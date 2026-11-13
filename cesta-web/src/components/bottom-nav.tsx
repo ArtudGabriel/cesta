@@ -48,8 +48,8 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-// Rotas que ocultam a nav (fluxo auth)
-const HIDDEN_PREFIXES = ["/login", "/register"];
+// Rotas que ocultam a nav (fluxo auth + wizard sticky CTA)
+const HIDDEN_PREFIXES = ["/login", "/register", "/minha-cesta/configurar"];
 
 export function BottomNav() {
   const pathname = usePathname();

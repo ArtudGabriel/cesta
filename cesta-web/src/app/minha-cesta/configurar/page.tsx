@@ -2,6 +2,7 @@
 
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,8 @@ const MEMBER_KEYS: Array<{
 
 export default function ConfigurarCestaPage() {
   const user = useAuthStore((s) => s.user);
+  const isHydrated = useAuthStore((s) => s.isHydrated);
+  const router = useRouter();
   const locale = (user?.locale ?? "es") as "es" | "pt-BR";
 
   const questions = useDietaryQuestions();
@@ -64,6 +67,14 @@ export default function ConfigurarCestaPage() {
     }
   }, [profile.data]);
 
+  useEffect(() => {
+    if (isHydrated && !user) {
+      router.replace(
+        `/login?returnUrl=${encodeURIComponent("/minha-cesta/configurar")}`,
+      );
+    }
+  }, [isHydrated, user, router]);
+
   const totalMembers = Object.values(members).reduce((a, b) => a + b, 0);
 
   async function handleFinish() {
@@ -73,16 +84,14 @@ export default function ConfigurarCestaPage() {
       .filter(Boolean);
 
     await upsert.mutateAsync({ members, answers, restrictions });
-    generate.mutate();
+    await generate.mutateAsync();
+    router.push("/minha-cesta");
   }
 
-  if (!user) {
+  if (!isHydrated || !user) {
     return (
-      <main className="flex flex-1 flex-col items-center justify-center gap-3 px-4">
-        <p className="text-sm text-muted">{t("configureLoginRequired")}</p>
-        <Button asChild size="sm">
-          <Link href="/login">{t("loginCta")}</Link>
-        </Button>
+      <main className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-cesta-green" />
       </main>
     );
   }
