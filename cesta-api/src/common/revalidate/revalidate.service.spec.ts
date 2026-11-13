@@ -12,6 +12,13 @@ describe('RevalidateService', () => {
     return new RevalidateService(config);
   }
 
+  // Service agora é fire-and-forget: a promise interna resolve em microtasks.
+  // flush() awaita o próximo tick pra permitir then/catch rodar antes das
+  // asserções de log.
+  async function flushMicrotasks() {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+
   beforeEach(() => {
     fetchMock = jest.fn();
     global.fetch = fetchMock as unknown as typeof fetch;
@@ -19,33 +26,36 @@ describe('RevalidateService', () => {
 
   afterEach(() => {
     jest.resetAllMocks();
+    jest.useRealTimers();
   });
 
-  it('revalidateProducts com array vazio → não chama fetch', async () => {
+  it('revalidateProducts com array vazio → não chama fetch', () => {
     service = buildService({ WEB_URL: 'http://w', REVALIDATE_SECRET: 's' });
-    await service.revalidateProducts([]);
+    service.revalidateProducts([]);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('WEB_URL ausente → no-op', async () => {
+  it('WEB_URL ausente → no-op', () => {
     service = buildService({ REVALIDATE_SECRET: 's' });
-    await service.revalidateProducts(['p1']);
+    service.revalidateProducts(['p1']);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('REVALIDATE_SECRET ausente → no-op', async () => {
+  it('REVALIDATE_SECRET ausente → no-op', () => {
     service = buildService({ WEB_URL: 'http://w' });
-    await service.revalidateProducts(['p1']);
+    service.revalidateProducts(['p1']);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('config completa → POST com tags + header secret', async () => {
+  it('config completa → POST síncrono (fire-and-forget) com tags + header secret', () => {
     service = buildService({
       WEB_URL: 'http://web.local',
       REVALIDATE_SECRET: 'top-secret',
     });
     fetchMock.mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK' });
-    await service.revalidateProducts(['p1', 'p2']);
+
+    service.revalidateProducts(['p1', 'p2']);
+
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('http://web.local/api/revalidate');
@@ -56,21 +66,70 @@ describe('RevalidateService', () => {
     expect(JSON.parse(init.body as string)).toEqual({
       tags: ['product:p1', 'product:p2'],
     });
+    expect(init.signal).toBeInstanceOf(AbortSignal);
   });
 
-  it('webhook 401 → warn silencioso, não throw', async () => {
+  it('webhook ok → logger.debug success', async () => {
     service = buildService({ WEB_URL: 'http://w', REVALIDATE_SECRET: 's' });
+    const debugSpy = jest
+      .spyOn(service['logger'], 'debug')
+      .mockImplementation(() => undefined);
+    fetchMock.mockResolvedValueOnce({ ok: true, status: 200, statusText: 'OK' });
+
+    service.revalidateProducts(['p1']);
+    await flushMicrotasks();
+
+    expect(debugSpy).toHaveBeenCalledTimes(1);
+    expect(debugSpy.mock.calls[0][0]).toMatch(/Revalidate OK 1 tags/);
+  });
+
+  it('webhook 401 → logger.warn + não throw', async () => {
+    service = buildService({ WEB_URL: 'http://w', REVALIDATE_SECRET: 's' });
+    const warnSpy = jest
+      .spyOn(service['logger'], 'warn')
+      .mockImplementation(() => undefined);
     fetchMock.mockResolvedValueOnce({
       ok: false,
       status: 401,
       statusText: 'Unauthorized',
     });
-    await expect(service.revalidateProducts(['p1'])).resolves.toBeUndefined();
+
+    service.revalidateProducts(['p1']);
+    await flushMicrotasks();
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0][0]).toMatch(/Revalidate HTTP 401 1 tags/);
   });
 
-  it('fetch throw (network) → warn silencioso, não throw', async () => {
+  it('fetch throw (network) → logger.warn com reason', async () => {
     service = buildService({ WEB_URL: 'http://w', REVALIDATE_SECRET: 's' });
+    const warnSpy = jest
+      .spyOn(service['logger'], 'warn')
+      .mockImplementation(() => undefined);
     fetchMock.mockRejectedValueOnce(new Error('ECONNREFUSED'));
-    await expect(service.revalidateProducts(['p1'])).resolves.toBeUndefined();
+
+    service.revalidateProducts(['p1']);
+    await flushMicrotasks();
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0][0]).toMatch(
+      /Revalidate failed 1 tags .* ECONNREFUSED/,
+    );
+  });
+
+  it('AbortError → logger.warn reason "timeout 5000ms"', async () => {
+    service = buildService({ WEB_URL: 'http://w', REVALIDATE_SECRET: 's' });
+    const warnSpy = jest
+      .spyOn(service['logger'], 'warn')
+      .mockImplementation(() => undefined);
+    const err = new Error('aborted');
+    err.name = 'AbortError';
+    fetchMock.mockRejectedValueOnce(err);
+
+    service.revalidateProducts(['p1']);
+    await flushMicrotasks();
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    expect(warnSpy.mock.calls[0][0]).toMatch(/timeout 5000ms/);
   });
 });

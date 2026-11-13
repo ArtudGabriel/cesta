@@ -159,8 +159,8 @@ export class CatalogSyncService {
       );
 
       // Invalida cache SSR pros produtos cujo preço mudou. Fire-and-forget:
-      // falha do webhook não derruba o sync (RevalidateService já loga warn).
-      await this.revalidate.revalidateProducts([...updatedProductIds]);
+      // RevalidateService não bloqueia (sem await), timeout interno 5s.
+      this.revalidate.revalidateProducts([...updatedProductIds]);
 
       return {
         runId: run.id,

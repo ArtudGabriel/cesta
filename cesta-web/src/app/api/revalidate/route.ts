@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { revalidateTag } from "next/cache";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -5,8 +6,16 @@ interface RevalidateBody {
   tags: unknown;
 }
 
+// Constant-time comparison: previne timing side-channel na validação do secret.
+// timingSafeEqual exige buffers de mesmo tamanho — length check antes evita
+// throw e mantém short-circuit O(1) pra provided vazio ou tamanho diferente.
+function secretMatches(provided: string, expected: string): boolean {
+  if (provided.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
+}
+
 export async function POST(request: NextRequest) {
-  const secret = request.headers.get("x-revalidate-secret");
+  const provided = request.headers.get("x-revalidate-secret");
   const expected = process.env.REVALIDATE_SECRET;
 
   if (!expected) {
@@ -15,7 +24,7 @@ export async function POST(request: NextRequest) {
       { status: 503 },
     );
   }
-  if (secret !== expected) {
+  if (!provided || !secretMatches(provided, expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
