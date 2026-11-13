@@ -56,58 +56,82 @@ export interface UseRecentSearchesReturn {
 /**
  * Logado: sync backend via React Query.
  * Deslogado: localStorage (Sprint 25 pattern preservado).
- * API idêntica — consumers agnósticos da fonte.
+ *
+ * Ambos sub-hooks sempre chamados pra respeitar Rules of Hooks — cada um
+ * recebe `enabled` e no-op quando inativo. API retornada muda só no return.
  */
 export function useRecentSearches(): UseRecentSearchesReturn {
   const user = useAuthStore((s) => s.user);
   const isHydrated = useAuthStore((s) => s.isHydrated);
   const logged = isHydrated && Boolean(user);
-  return logged ? useBackendRecents() : useLocalRecents();
+
+  const backend = useBackendRecents({ enabled: logged });
+  const local = useLocalRecents({ enabled: !logged });
+
+  return logged ? backend : local;
 }
 
-function useLocalRecents(): UseRecentSearchesReturn {
+function useLocalRecents({ enabled }: { enabled: boolean }): UseRecentSearchesReturn {
   const [recents, setRecents] = useState<string[]>([]);
 
   useEffect(() => {
+    if (!enabled) {
+      setRecents([]);
+      return;
+    }
     setRecents(readStorage());
-  }, []);
+  }, [enabled]);
 
-  const add = useCallback((q: string) => {
-    const normalized = q.trim();
-    if (normalized.length < MIN_LENGTH) return;
-    setRecents((prev) => {
-      const lower = normalized.toLowerCase();
-      const filtered = prev.filter((v) => v.toLowerCase() !== lower);
-      const next = [normalized, ...filtered].slice(0, MAX);
-      writeStorage(next);
-      return next;
-    });
-  }, []);
+  const add = useCallback(
+    (q: string) => {
+      if (!enabled) return;
+      const normalized = q.trim();
+      if (normalized.length < MIN_LENGTH) return;
+      setRecents((prev) => {
+        const lower = normalized.toLowerCase();
+        const filtered = prev.filter((v) => v.toLowerCase() !== lower);
+        const next = [normalized, ...filtered].slice(0, MAX);
+        writeStorage(next);
+        return next;
+      });
+    },
+    [enabled],
+  );
 
-  const remove = useCallback((q: string) => {
-    setRecents((prev) => {
-      const lower = q.toLowerCase();
-      const next = prev.filter((v) => v.toLowerCase() !== lower);
-      writeStorage(next);
-      return next;
-    });
-  }, []);
+  const remove = useCallback(
+    (q: string) => {
+      if (!enabled) return;
+      setRecents((prev) => {
+        const lower = q.toLowerCase();
+        const next = prev.filter((v) => v.toLowerCase() !== lower);
+        writeStorage(next);
+        return next;
+      });
+    },
+    [enabled],
+  );
 
   const clear = useCallback(() => {
+    if (!enabled) return;
     writeStorage([]);
     setRecents([]);
-  }, []);
+  }, [enabled]);
 
   return { recents, add, remove, clear };
 }
 
-function useBackendRecents(): UseRecentSearchesReturn {
+function useBackendRecents({
+  enabled,
+}: {
+  enabled: boolean;
+}): UseRecentSearchesReturn {
   const qc = useQueryClient();
 
   const { data } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: searchHistoryService.list,
     staleTime: 60 * 1000,
+    enabled,
   });
 
   const addMutation = useMutation({
@@ -167,27 +191,30 @@ function useBackendRecents(): UseRecentSearchesReturn {
     onSettled: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
   });
 
-  const recents = (data ?? []).map((i) => i.query);
+  const recents = enabled ? (data ?? []).map((i) => i.query) : [];
 
   const add = useCallback(
     (q: string) => {
+      if (!enabled) return;
       const normalized = q.trim();
       if (normalized.length < MIN_LENGTH) return;
       addMutation.mutate(normalized);
     },
-    [addMutation],
+    [enabled, addMutation],
   );
 
   const remove = useCallback(
     (q: string) => {
+      if (!enabled) return;
       removeMutation.mutate(q);
     },
-    [removeMutation],
+    [enabled, removeMutation],
   );
 
   const clear = useCallback(() => {
+    if (!enabled) return;
     clearMutation.mutate();
-  }, [clearMutation]);
+  }, [enabled, clearMutation]);
 
   return { recents, add, remove, clear };
 }
