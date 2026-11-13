@@ -4,6 +4,7 @@ import { getLocale, getMessages } from "next-intl/server";
 import "./globals.css";
 import { BottomNav } from "@/components/bottom-nav";
 import { InstallPrompt } from "@/components/install-prompt";
+import { SentryBoundary } from "@/components/sentry-boundary";
 import { QueryProvider } from "@/providers/query-provider";
 import { Toaster } from "sonner";
 
@@ -50,12 +51,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-full flex flex-col bg-cream text-ink pb-16">
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <QueryProvider>
-            {children}
-            <BottomNav />
-          </QueryProvider>
-          <InstallPrompt />
-          <Toaster position="top-center" richColors />
+          <SentryBoundary>
+            <QueryProvider>
+              {children}
+              <BottomNav />
+            </QueryProvider>
+            <InstallPrompt />
+            <Toaster position="top-center" richColors />
+          </SentryBoundary>
         </NextIntlClientProvider>
       </body>
     </html>

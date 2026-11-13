@@ -32,3 +32,5 @@ services:
         value: disabled
       - key: VAPID_SUBJECT
         value: mailto:contact@cesta.app
+      - key: SENTRY_DSN
+        sync: false

@@ -1,4 +1,13 @@
 {
+  "common": {
+    "error": {
+      "boundary": {
+        "title": "Algo salió mal",
+        "body": "Hubo un problema inesperado. Intenta recargar.",
+        "retry": "Recargar"
+      }
+    }
+  },
   "nav": {
     "home": "Inicio",
     "myList": "Mi lista",
