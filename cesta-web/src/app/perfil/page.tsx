@@ -28,6 +28,7 @@ import {
   useProfile,
   useUpdateProfile,
 } from "@/features/profile/hooks/use-profile";
+import { useSyncDietary } from "@/features/profile/hooks/use-sync-dietary";
 import { useAuthStore } from "@/stores/auth.store";
 import { cn } from "@/lib/utils";
 
@@ -36,13 +37,20 @@ const LOCALE_OPTIONS: Array<{ value: "es" | "pt-BR"; label: string }> = [
   { value: "pt-BR", label: "Português (BR)" },
 ];
 
-const SHORTCUTS = [
-  { label: "Favoritos", href: "/favoritos", icon: Heart },
-  { label: "Mi lista", href: "/minha-lista", icon: List },
-  { label: "Mis gastos", href: "/gastos", icon: Receipt },
-  { label: "Mis alertas", href: "/alertas", icon: Bell },
-  { label: "Mi cesta familiar", href: "/minha-cesta", icon: ShoppingBasket },
-] as const;
+type ShortcutKey =
+  | "favorites"
+  | "myList"
+  | "expenses"
+  | "alerts"
+  | "familyBasket";
+
+const SHORTCUTS: Array<{ key: ShortcutKey; href: string; icon: typeof Heart }> = [
+  { key: "favorites", href: "/favoritos", icon: Heart },
+  { key: "myList", href: "/minha-lista", icon: List },
+  { key: "expenses", href: "/gastos", icon: Receipt },
+  { key: "alerts", href: "/alertas", icon: Bell },
+  { key: "familyBasket", href: "/minha-cesta", icon: ShoppingBasket },
+];
 
 export default function PerfilPage() {
   const router = useRouter();
@@ -208,17 +216,17 @@ export default function PerfilPage() {
       {/* Atajos */}
       <section className="px-4 pt-4">
         <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-muted">
-          Atajos
+          {t("shortcuts.title")}
         </h2>
         <ul className="divide-y divide-neutral-100 overflow-hidden rounded-card bg-white shadow-sm">
-          {SHORTCUTS.map(({ label, href, icon: Icon }) => (
+          {SHORTCUTS.map(({ key, href, icon: Icon }) => (
             <li key={href}>
               <Link
                 href={href}
                 className="flex min-h-[48px] items-center gap-3 px-4 py-3 text-sm font-medium text-ink hover:bg-surface"
               >
                 <Icon className="h-5 w-5 text-muted" />
-                <span className="flex-1">{label}</span>
+                <span className="flex-1">{t(`shortcuts.${key}`)}</span>
                 <ChevronRight className="h-4 w-4 text-neutral-400" />
               </Link>
             </li>
@@ -229,13 +237,13 @@ export default function PerfilPage() {
       {/* Cuenta */}
       <section className="px-4 pt-4">
         <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-muted">
-          Cuenta
+          {t("account.title")}
         </h2>
         <ul className="divide-y divide-neutral-100 overflow-hidden rounded-card bg-white shadow-sm">
           <li className="flex min-h-[48px] items-center gap-3 px-4 py-3 text-sm opacity-60">
-            <span className="flex-1 text-ink">Cambiar contraseña</span>
+            <span className="flex-1 text-ink">{t("account.changePassword")}</span>
             <span className="rounded-pill bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold text-neutral-500">
-              Próximamente
+              {t("account.comingSoon")}
             </span>
           </li>
           <li>
@@ -246,7 +254,7 @@ export default function PerfilPage() {
               className="flex min-h-[48px] w-full items-center gap-3 px-4 py-3 text-sm font-semibold text-rose-600 hover:bg-rose-50 cursor-pointer disabled:opacity-60"
             >
               <LogOut className="h-5 w-5" />
-              <span className="flex-1 text-left">Cerrar sesión</span>
+              <span className="flex-1 text-left">{t("account.logout")}</span>
             </button>
           </li>
         </ul>
@@ -281,9 +289,17 @@ function DietarySection({
   };
 }) {
   const t = useTranslations("profile.dietary");
+  const tSync = useTranslations("profile.syncDietary");
   const tDiet = useTranslations("product.dietary");
   const update = useUpdateProfile();
+  const sync = useSyncDietary();
   const [pending, setPending] = useState<PrefKey | null>(null);
+
+  const anyPrefActive =
+    profile.prefersVegan ||
+    profile.prefersVegetarian ||
+    profile.prefersGlutenFree ||
+    profile.prefersLactoseFree;
 
   async function toggle(key: PrefKey) {
     setPending(key);
@@ -331,6 +347,21 @@ function DietarySection({
             );
           })}
         </ul>
+        <button
+          type="button"
+          onClick={() => sync.mutate()}
+          disabled={!anyPrefActive || sync.isPending}
+          className={cn(
+            "mt-4 inline-flex h-11 w-full items-center justify-center rounded-pill border border-cesta-green px-4 text-sm font-medium text-cesta-green cursor-pointer transition-colors",
+            "hover:bg-cesta-green hover:text-white",
+            "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-cesta-green",
+          )}
+        >
+          {sync.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : null}
+          {tSync("button")}
+        </button>
       </div>
     </section>
   );

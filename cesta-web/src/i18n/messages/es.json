@@ -54,6 +54,9 @@
     },
     "lists": {
       "notFound": "Lista no encontrada"
+    },
+    "familyProfile": {
+      "notFound": "Primero configura tu cesta familiar"
     }
   },
   "meta": {
@@ -229,6 +232,24 @@
       "healthyOnlyHelp": "Filtra la Home solo con grados A o B",
       "sortNutri": "Ordenar por Nutri-Score",
       "sortNutriHelp": "Prioriza productos con mejor calificación"
+    },
+    "shortcuts": {
+      "title": "Atajos",
+      "favorites": "Favoritos",
+      "myList": "Mi lista",
+      "expenses": "Mis gastos",
+      "alerts": "Mis alertas",
+      "familyBasket": "Mi cesta familiar"
+    },
+    "account": {
+      "title": "Cuenta",
+      "changePassword": "Cambiar contraseña",
+      "comingSoon": "Próximamente",
+      "logout": "Cerrar sesión"
+    },
+    "syncDietary": {
+      "button": "Aplicar mis restricciones a la cesta familiar",
+      "success": "Restricciones aplicadas a tu cesta familiar"
     }
   },
   "toast": {

@@ -26,4 +26,14 @@ export class FamilyProfilesRepository {
       update: data,
     });
   }
+
+  updateRestrictions(
+    userId: string,
+    restrictions: string[],
+  ): Promise<FamilyProfile> {
+    return this.prisma.familyProfile.update({
+      where: { userId },
+      data: { restrictions },
+    });
+  }
 }
