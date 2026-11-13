@@ -52,9 +52,23 @@ model User {
   alerts             Alert[]
   pushSubscriptions  PushSubscription[]
   favorites          Favorite[]
+  searchHistory      SearchHistory[]
 
   @@index([deletedAt])
   @@map("users")
+}
+
+model SearchHistory {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  query     String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, query])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("search_history")
 }
 
 model RefreshToken {
