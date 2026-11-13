@@ -176,9 +176,8 @@ function AlertCard({ alert }: { alert: Alert }) {
             size="icon"
             variant="ghost"
             aria-label={t("actionDelete")}
-            onClick={() => {
-              if (confirm(t("confirmDelete"))) remove.mutate(alert.id);
-            }}
+            onClick={() => remove.mutate(alert.id)}
+            disabled={remove.isPending}
           >
             <Trash2 className="h-4 w-4 text-coral" />
           </Button>
