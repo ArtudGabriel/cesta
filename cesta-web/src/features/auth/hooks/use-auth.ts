@@ -18,6 +18,15 @@ function safeReturnUrl(raw: string | null): string {
   return raw;
 }
 
+// Sincroniza cookie cesta:locale com profile.locale pós-login/register —
+// SSR hierarchy (cookie > Accept-Language > default) agora respeita profile
+// do user logado sem depender de /perfil toggle manual.
+function syncLocaleCookie(locale: string): void {
+  if (typeof document === "undefined") return;
+  if (locale !== "es" && locale !== "pt-BR") return;
+  document.cookie = `cesta:locale=${locale}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
+}
+
 export function useMe() {
   const user = useAuthStore((s) => s.user);
   return useQuery({
@@ -39,6 +48,7 @@ export function useLogin() {
     mutationFn: (payload: LoginPayload) => authService.login(payload),
     onSuccess: ({ user, tokens }) => {
       setSession(user, tokens);
+      syncLocaleCookie(user.locale);
       qc.setQueryData(AUTH_QUERY_KEY, user);
       qc.removeQueries({ queryKey: PROFILE_KEY });
       toast.success(t("success.welcome"));
@@ -61,6 +71,7 @@ export function useRegister() {
     mutationFn: (payload: RegisterPayload) => authService.register(payload),
     onSuccess: ({ user, tokens }) => {
       setSession(user, tokens);
+      syncLocaleCookie(user.locale);
       qc.setQueryData(AUTH_QUERY_KEY, user);
       qc.removeQueries({ queryKey: PROFILE_KEY });
       toast.success(t("success.accountCreated"));
