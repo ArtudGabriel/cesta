@@ -1,5 +1,6 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
+import { RevalidateModule } from '../../common/revalidate/revalidate.module';
 import { PRICE_ALERTS_QUEUE } from '../alerts/alerts.processor';
 import { AlcampoAdapter } from './adapters/alcampo.adapter';
 import { AldiAdapter } from './adapters/aldi.adapter';
@@ -18,6 +19,7 @@ import { CatalogSyncService } from './catalog-sync.service';
 
 @Module({
   imports: [
+    RevalidateModule,
     BullModule.registerQueue(
       { name: CATALOG_SYNC_QUEUE },
       { name: PRICE_ALERTS_QUEUE },

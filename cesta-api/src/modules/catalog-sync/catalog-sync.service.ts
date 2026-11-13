@@ -1,6 +1,7 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Queue } from 'bullmq';
+import { RevalidateService } from '../../common/revalidate/revalidate.service';
 import {
   PRICE_ALERTS_QUEUE,
   PriceAlertCheckJob,
@@ -37,6 +38,7 @@ export class CatalogSyncService {
 
   constructor(
     private readonly repo: CatalogSyncRepository,
+    private readonly revalidate: RevalidateService,
     mercadona: MercadonaAdapter,
     carrefour: CarrefourAdapter,
     alcampo: AlcampoAdapter,
@@ -79,6 +81,7 @@ export class CatalogSyncService {
       itemsCandidate: 0,
       itemsFailed: 0,
     };
+    const updatedProductIds = new Set<string>();
 
     try {
       const raws = await adapter.fetchProducts();
@@ -114,6 +117,7 @@ export class CatalogSyncService {
 
           if (created) stats.itemsCreated += 1;
           else stats.itemsUpdated += 1;
+          updatedProductIds.add(product.id);
 
           // Enfileira verificação de alertas (dedupe via jobId)
           await this.alertsQueue.add(
@@ -153,6 +157,10 @@ export class CatalogSyncService {
       this.logger.log(
         `Sync ${supermarketSlug}: ${stats.itemsProcessed} processados, ${stats.itemsCreated} criados, ${stats.itemsUpdated} atualizados, ${stats.itemsCandidate} candidatos, ${stats.itemsFailed} falhas`,
       );
+
+      // Invalida cache SSR pros produtos cujo preço mudou. Fire-and-forget:
+      // falha do webhook não derruba o sync (RevalidateService já loga warn).
+      await this.revalidate.revalidateProducts([...updatedProductIds]);
 
       return {
         runId: run.id,

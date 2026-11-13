@@ -34,3 +34,7 @@ services:
         value: mailto:contact@cesta.app
       - key: SENTRY_DSN
         sync: false
+      - key: WEB_URL
+        sync: false
+      - key: REVALIDATE_SECRET
+        sync: false
