@@ -7,16 +7,18 @@ type TranslateFn = ReturnType<typeof useTranslations>;
 
 /**
  * Mapeia errorCode namespaced do backend pra chave i18n `errors.<ns>.<key>`.
- * Ex: "AUTH.INVALID_CREDENTIALS" → "errors.auth.invalidCredentials"
+ * Ex: "AUTH.INVALID_CREDENTIALS" → "auth.invalidCredentials"
+ *     "FAMILY_PROFILE.NOT_FOUND" → "familyProfile.notFound"
  */
+function toCamel(snake: string): string {
+  return snake.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+}
+
 function errorCodeToI18nKey(errorCode: string): string {
   const parts = errorCode.toLowerCase().split(".");
   if (parts.length < 2) return "fallback";
-  const ns = parts[0];
-  const key = parts
-    .slice(1)
-    .join("_")
-    .replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+  const ns = toCamel(parts[0]);
+  const key = toCamel(parts.slice(1).join("_"));
   return `${ns}.${key}`;
 }
 
