@@ -87,7 +87,10 @@ export function BottomNav() {
                 )}
               >
                 <Icon
-                  className={cn("h-5 w-5", active && "stroke-[2.5]")}
+                  className={cn(
+                    "h-5 w-5 transition-transform",
+                    active && (Icon === Heart ? "fill-current" : "stroke-[2.5] scale-110"),
+                  )}
                   aria-hidden
                 />
                 <span

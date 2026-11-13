@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
+import { FormSkeleton } from "@/features/auth/components/form-skeleton";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { LoginHeading } from "./login-heading";
 
@@ -13,13 +14,9 @@ export default function LoginPage() {
   return (
     <div>
       <LoginHeading />
-      <Suspense fallback={<FormSkeleton />}>
+      <Suspense fallback={<FormSkeleton rows={2} />}>
         <LoginForm />
       </Suspense>
     </div>
   );
-}
-
-function FormSkeleton() {
-  return <div className="h-72 animate-pulse rounded-card bg-neutral-100" />;
 }

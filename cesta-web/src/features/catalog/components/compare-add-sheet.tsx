@@ -28,8 +28,15 @@ export function CompareAddSheet({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end bg-black/40 md:items-center md:justify-center">
-      <div className="w-full rounded-t-2xl bg-cream p-4 md:max-w-lg md:rounded-2xl">
+    <div
+      onClick={onClose}
+      role="presentation"
+      className="fixed inset-0 z-50 flex items-end bg-black/40 md:items-center md:justify-center"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full rounded-t-2xl bg-cream p-4 md:max-w-lg md:rounded-2xl"
+      >
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-display text-lg font-semibold text-ink">
             Agregar producto
@@ -53,7 +60,6 @@ export function CompareAddSheet({
         <div className="relative mb-3">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
           <Input
-            autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar producto…"

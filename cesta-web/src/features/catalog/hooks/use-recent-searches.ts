@@ -19,12 +19,22 @@ function readStorage(): string[] {
   }
 }
 
+// Flag module-level pra não repetir warning (quota cheia = tende a disparar
+// a cada add). Primeira ocorrência console.warn, resto silencioso.
+let quotaWarned = false;
+
 function writeStorage(items: string[]): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  } catch {
-    // quota exceeded ou localStorage bloqueado — ignorar
+  } catch (err) {
+    if (!quotaWarned) {
+      quotaWarned = true;
+      console.warn(
+        "[cesta] localStorage write failed (quota or disabled). Recent searches won't persist.",
+        err,
+      );
+    }
   }
 }
 
