@@ -4,7 +4,9 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-const NO_PADDING_PREFIXES = ["/login", "/register"];
+// Alinhar com HIDDEN_PREFIXES do bottom-nav.tsx: rotas sem nav também não
+// precisam de padding bottom (padding seria espaço morto).
+const NO_PADDING_PREFIXES = ["/login", "/register", "/minha-cesta/configurar"];
 
 /**
  * Aplica `pb-16` no body wrapper salvo em rotas auth (onde BottomNav está
