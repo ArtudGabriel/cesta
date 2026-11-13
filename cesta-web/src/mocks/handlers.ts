@@ -136,4 +136,6 @@ export const handlers = [
       { status: 201 },
     );
   }),
+  http.delete(`${API}/search-history/:q`, () => new HttpResponse(null, { status: 204 })),
+  http.delete(`${API}/search-history`, () => new HttpResponse(null, { status: 204 })),
 ];
