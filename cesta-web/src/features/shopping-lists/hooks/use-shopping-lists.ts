@@ -8,6 +8,7 @@ import {
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { shoppingListsService } from "../services/shopping-lists.service";
+import type { ShoppingList } from "../types/shopping-list.types";
 
 export const LIST_KEYS = {
   all: ["shopping-lists"] as const,
@@ -22,11 +23,15 @@ export function useLists() {
   });
 }
 
-export function useList(id: string) {
+export function useList(
+  id: string,
+  options?: { initialData?: ShoppingList },
+) {
   return useQuery({
     queryKey: LIST_KEYS.one(id),
     queryFn: () => shoppingListsService.get(id),
     enabled: Boolean(id),
+    initialData: options?.initialData,
   });
 }
 
