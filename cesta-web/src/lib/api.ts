@@ -10,6 +10,8 @@ export const api = axios.create({
 });
 
 const ACCESS_TOKEN_KEY = "cesta_access_token";
+// JWT access expira em 15m (JWT_ACCESS_EXPIRES_IN). Cookie max-age casa com isso.
+const COOKIE_MAX_AGE = 15 * 60;
 
 export function getAccessToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -18,8 +20,16 @@ export function getAccessToken(): string | null {
 
 export function setAccessToken(token: string | null): void {
   if (typeof window === "undefined") return;
-  if (token) window.localStorage.setItem(ACCESS_TOKEN_KEY, token);
-  else window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+  if (token) {
+    window.localStorage.setItem(ACCESS_TOKEN_KEY, token);
+    // Mesmo cookie name que lib/api — Next.js RSC lê via next/headers cookies()
+    // pra reconstruir Authorization: Bearer no fetch SSR. Não httpOnly porque
+    // precisa setar do client; mesma superficie XSS que localStorage.
+    document.cookie = `${ACCESS_TOKEN_KEY}=${token}; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax`;
+  } else {
+    window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+    document.cookie = `${ACCESS_TOKEN_KEY}=; path=/; max-age=0; samesite=lax`;
+  }
 }
 
 api.interceptors.request.use((config) => {

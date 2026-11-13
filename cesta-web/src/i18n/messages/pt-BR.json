@@ -324,6 +324,18 @@
     "unknownMarket": "Supermercado desconhecido",
     "processing": "Processando…",
     "failed": "Falhou",
+    "detail": {
+      "notFound": "Não encontramos este ticket.",
+      "defaultTitle": "Ticket",
+      "removeAria": "Excluir",
+      "confirmRemove": "Excluir este ticket?",
+      "processingOcr": "Processando OCR…",
+      "errorDefault": "Erro ao processar o ticket.",
+      "ticketAlt": "Ticket",
+      "total": "Total",
+      "productsCount": "Produtos ({count})",
+      "notIdentified": "não identificado"
+    },
     "dashboard": {
       "period": {
         "day": "Hoje",
