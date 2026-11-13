@@ -49,6 +49,7 @@
     "searching": "Buscando…",
     "clearSearch": "Limpiar búsqueda",
     "searchPlaceholder": "Buscar producto…",
+    "onlyPromotion": "Solo en promoción",
     "suggestions": {
       "empty": "Sin sugerencias para \"{query}\"",
       "loading": "Buscando sugerencias…",
@@ -226,7 +227,19 @@
     "empty": "Aún no has escaneado ningún ticket.",
     "unknownMarket": "Supermercado desconocido",
     "processing": "Procesando…",
-    "failed": "Falló"
+    "failed": "Falló",
+    "dashboard": {
+      "period": {
+        "day": "Hoy",
+        "week": "Semana",
+        "month": "Mes"
+      },
+      "totalSpent": "Total gastado",
+      "purchasesCount": "{count} compras",
+      "deltaVsPrevious": "{pct}% vs período anterior",
+      "byCategory": "Por categoría",
+      "bySupermarket": "Por supermercado"
+    }
   },
   "alerts": {
     "title": "Mis alertas",

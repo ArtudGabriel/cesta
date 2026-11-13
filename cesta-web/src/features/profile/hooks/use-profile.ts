@@ -14,10 +14,14 @@ import { useAuthStore } from "@/stores/auth.store";
 export const PROFILE_KEY = ["profile", "me"] as const;
 
 export function useProfile() {
-  // Sempre tenta — 401 é tratado pelo axios interceptor (que limpa sessão)
+  const user = useAuthStore((s) => s.user);
+  const isHydrated = useAuthStore((s) => s.isHydrated);
+  // Só dispara após hydration + user logado. Evita 401 em SSR/primeira render
+  // (que acionava redirect falso-positivo em /perfil — regressão Sprint 35).
   return useQuery({
     queryKey: PROFILE_KEY,
     queryFn: profileService.me,
+    enabled: isHydrated && Boolean(user),
     staleTime: 5 * 60 * 1000,
     retry: false,
   });

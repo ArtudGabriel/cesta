@@ -48,10 +48,24 @@ export function useDeleteAlert() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => alertsService.remove(id),
+    onMutate: async (id) => {
+      // Optimistic: remove do cache imediatamente pra feedback visual rápido.
+      await qc.cancelQueries({ queryKey: ALERT_KEYS.all });
+      const prev = qc.getQueryData<CreateAlertPayload[]>(ALERT_KEYS.all);
+      qc.setQueryData<unknown[]>(ALERT_KEYS.all, (old) => {
+        if (!Array.isArray(old)) return old;
+        return old.filter((a) => (a as { id?: string }).id !== id);
+      });
+      return { prev };
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ALERT_KEYS.all });
       toast.success("Alerta eliminada");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error, _id, ctx) => {
+      // Restaura cache em caso de falha.
+      if (ctx?.prev !== undefined) qc.setQueryData(ALERT_KEYS.all, ctx.prev);
+      toast.error(err.message);
+    },
   });
 }

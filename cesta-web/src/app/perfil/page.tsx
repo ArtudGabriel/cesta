@@ -45,7 +45,9 @@ const SHORTCUTS = [
 
 export default function PerfilPage() {
   const router = useRouter();
-  const { data: profile, isPending, isError } = useProfile();
+  const user = useAuthStore((s) => s.user);
+  const isHydrated = useAuthStore((s) => s.isHydrated);
+  const { data: profile } = useProfile();
   const update = useUpdateProfile();
   const logout = useLogout();
   const t = useTranslations("profile");
@@ -53,12 +55,12 @@ export default function PerfilPage() {
   const [nameDraft, setNameDraft] = useState("");
 
   useEffect(() => {
-    if (isError) {
+    if (isHydrated && !user) {
       router.replace(`/login?returnUrl=${encodeURIComponent("/perfil")}`);
     }
-  }, [isError, router]);
+  }, [isHydrated, user, router]);
 
-  if (isPending || !profile) {
+  if (!isHydrated || !user || !profile) {
     return (
       <main className="flex min-h-[60vh] items-center justify-center">
         <Loader2 className="h-6 w-6 animate-spin text-cesta-green" />

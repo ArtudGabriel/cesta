@@ -311,7 +311,7 @@ export default function HomePage() {
             onChange={(e) => setOnPromotion(e.target.checked)}
             className="h-4 w-4 accent-cesta-green"
           />
-          Solo en promoción
+          {t("onlyPromotion")}
         </label>
         <div className="inline-flex flex-wrap items-center gap-2 text-xs text-muted">
           <span className={cn(sortByNutri && "opacity-40")}>

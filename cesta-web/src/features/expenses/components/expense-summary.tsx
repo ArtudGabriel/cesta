@@ -2,6 +2,7 @@
 
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { cn, formatPrice } from "@/lib/utils";
 import {
   useExpenseSummary,
@@ -10,22 +11,23 @@ import {
 } from "../hooks/use-expenses";
 import type { Period } from "../types/expense.types";
 
-const PERIODS: Array<{ value: Period; label: string }> = [
-  { value: "day", label: "Hoy" },
-  { value: "week", label: "Semana" },
-  { value: "month", label: "Mes" },
-];
-
 export function ExpenseDashboard() {
+  const t = useTranslations("expenses.dashboard");
   const [period, setPeriod] = useState<Period>("month");
   const summary = useExpenseSummary(period);
   const byCategory = useExpensesByCategory(period);
   const bySupermarket = useExpensesBySupermarket(period);
 
+  const periods: Array<{ value: Period; labelKey: "day" | "week" | "month" }> = [
+    { value: "day", labelKey: "day" },
+    { value: "week", labelKey: "week" },
+    { value: "month", labelKey: "month" },
+  ];
+
   return (
     <div className="space-y-4">
       <div className="flex gap-2 rounded-pill bg-surface p-1">
-        {PERIODS.map((p) => (
+        {periods.map((p) => (
           <button
             key={p.value}
             onClick={() => setPeriod(p.value)}
@@ -36,19 +38,19 @@ export function ExpenseDashboard() {
                 : "text-muted hover:text-ink",
             )}
           >
-            {p.label}
+            {t(`period.${p.labelKey}`)}
           </button>
         ))}
       </div>
 
       {summary.data && (
         <div className="rounded-card bg-cesta-green p-4 text-white">
-          <p className="text-xs opacity-80">Total gastado</p>
+          <p className="text-xs opacity-80">{t("totalSpent")}</p>
           <p className="font-display text-3xl font-extrabold">
             {formatPrice(summary.data.total)}
           </p>
           <div className="mt-2 flex items-center gap-2 text-xs opacity-80">
-            <span>{summary.data.count} compras</span>
+            <span>{t("purchasesCount", { count: summary.data.count })}</span>
             {summary.data.previousTotal > 0 && (
               <span className="inline-flex items-center gap-1">
                 {summary.data.deltaPct >= 0 ? (
@@ -56,7 +58,7 @@ export function ExpenseDashboard() {
                 ) : (
                   <TrendingDown className="h-3 w-3" />
                 )}
-                {Math.abs(summary.data.deltaPct)}% vs período anterior
+                {t("deltaVsPrevious", { pct: Math.abs(summary.data.deltaPct) })}
               </span>
             )}
           </div>
@@ -64,10 +66,10 @@ export function ExpenseDashboard() {
       )}
 
       {byCategory.data && byCategory.data.length > 0 && (
-        <BucketList title="Por categoría" buckets={byCategory.data} />
+        <BucketList title={t("byCategory")} buckets={byCategory.data} />
       )}
       {bySupermarket.data && bySupermarket.data.length > 0 && (
-        <BucketList title="Por supermercado" buckets={bySupermarket.data} />
+        <BucketList title={t("bySupermarket")} buckets={bySupermarket.data} />
       )}
     </div>
   );
