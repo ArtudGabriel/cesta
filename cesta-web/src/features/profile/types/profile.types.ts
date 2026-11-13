@@ -12,6 +12,8 @@ export interface Profile {
   prefersGlutenFree: boolean;
   prefersLactoseFree: boolean;
   sortUnitPreference: SortUnitPreference;
+  nutriSortEnabled: boolean;
+  nutriHealthyOnly: boolean;
   createdAt: string;
 }
 
@@ -23,4 +25,6 @@ export interface UpdateProfilePayload {
   prefersGlutenFree?: boolean;
   prefersLactoseFree?: boolean;
   sortUnitPreference?: SortUnitPreference;
+  nutriSortEnabled?: boolean;
+  nutriHealthyOnly?: boolean;
 }

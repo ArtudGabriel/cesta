@@ -10,6 +10,7 @@ import { CompareAddSheet } from "@/features/catalog/components/compare-add-sheet
 import { CompareGrid, type ViewMode } from "@/features/catalog/components/compare-grid";
 import { NutriFilters } from "@/features/catalog/components/nutri-filters";
 import { useCompare } from "@/features/catalog/hooks/use-compare";
+import { useNutriPreferences } from "@/features/profile/hooks/use-nutri-preferences";
 import { useSortUnitPreference } from "@/features/profile/hooks/use-sort-unit-preference";
 import { cn } from "@/lib/utils";
 
@@ -29,8 +30,11 @@ function CompararContent() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const { value: sortMode, setValue: setSortMode } = useSortUnitPreference();
   const [viewMode, setViewMode] = useState<ViewMode>("prices");
-  const [sortByNutri, setSortByNutri] = useState(false);
-  const [onlyHealthy, setOnlyHealthy] = useState(false);
+  const nutri = useNutriPreferences();
+  const sortByNutri = nutri.sortEnabled;
+  const setSortByNutri = nutri.setSortEnabled;
+  const onlyHealthy = nutri.healthyOnly;
+  const setOnlyHealthy = nutri.setHealthyOnly;
   const t = useTranslations("compare");
 
   useEffect(() => {

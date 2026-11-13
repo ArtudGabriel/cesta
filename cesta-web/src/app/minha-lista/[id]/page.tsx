@@ -12,6 +12,7 @@ import {
   nutriSortValue,
 } from "@/features/catalog/components/nutri-filters";
 import { UnitSortToggle } from "@/features/catalog/components/unit-sort-toggle";
+import { useNutriPreferences } from "@/features/profile/hooks/use-nutri-preferences";
 import { useSortUnitPreference } from "@/features/profile/hooks/use-sort-unit-preference";
 import { AddProductModal } from "@/features/shopping-lists/components/add-product-modal";
 import { ListItemRow } from "@/features/shopping-lists/components/list-item-row";
@@ -31,8 +32,11 @@ export default function ListDetailPage() {
   const deleteList = useDeleteList();
   const [showAdd, setShowAdd] = useState(false);
   const { value: sortMode, setValue: setSortMode } = useSortUnitPreference();
-  const [sortByNutri, setSortByNutri] = useState(false);
-  const [onlyHealthy, setOnlyHealthy] = useState(false);
+  const nutri = useNutriPreferences();
+  const sortByNutri = nutri.sortEnabled;
+  const setSortByNutri = nutri.setSortEnabled;
+  const onlyHealthy = nutri.healthyOnly;
+  const setOnlyHealthy = nutri.setHealthyOnly;
   const t = useTranslations("myList");
   const tNav = useTranslations("nav");
 

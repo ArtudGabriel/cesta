@@ -23,6 +23,7 @@ import {
   useProducts,
   useSupermarkets,
 } from "@/features/catalog/hooks/use-catalog";
+import { useNutriPreferences } from "@/features/profile/hooks/use-nutri-preferences";
 import { useProfile } from "@/features/profile/hooks/use-profile";
 import { useSortUnitPreference } from "@/features/profile/hooks/use-sort-unit-preference";
 import { useAuthStore } from "@/stores/auth.store";
@@ -55,7 +56,9 @@ export default function HomePage() {
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [onPromotion, setOnPromotion] = useState(false);
   const { value: sortMode, setValue: setSortMode } = useSortUnitPreference();
-  const [sortByNutri, setSortByNutri] = useState(false);
+  const nutri = useNutriPreferences();
+  const sortByNutri = nutri.sortEnabled;
+  const setSortByNutri = nutri.setSortEnabled;
   const [suggestOpen, setSuggestOpen] = useState(false);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
   const t = useTranslations("home");
@@ -77,14 +80,19 @@ export default function HomePage() {
     return fromProfile;
   }, [urlDietRaw, profile]);
 
-  const onlyHealthy = searchParams.get("healthy") === "1";
+  // URL `?healthy=1` vence profile (deep-link). Ausência → profile.
+  const urlHealthy = searchParams.get("healthy");
+  const onlyHealthy = urlHealthy === "1" ? true : nutri.healthyOnly;
 
   const toggleOnlyHealthy = useCallback(() => {
+    const next = !onlyHealthy;
     const params = new URLSearchParams(searchParams.toString());
-    if (onlyHealthy) params.delete("healthy");
-    else params.set("healthy", "1");
-    router.replace(`/?${params.toString()}`, { scroll: false });
-  }, [onlyHealthy, router, searchParams]);
+    // Normaliza: toggle sempre limpa URL, persiste no profile.
+    params.delete("healthy");
+    const qs = params.toString();
+    router.replace(qs ? `/?${qs}` : "/", { scroll: false });
+    nutri.setHealthyOnly(next);
+  }, [onlyHealthy, router, searchParams, nutri]);
 
   const toggleDietary = useCallback(
     (flag: DietaryFlag) => {
@@ -371,7 +379,9 @@ export default function HomePage() {
             if (onlyHealthy) {
               const params = new URLSearchParams(searchParams.toString());
               params.delete("healthy");
-              router.replace(`/?${params.toString()}`, { scroll: false });
+              const qs = params.toString();
+              router.replace(qs ? `/?${qs}` : "/", { scroll: false });
+              nutri.setHealthyOnly(false);
             }
           }}
         />

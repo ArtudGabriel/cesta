@@ -43,4 +43,14 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsIn(['absolute', 'unit'])
   sortUnitPreference?: 'absolute' | 'unit';
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  nutriSortEnabled?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  nutriHealthyOnly?: boolean;
 }

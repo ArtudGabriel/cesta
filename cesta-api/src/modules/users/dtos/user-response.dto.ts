@@ -36,6 +36,12 @@ export class UserResponseDto {
   sortUnitPreference: 'absolute' | 'unit';
 
   @ApiProperty()
+  nutriSortEnabled: boolean;
+
+  @ApiProperty()
+  nutriHealthyOnly: boolean;
+
+  @ApiProperty()
   createdAt: Date;
 
   static fromEntity(user: User): UserResponseDto {
@@ -51,6 +57,8 @@ export class UserResponseDto {
     dto.prefersGlutenFree = user.prefersGlutenFree;
     dto.prefersLactoseFree = user.prefersLactoseFree;
     dto.sortUnitPreference = user.sortUnitPreference as 'absolute' | 'unit';
+    dto.nutriSortEnabled = user.nutriSortEnabled;
+    dto.nutriHealthyOnly = user.nutriHealthyOnly;
     dto.createdAt = user.createdAt;
     return dto;
   }

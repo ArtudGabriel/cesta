@@ -22,6 +22,8 @@ describe('UsersService.updateProfile', () => {
     prefersGlutenFree: false,
     prefersLactoseFree: false,
     sortUnitPreference: 'absolute',
+    nutriSortEnabled: false,
+    nutriHealthyOnly: false,
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
     deletedAt: null,
@@ -109,6 +111,32 @@ describe('UsersService.updateProfile', () => {
 
     expect(repoMock.update).toHaveBeenCalledWith('u1', { sortUnitPreference: 'unit' });
     expect(result.sortUnitPreference).toBe('unit');
+  });
+
+  it('patch nutriHealthyOnly true persiste', async () => {
+    repoMock.update.mockResolvedValue(fakeUser({ nutriHealthyOnly: true }));
+    const result = await service.updateProfile('u1', { nutriHealthyOnly: true });
+
+    expect(repoMock.update).toHaveBeenCalledWith('u1', { nutriHealthyOnly: true });
+    expect(result.nutriHealthyOnly).toBe(true);
+    expect(result.nutriSortEnabled).toBe(false);
+  });
+
+  it('patch nutriSortEnabled + nutriHealthyOnly juntos', async () => {
+    repoMock.update.mockResolvedValue(
+      fakeUser({ nutriSortEnabled: true, nutriHealthyOnly: true }),
+    );
+    const result = await service.updateProfile('u1', {
+      nutriSortEnabled: true,
+      nutriHealthyOnly: true,
+    });
+
+    expect(repoMock.update).toHaveBeenCalledWith('u1', {
+      nutriSortEnabled: true,
+      nutriHealthyOnly: true,
+    });
+    expect(result.nutriSortEnabled).toBe(true);
+    expect(result.nutriHealthyOnly).toBe(true);
   });
 
   it('DTO vazio: não chama update, retorna user atual via findById', async () => {

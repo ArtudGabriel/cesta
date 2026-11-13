@@ -21,6 +21,7 @@ import {
   nutriSortValue,
 } from "@/features/catalog/components/nutri-filters";
 import { UnitSortToggle } from "@/features/catalog/components/unit-sort-toggle";
+import { useNutriPreferences } from "@/features/profile/hooks/use-nutri-preferences";
 import { useProfile } from "@/features/profile/hooks/use-profile";
 import { useSortUnitPreference } from "@/features/profile/hooks/use-sort-unit-preference";
 
@@ -56,8 +57,11 @@ export default function FavoritosPage() {
   const t = useTranslations("favorites");
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
-  const [sortByNutri, setSortByNutri] = useState(false);
-  const [onlyHealthy, setOnlyHealthy] = useState(false);
+  const nutri = useNutriPreferences();
+  const sortByNutri = nutri.sortEnabled;
+  const setSortByNutri = nutri.setSortEnabled;
+  const onlyHealthy = nutri.healthyOnly;
+  const setOnlyHealthy = nutri.setHealthyOnly;
 
   const urlDietRaw = searchParams.get("diet");
   const dietary = useMemo(() => {

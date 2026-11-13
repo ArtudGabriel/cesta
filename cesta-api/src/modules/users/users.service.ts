@@ -74,6 +74,10 @@ export class UsersService {
       data.prefersLactoseFree = dto.prefersLactoseFree;
     if (dto.sortUnitPreference !== undefined)
       data.sortUnitPreference = dto.sortUnitPreference;
+    if (dto.nutriSortEnabled !== undefined)
+      data.nutriSortEnabled = dto.nutriSortEnabled;
+    if (dto.nutriHealthyOnly !== undefined)
+      data.nutriHealthyOnly = dto.nutriHealthyOnly;
 
     if (Object.keys(data).length === 0) {
       const current = await this.findById(userId);
