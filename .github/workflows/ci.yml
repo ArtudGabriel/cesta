@@ -69,6 +69,7 @@ jobs:
       run:
         working-directory: cesta-web
     env:
+      API_URL: http://localhost:3001/api/v1
       NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
     steps:
       - uses: actions/checkout@v4
