@@ -1,10 +1,11 @@
 "use client";
 
-import { AlertCircle, Check, Trophy, X } from "lucide-react";
+import { AlertCircle, Check, Leaf, Trophy, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo } from "react";
 import { cn, formatPrice } from "@/lib/utils";
 import { formatUnitPrice } from "../utils/format-unit-price";
+import { isHealthyGrade, nutriSortValue } from "./nutri-filters";
 import { computeWinnerSets, type Nutrient } from "../utils/nutrition-winner";
 import { useLocale } from "../hooks/use-locale";
 import { DietaryBadges } from "./dietary-badges";
@@ -23,6 +24,8 @@ interface CompareGridProps {
   sortMode?: SortMode;
   viewMode?: ViewMode;
   onSwitchToPrices?: () => void;
+  sortByNutri?: boolean;
+  onlyHealthy?: boolean;
 }
 
 export function CompareGrid({
@@ -31,11 +34,24 @@ export function CompareGrid({
   sortMode = "absolute",
   viewMode = "prices",
   onSwitchToPrices,
+  sortByNutri = false,
+  onlyHealthy = false,
 }: CompareGridProps) {
   const locale = useLocale();
   const t = useTranslations("compare");
 
-  const eligibleForWinner = products.filter((p) => {
+  const orderedProducts = useMemo(() => {
+    if (!sortByNutri) return products;
+    return products
+      .slice()
+      .sort(
+        (a, b) =>
+          nutriSortValue(a.nutriScore?.grade) -
+          nutriSortValue(b.nutriScore?.grade),
+      );
+  }, [products, sortByNutri]);
+
+  const eligibleForWinner = orderedProducts.filter((p) => {
     if (sortMode === "absolute") return p.cheapestPrice != null;
     return p.cheapestUnitPrice != null;
   });
@@ -44,7 +60,7 @@ export function CompareGrid({
     .sort((a, b) => metric(a, sortMode) - metric(b, sortMode))[0]?.id;
 
   if (viewMode === "nutrition") {
-    const allEmpty = products.length > 0 && products.every(
+    const allEmpty = orderedProducts.length > 0 && orderedProducts.every(
       (p) =>
         p.calories === null &&
         p.protein === null &&
@@ -79,14 +95,18 @@ export function CompareGrid({
     }
 
     return (
-      <NutritionGrid products={products} onRemove={onRemove} />
+      <NutritionGrid
+        products={orderedProducts}
+        onRemove={onRemove}
+        onlyHealthy={onlyHealthy}
+      />
     );
   }
 
   return (
     <>
       <div className="grid gap-4 md:grid-cols-2">
-        {products.map((p) => (
+        {orderedProducts.map((p) => (
           <ProductCompareCard
             key={p.id}
             product={p}
@@ -94,6 +114,7 @@ export function CompareGrid({
             onRemove={() => onRemove(p.id)}
             locale={locale}
             sortMode={sortMode}
+            onlyHealthy={onlyHealthy}
           />
         ))}
       </div>
@@ -117,18 +138,22 @@ function ProductCompareCard({
   onRemove,
   locale,
   sortMode,
+  onlyHealthy,
 }: {
   product: Product;
   isWinner: boolean;
   onRemove: () => void;
   locale: "es" | "pt-BR";
   sortMode: SortMode;
+  onlyHealthy: boolean;
 }) {
   const cheapestSlug = product.cheapestSupermarketSlug;
   const unitPriceStr = formatUnitPrice(product.cheapestUnitPrice, locale);
   const noUnit = sortMode === "unit" && product.cheapestUnitPrice == null;
   const t = useTranslations("compare");
+  const tNutri = useTranslations("catalog.nutriFilters");
   const preferences = useDietaryPreferences();
+  const outOfRange = onlyHealthy && !isHealthyGrade(product.nutriScore?.grade);
   const sortedPrices = [...product.prices].sort((a, b) => {
     if (a.isAvailable !== b.isAvailable) return a.isAvailable ? -1 : 1;
     return a.price - b.price;
@@ -173,6 +198,11 @@ function ProductCompareCard({
           {isWinner && !noUnit && (
             <span className="mt-2 inline-flex items-center gap-1 rounded-pill bg-cesta-green/10 px-2 py-0.5 text-[11px] font-semibold text-cesta-green">
               <Trophy className="h-3 w-3" /> {t("winnerBadge")}
+            </span>
+          )}
+          {outOfRange && (
+            <span className="mt-2 ml-1 inline-flex items-center gap-1 rounded-pill bg-coral/15 px-2 py-0.5 text-[11px] font-semibold text-coral">
+              <Leaf className="h-3 w-3" /> {tNutri("outOfRange")}
             </span>
           )}
         </div>
@@ -231,9 +261,11 @@ function ProductCompareCard({
 function NutritionGrid({
   products,
   onRemove,
+  onlyHealthy,
 }: {
   products: Product[];
   onRemove: (productId: string) => void;
+  onlyHealthy: boolean;
 }) {
   const t = useTranslations("compare");
   const winnerSets = useMemo(() => computeWinnerSets(products), [products]);
@@ -247,6 +279,7 @@ function NutritionGrid({
             product={p}
             onRemove={() => onRemove(p.id)}
             winnerNutrients={winnerSets.get(p.id)}
+            onlyHealthy={onlyHealthy}
           />
         ))}
       </div>
@@ -262,12 +295,16 @@ function ProductNutritionCard({
   product,
   onRemove,
   winnerNutrients,
+  onlyHealthy,
 }: {
   product: Product;
   onRemove: () => void;
   winnerNutrients?: Set<Nutrient>;
+  onlyHealthy: boolean;
 }) {
   const preferences = useDietaryPreferences();
+  const tNutri = useTranslations("catalog.nutriFilters");
+  const outOfRange = onlyHealthy && !isHealthyGrade(product.nutriScore?.grade);
   return (
     <article className="rounded-card bg-white shadow-sm">
       <header className="flex items-start gap-3 p-4">
@@ -283,6 +320,11 @@ function ProductNutritionCard({
           </div>
           {product.brand && (
             <p className="mt-0.5 text-xs text-muted">{product.brand}</p>
+          )}
+          {outOfRange && (
+            <span className="mt-1 inline-flex items-center gap-1 rounded-pill bg-coral/15 px-2 py-0.5 text-[11px] font-semibold text-coral">
+              <Leaf className="h-3 w-3" /> {tNutri("outOfRange")}
+            </span>
           )}
           <div className="mt-1">
             <DietaryWarning product={product} preferences={preferences} />

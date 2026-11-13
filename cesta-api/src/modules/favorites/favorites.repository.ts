@@ -21,6 +21,13 @@ export interface FavoriteWithProductRow extends FavoriteRow {
     isVegetarian: boolean;
     isGlutenFree: boolean;
     isLactoseFree: boolean;
+    calories: unknown;
+    sugar: unknown;
+    saturatedFat: unknown;
+    salt: unknown;
+    fiber: unknown;
+    protein: unknown;
+    nutritionPer: unknown;
     prices: Array<{
       currentPrice: unknown;
       supermarket: { slug: string; name: string };
@@ -70,6 +77,13 @@ export class FavoritesRepository {
             isVegetarian: true,
             isGlutenFree: true,
             isLactoseFree: true,
+            calories: true,
+            sugar: true,
+            saturatedFat: true,
+            salt: true,
+            fiber: true,
+            protein: true,
+            nutritionPer: true,
             prices: {
               where: {
                 isAvailable: true,

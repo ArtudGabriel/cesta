@@ -35,6 +35,13 @@
       "warning": "Não cumpre: {restrictions}"
     }
   },
+  "catalog": {
+    "nutriFilters": {
+      "sortByNutri": "Ordenar por Nutri-Score",
+      "onlyHealthy": "Só A+B",
+      "outOfRange": "Fora de faixa A+B"
+    }
+  },
   "home": {
     "sortLabel": "Ordenar:",
     "sortAbsolute": "Preço",
@@ -42,10 +49,6 @@
     "searching": "Buscando…",
     "clearSearch": "Limpar busca",
     "searchPlaceholder": "Buscar produto…",
-    "filters": {
-      "sortByNutri": "Ordenar por Nutri-Score",
-      "onlyHealthy": "Só A+B"
-    },
     "suggestions": {
       "empty": "Sem sugestões para \"{query}\"",
       "loading": "Buscando sugestões…",

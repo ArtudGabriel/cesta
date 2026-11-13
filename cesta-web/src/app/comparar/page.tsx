@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { CompareAddSheet } from "@/features/catalog/components/compare-add-sheet";
 import { CompareGrid, type ViewMode } from "@/features/catalog/components/compare-grid";
+import { NutriFilters } from "@/features/catalog/components/nutri-filters";
 import { useCompare } from "@/features/catalog/hooks/use-compare";
 import { useSortUnitPreference } from "@/features/profile/hooks/use-sort-unit-preference";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,8 @@ function CompararContent() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const { value: sortMode, setValue: setSortMode } = useSortUnitPreference();
   const [viewMode, setViewMode] = useState<ViewMode>("prices");
+  const [sortByNutri, setSortByNutri] = useState(false);
+  const [onlyHealthy, setOnlyHealthy] = useState(false);
   const t = useTranslations("compare");
 
   useEffect(() => {
@@ -122,19 +125,21 @@ function CompararContent() {
             {viewMode === "prices" && (
               <div className="mb-3 flex gap-2" role="radiogroup" aria-label={t("sortAbsolute") + " / " + t("sortUnit")}>
                 {(["absolute", "unit"] as const).map((mode) => {
-                  const active = sortMode === mode;
+                  const active = !sortByNutri && sortMode === mode;
                   return (
                     <button
                       key={mode}
                       type="button"
                       role="radio"
                       aria-checked={active}
+                      disabled={sortByNutri}
                       onClick={() => setSortMode(mode)}
                       className={cn(
                         "inline-flex h-11 flex-1 items-center justify-center rounded-pill px-4 text-xs font-medium cursor-pointer transition-colors",
                         active
                           ? "bg-cesta-green text-white"
                           : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200",
+                        sortByNutri && "cursor-not-allowed opacity-40",
                       )}
                     >
                       {mode === "absolute" ? t("sortAbsolute") : t("sortUnit")}
@@ -143,12 +148,22 @@ function CompararContent() {
                 })}
               </div>
             )}
+            <div className="mb-3">
+              <NutriFilters
+                sortByNutri={sortByNutri}
+                onSortByNutriChange={setSortByNutri}
+                onlyHealthy={onlyHealthy}
+                onOnlyHealthyChange={setOnlyHealthy}
+              />
+            </div>
             <CompareGrid
               products={data ?? []}
               onRemove={remove}
               sortMode={sortMode}
               viewMode={viewMode}
               onSwitchToPrices={() => setViewMode("prices")}
+              sortByNutri={sortByNutri}
+              onlyHealthy={onlyHealthy}
             />
             {ids.length < MAX && (
               <div className="mt-4 flex justify-center">

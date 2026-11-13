@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Award, Bell, Leaf, Receipt, ShoppingBasket } from "lucide-react";
+import { Bell, Receipt, ShoppingBasket } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -9,6 +9,11 @@ import { Button } from "@/components/ui/button";
 import { CategoryChipSkeleton } from "@/features/catalog/components/category-chip-skeleton";
 import { DietaryFilters, type DietaryFlag } from "@/features/catalog/components/dietary-filters";
 import { HomeEmptyState } from "@/features/catalog/components/home-empty-state";
+import {
+  NutriFilters,
+  isHealthyGrade,
+  nutriSortValue,
+} from "@/features/catalog/components/nutri-filters";
 import { ProductCard } from "@/features/catalog/components/product-card";
 import { ProductCardSkeleton } from "@/features/catalog/components/product-card-skeleton";
 import { SearchBar } from "@/features/catalog/components/search-bar";
@@ -37,15 +42,6 @@ function parseDietFromUrl(raw: string | null): Set<DietaryFlag> {
   return valid;
 }
 
-type SortMode = "absolute" | "unit";
-
-const NUTRI_GRADE_ORDER: Record<"A" | "B" | "C" | "D" | "E", number> = {
-  A: 0,
-  B: 1,
-  C: 2,
-  D: 3,
-  E: 4,
-};
 
 export default function HomePage() {
   const user = useAuthStore((s) => s.user);
@@ -137,19 +133,16 @@ export default function HomePage() {
   const sortedItems = useMemo(() => {
     const items = products.data?.items ?? [];
     const filtered = onlyHealthy
-      ? items.filter((p) => {
-          const g = p.nutriScore?.grade;
-          return g === "A" || g === "B";
-        })
+      ? items.filter((p) => isHealthyGrade(p.nutriScore?.grade))
       : items;
     if (sortByNutri) {
-      return filtered.slice().sort((a, b) => {
-        const ag = a.nutriScore?.grade;
-        const bg = b.nutriScore?.grade;
-        const av = ag ? NUTRI_GRADE_ORDER[ag] : 99;
-        const bv = bg ? NUTRI_GRADE_ORDER[bg] : 99;
-        return av - bv;
-      });
+      return filtered
+        .slice()
+        .sort(
+          (a, b) =>
+            nutriSortValue(a.nutriScore?.grade) -
+            nutriSortValue(b.nutriScore?.grade),
+        );
     }
     if (sortMode === "absolute") return filtered;
     // Unit mode: sort by cheapestUnitPrice.value ASC; produtos sem unitPrice vão ao fim
@@ -287,26 +280,21 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Dietary filters + Solo A+B */}
+      {/* Dietary filters + Nutri-Score chips */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <DietaryFilters active={dietary} onToggle={toggleDietary} />
-        <button
-          type="button"
-          onClick={toggleOnlyHealthy}
-          aria-pressed={onlyHealthy}
-          className={cn(
-            "inline-flex items-center gap-1 rounded-pill px-3 py-1.5 text-xs font-semibold cursor-pointer transition-colors",
-            onlyHealthy
-              ? "bg-cesta-green text-white"
-              : "bg-surface text-muted hover:text-ink",
-          )}
-        >
-          <Leaf className="h-3.5 w-3.5" />
-          {t("filters.onlyHealthy")}
-        </button>
+        <NutriFilters
+          sortByNutri={sortByNutri}
+          onSortByNutriChange={setSortByNutri}
+          onlyHealthy={onlyHealthy}
+          onOnlyHealthyChange={(v) => {
+            if (v === onlyHealthy) return;
+            toggleOnlyHealthy();
+          }}
+        />
       </div>
 
-      {/* Promotion toggle + sort mode + sort by nutri */}
+      {/* Promotion toggle + sort mode */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <label className="inline-flex items-center gap-2 text-sm text-ink cursor-pointer">
           <input
@@ -318,20 +306,6 @@ export default function HomePage() {
           Solo en promoción
         </label>
         <div className="inline-flex flex-wrap items-center gap-2 text-xs text-muted">
-          <button
-            type="button"
-            onClick={() => setSortByNutri((v) => !v)}
-            aria-pressed={sortByNutri}
-            className={cn(
-              "inline-flex items-center gap-1 rounded-pill px-2.5 py-1 text-[11px] font-semibold cursor-pointer transition-colors",
-              sortByNutri
-                ? "bg-cesta-green text-white"
-                : "bg-surface text-muted hover:text-ink",
-            )}
-          >
-            <Award className="h-3.5 w-3.5" />
-            {t("filters.sortByNutri")}
-          </button>
           <span className={cn(sortByNutri && "opacity-40")}>
             {t("sortLabel")}
           </span>

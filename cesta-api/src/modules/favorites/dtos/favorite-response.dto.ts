@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { UnitPrice, UnitPriceSuffix } from '../../../common/utils/price-normalization';
+import { NutriGrade } from '../../../common/utils/nutri-score';
+
+export class NutriScoreDto {
+  @ApiProperty({ example: -2 }) score: number;
+  @ApiProperty({ example: 'A', enum: ['A', 'B', 'C', 'D', 'E'] })
+  grade: NutriGrade;
+}
 
 export class UnitPriceDto {
   @ApiProperty({ example: 4.2 }) value: number;
@@ -45,6 +52,9 @@ export class FavoriteProductDto {
 
   @ApiProperty()
   isLactoseFree: boolean;
+
+  @ApiProperty({ type: () => NutriScoreDto, nullable: true })
+  nutriScore: { score: number; grade: NutriGrade } | null;
 }
 
 export class FavoriteResponseDto {

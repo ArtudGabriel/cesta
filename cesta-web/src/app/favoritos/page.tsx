@@ -15,6 +15,11 @@ import { cn, formatPrice } from "@/lib/utils";
 import { formatUnitPrice } from "@/features/catalog/utils/format-unit-price";
 import { useLocale } from "@/features/catalog/hooks/use-locale";
 import { DietaryFilters, type DietaryFlag } from "@/features/catalog/components/dietary-filters";
+import {
+  NutriFilters,
+  isHealthyGrade,
+  nutriSortValue,
+} from "@/features/catalog/components/nutri-filters";
 import { UnitSortToggle } from "@/features/catalog/components/unit-sort-toggle";
 import { useProfile } from "@/features/profile/hooks/use-profile";
 import { useSortUnitPreference } from "@/features/profile/hooks/use-sort-unit-preference";
@@ -51,6 +56,8 @@ export default function FavoritosPage() {
   const t = useTranslations("favorites");
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
+  const [sortByNutri, setSortByNutri] = useState(false);
+  const [onlyHealthy, setOnlyHealthy] = useState(false);
 
   const urlDietRaw = searchParams.get("diet");
   const dietary = useMemo(() => {
@@ -91,28 +98,43 @@ export default function FavoritosPage() {
 
   const favorites = useMemo(() => data ?? [], [data]);
   const filtered = useMemo(() => {
-    if (dietary.size === 0) return favorites;
-    return favorites.filter((fav) => {
-      const p = fav.product;
-      if (!p) return false;
-      for (const flag of dietary) {
-        const key = FLAG_TO_PRODUCT_KEY[flag];
-        if (!p[key]) return false;
-      }
-      return true;
-    });
-  }, [favorites, dietary]);
-  const hasActiveFilters = dietary.size > 0;
+    let out = favorites;
+    if (dietary.size > 0) {
+      out = out.filter((fav) => {
+        const p = fav.product;
+        if (!p) return false;
+        for (const flag of dietary) {
+          const key = FLAG_TO_PRODUCT_KEY[flag];
+          if (!p[key]) return false;
+        }
+        return true;
+      });
+    }
+    if (onlyHealthy) {
+      out = out.filter((fav) => isHealthyGrade(fav.product?.nutriScore?.grade));
+    }
+    return out;
+  }, [favorites, dietary, onlyHealthy]);
+  const hasActiveFilters = dietary.size > 0 || onlyHealthy;
 
   const { value: sortMode, setValue: setSortMode } = useSortUnitPreference();
   const sorted = useMemo(() => {
+    if (sortByNutri) {
+      return filtered
+        .slice()
+        .sort(
+          (a, b) =>
+            nutriSortValue(a.product?.nutriScore?.grade) -
+            nutriSortValue(b.product?.nutriScore?.grade),
+        );
+    }
     if (sortMode === "absolute") return filtered;
     return filtered.slice().sort((a, b) => {
       const au = a.cheapestPrice?.unitPrice?.value ?? Infinity;
       const bu = b.cheapestPrice?.unitPrice?.value ?? Infinity;
       return au - bu;
     });
-  }, [filtered, sortMode]);
+  }, [filtered, sortMode, sortByNutri]);
 
   if (!isHydrated || !user) {
     return (
@@ -181,8 +203,21 @@ export default function FavoritosPage() {
 
       {favorites.length > 0 && (
         <section className="px-4 pt-2 space-y-2">
-          <DietaryFilters active={dietary} onToggle={toggleDietary} />
-          <UnitSortToggle value={sortMode} onChange={setSortMode} variant="compact" />
+          <div className="flex flex-wrap items-center gap-2">
+            <DietaryFilters active={dietary} onToggle={toggleDietary} />
+            <NutriFilters
+              sortByNutri={sortByNutri}
+              onSortByNutriChange={setSortByNutri}
+              onlyHealthy={onlyHealthy}
+              onOnlyHealthyChange={setOnlyHealthy}
+            />
+          </div>
+          <UnitSortToggle
+            value={sortMode}
+            onChange={setSortMode}
+            variant="compact"
+            disabled={sortByNutri}
+          />
         </section>
       )}
 

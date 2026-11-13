@@ -1,4 +1,4 @@
-import type { UnitPrice } from "@/features/catalog/types/catalog.types";
+import type { NutriScore, UnitPrice } from "@/features/catalog/types/catalog.types";
 
 export interface FavoriteProduct {
   id: string;
@@ -9,6 +9,7 @@ export interface FavoriteProduct {
   isVegetarian: boolean;
   isGlutenFree: boolean;
   isLactoseFree: boolean;
+  nutriScore: NutriScore | null;
 }
 
 export interface CheapestPrice {

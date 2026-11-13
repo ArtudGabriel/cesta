@@ -6,6 +6,11 @@ import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import {
+  NutriFilters,
+  isHealthyGrade,
+  nutriSortValue,
+} from "@/features/catalog/components/nutri-filters";
 import { UnitSortToggle } from "@/features/catalog/components/unit-sort-toggle";
 import { useSortUnitPreference } from "@/features/profile/hooks/use-sort-unit-preference";
 import { AddProductModal } from "@/features/shopping-lists/components/add-product-modal";
@@ -26,18 +31,32 @@ export default function ListDetailPage() {
   const deleteList = useDeleteList();
   const [showAdd, setShowAdd] = useState(false);
   const { value: sortMode, setValue: setSortMode } = useSortUnitPreference();
+  const [sortByNutri, setSortByNutri] = useState(false);
+  const [onlyHealthy, setOnlyHealthy] = useState(false);
   const t = useTranslations("myList");
   const tNav = useTranslations("nav");
 
   const sortedItems = useMemo(() => {
     const items = list?.items ?? [];
-    if (sortMode === "absolute") return items;
-    return items.slice().sort((a, b) => {
+    const filtered = onlyHealthy
+      ? items.filter((it) => isHealthyGrade(it.product.nutriScore?.grade))
+      : items;
+    if (sortByNutri) {
+      return filtered
+        .slice()
+        .sort(
+          (a, b) =>
+            nutriSortValue(a.product.nutriScore?.grade) -
+            nutriSortValue(b.product.nutriScore?.grade),
+        );
+    }
+    if (sortMode === "absolute") return filtered;
+    return filtered.slice().sort((a, b) => {
       const au = a.product.cheapestUnitPrice?.value ?? Infinity;
       const bu = b.product.cheapestUnitPrice?.value ?? Infinity;
       return au - bu;
     });
-  }, [list?.items, sortMode]);
+  }, [list?.items, sortMode, sortByNutri, onlyHealthy]);
 
   if (isLoading) {
     return (
@@ -100,9 +119,20 @@ export default function ListDetailPage() {
               value={sortMode}
               onChange={setSortMode}
               variant="compact"
+              disabled={sortByNutri}
             />
           )}
         </div>
+        {list.items && list.items.length > 1 && (
+          <div className="mb-3">
+            <NutriFilters
+              sortByNutri={sortByNutri}
+              onSortByNutriChange={setSortByNutri}
+              onlyHealthy={onlyHealthy}
+              onOnlyHealthyChange={setOnlyHealthy}
+            />
+          </div>
+        )}
         {list.items && list.items.length > 0 ? (
           <div className="space-y-2">
             {sortedItems.map((item) => (
