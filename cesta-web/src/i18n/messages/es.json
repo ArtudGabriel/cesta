@@ -8,6 +8,26 @@
       }
     }
   },
+  "errors": {
+    "fallback": "Ocurrió un error",
+    "auth": {
+      "invalidCredentials": "Credenciales inválidas",
+      "userExists": "El correo o teléfono ya está registrado",
+      "contactRequired": "Email o teléfono es obligatorio",
+      "refreshInvalid": "Sesión expirada, inicia sesión de nuevo",
+      "refreshReplay": "Sesión invalidada por seguridad, inicia sesión de nuevo"
+    },
+    "alerts": {
+      "notFound": "Alerta no encontrada",
+      "productNotFound": "Producto no encontrado"
+    },
+    "receipts": {
+      "fileRequired": "La imagen es obligatoria"
+    },
+    "lists": {
+      "notFound": "Lista no encontrada"
+    }
+  },
   "meta": {
     "title": {
       "home": "Inicio",

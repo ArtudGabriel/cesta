@@ -25,15 +25,38 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+/**
+ * Erro normalizado da API. Expõe `errorCode` namespaced (Sprint 38) pra
+ * frontend traduzir via i18n; `message` é fallback do backend.
+ */
+export class ApiError extends Error {
+  readonly errorCode?: string;
+  readonly statusCode?: number;
+  constructor(message: string, errorCode?: string, statusCode?: number) {
+    super(message);
+    this.name = "ApiError";
+    this.errorCode = errorCode;
+    this.statusCode = statusCode;
+  }
+}
+
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError<{ message?: string }>) => {
+  (
+    error: AxiosError<{
+      message?: string;
+      errorCode?: string;
+    }>,
+  ) => {
     if (error.response?.status === 401 && typeof window !== "undefined") {
       setAccessToken(null);
       // TODO: tentar refresh antes de redirecionar
     }
     const message =
       error.response?.data?.message ?? error.message ?? "Erro de rede";
-    return Promise.reject(new Error(message));
+    const errorCode = error.response?.data?.errorCode;
+    return Promise.reject(
+      new ApiError(message, errorCode, error.response?.status),
+    );
   },
 );

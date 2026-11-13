@@ -2,11 +2,13 @@ import { InjectQueue } from '@nestjs/bullmq';
 import {
   BadRequestException,
   ForbiddenException,
+  HttpStatus,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import * as path from 'path';
+import { AppException } from '../../common/exceptions/app-exception';
 import {
   UpdateReceiptItemDto,
   UpdateReceiptMetaDto,
@@ -28,7 +30,12 @@ export class ReceiptsService {
     file: Express.Multer.File | undefined,
     notes?: string,
   ): Promise<{ jobId: string; receiptId: string; status: string }> {
-    if (!file) throw new BadRequestException('Imagem é obrigatória');
+    if (!file)
+      throw new AppException(
+        'RECEIPTS.FILE_REQUIRED',
+        'Imagem é obrigatória',
+        HttpStatus.BAD_REQUEST,
+      );
 
     // Path relativo pra servir estático; filename já foi gerado pelo multer
     const imageUrl = `/uploads/${path.basename(file.path)}`;

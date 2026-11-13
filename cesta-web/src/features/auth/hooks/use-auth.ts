@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { authService } from "../services/auth.service";
 import { useAuthStore } from "@/stores/auth.store";
 import { PROFILE_KEY } from "@/features/profile/hooks/use-profile";
+import { translateError } from "@/lib/translate-error";
 import type { LoginPayload, RegisterPayload } from "../types/auth.types";
 
 export const AUTH_QUERY_KEY = ["auth", "me"] as const;
@@ -43,6 +44,7 @@ export function useLogin() {
   const searchParams = useSearchParams();
   const qc = useQueryClient();
   const t = useTranslations("toast");
+  const tErr = useTranslations("errors");
 
   return useMutation({
     mutationFn: (payload: LoginPayload) => authService.login(payload),
@@ -55,7 +57,7 @@ export function useLogin() {
       router.push(safeReturnUrl(searchParams.get("returnUrl")));
     },
     onError: (err: Error) => {
-      toast.error(err.message || t("error.login"));
+      toast.error(translateError(err, tErr));
     },
   });
 }
@@ -66,6 +68,7 @@ export function useRegister() {
   const searchParams = useSearchParams();
   const qc = useQueryClient();
   const t = useTranslations("toast");
+  const tErr = useTranslations("errors");
 
   return useMutation({
     mutationFn: (payload: RegisterPayload) => authService.register(payload),
@@ -78,7 +81,7 @@ export function useRegister() {
       router.push(safeReturnUrl(searchParams.get("returnUrl")));
     },
     onError: (err: Error) => {
-      toast.error(err.message || t("error.register"));
+      toast.error(translateError(err, tErr));
     },
   });
 }

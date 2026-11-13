@@ -1,12 +1,9 @@
-import {
-  BadRequestException,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { AppException } from '../../common/exceptions/app-exception';
 import { UsersService } from '../users/users.service';
 import { UserResponseDto } from '../users/dtos/user-response.dto';
 import { AuthRepository } from './auth.repository';
@@ -37,7 +34,11 @@ export class AuthService {
     ctx: AuthRequestContext = {},
   ): Promise<AuthResponseDto> {
     if (!dto.email && !dto.phone) {
-      throw new BadRequestException('Email ou telefone é obrigatório');
+      throw new AppException(
+        'AUTH.CONTACT_REQUIRED',
+        'Email ou telefone é obrigatório',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
@@ -58,14 +59,22 @@ export class AuthService {
     ctx: AuthRequestContext = {},
   ): Promise<AuthResponseDto> {
     if (!dto.email && !dto.phone) {
-      throw new BadRequestException('Email ou telefone é obrigatório');
+      throw new AppException(
+        'AUTH.CONTACT_REQUIRED',
+        'Email ou telefone é obrigatório',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     const user = dto.email
       ? await this.usersService.findByEmail(dto.email)
       : await this.usersService.findByPhone(dto.phone!);
 
-    const invalid = new UnauthorizedException('Credenciais inválidas');
+    const invalid = new AppException(
+      'AUTH.INVALID_CREDENTIALS',
+      'Credenciais inválidas',
+      HttpStatus.UNAUTHORIZED,
+    );
     if (!user || user.deletedAt) throw invalid;
 
     const ok = await bcrypt.compare(dto.password, user.passwordHash);
@@ -85,7 +94,11 @@ export class AuthService {
         secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
       });
     } catch {
-      throw new UnauthorizedException('Refresh token inválido');
+      throw new AppException(
+        'AUTH.REFRESH_INVALID',
+        'Refresh token inválido',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     const user = await this.usersService.findById(payload.sub);
@@ -95,7 +108,11 @@ export class AuthService {
     if (!match) {
       // Replay/reuso detectado — revogar todos como precaução
       await this.repo.revokeAllActive(user.id);
-      throw new UnauthorizedException('Refresh token reutilizado');
+      throw new AppException(
+        'AUTH.REFRESH_REPLAY',
+        'Refresh token reutilizado',
+        HttpStatus.UNAUTHORIZED,
+      );
     }
 
     await this.repo.revokeById(match.id);

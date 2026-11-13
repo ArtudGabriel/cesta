@@ -1,10 +1,12 @@
 import {
   BadRequestException,
   ForbiddenException,
+  HttpStatus,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { AppException } from '../../common/exceptions/app-exception';
 import { ProductsRepository } from '../products/products.repository';
 import { AlertsRepository } from './alerts.repository';
 import { AlertResponseDto } from './dtos/alert-response.dto';
@@ -24,7 +26,12 @@ export class AlertsService {
 
   async findOne(userId: string, id: string): Promise<AlertResponseDto> {
     const alert = await this.repo.findByIdForUser(id, userId);
-    if (!alert) throw new NotFoundException(`Alerta "${id}" não encontrado`);
+    if (!alert)
+      throw new AppException(
+        'ALERTS.NOT_FOUND',
+        `Alerta "${id}" não encontrado`,
+        HttpStatus.NOT_FOUND,
+      );
     return AlertResponseDto.fromEntity(alert);
   }
 
@@ -36,7 +43,12 @@ export class AlertsService {
     }
 
     const product = await this.productsRepo.findById(dto.productId);
-    if (!product) throw new NotFoundException('Produto não encontrado');
+    if (!product)
+      throw new AppException(
+        'ALERTS.PRODUCT_NOT_FOUND',
+        'Produto não encontrado',
+        HttpStatus.NOT_FOUND,
+      );
 
     const alert = await this.repo.create({
       userId,

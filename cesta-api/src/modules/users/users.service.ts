@@ -1,10 +1,6 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, User } from '@prisma/client';
+import { AppException } from '../../common/exceptions/app-exception';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { UserResponseDto } from './dtos/user-response.dto';
 import { UsersRepository } from './users.repository';
@@ -37,16 +33,30 @@ export class UsersService {
 
   async createUser(input: CreateUserInput): Promise<User> {
     if (!input.email && !input.phone) {
-      throw new BadRequestException('Email ou telefone é obrigatório');
+      throw new AppException(
+        'AUTH.CONTACT_REQUIRED',
+        'Email ou telefone é obrigatório',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
     if (input.email) {
       const existing = await this.usersRepository.findByEmail(input.email);
-      if (existing) throw new ConflictException('Email já cadastrado');
+      if (existing)
+        throw new AppException(
+          'AUTH.USER_EXISTS',
+          'Email já cadastrado',
+          HttpStatus.CONFLICT,
+        );
     }
     if (input.phone) {
       const existing = await this.usersRepository.findByPhone(input.phone);
-      if (existing) throw new ConflictException('Telefone já cadastrado');
+      if (existing)
+        throw new AppException(
+          'AUTH.USER_EXISTS',
+          'Telefone já cadastrado',
+          HttpStatus.CONFLICT,
+        );
     }
 
     return this.usersRepository.create({

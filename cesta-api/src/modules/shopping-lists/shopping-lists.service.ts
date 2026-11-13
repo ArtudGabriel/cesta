@@ -1,8 +1,10 @@
 import {
   ForbiddenException,
+  HttpStatus,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { AppException } from '../../common/exceptions/app-exception';
 import { ProductsRepository } from '../products/products.repository';
 import { CreateListDto, UpdateListDto } from './dtos/create-list.dto';
 import { AddItemDto, UpdateItemDto } from './dtos/list-item.dto';
@@ -28,7 +30,12 @@ export class ShoppingListsService {
 
   async findOne(userId: string, id: string): Promise<ShoppingListResponseDto> {
     const list = await this.repo.findByIdForUser(id, userId);
-    if (!list) throw new NotFoundException(`Lista "${id}" não encontrada`);
+    if (!list)
+      throw new AppException(
+        'LISTS.NOT_FOUND',
+        `Lista "${id}" não encontrada`,
+        HttpStatus.NOT_FOUND,
+      );
     return ShoppingListResponseDto.fromEntity(list);
   }
 
@@ -60,7 +67,12 @@ export class ShoppingListsService {
     id: string,
   ): Promise<ShoppingListResponseDto> {
     const source = await this.repo.findByIdForUser(id, userId);
-    if (!source) throw new NotFoundException(`Lista "${id}" não encontrada`);
+    if (!source)
+      throw new AppException(
+        'LISTS.NOT_FOUND',
+        `Lista "${id}" não encontrada`,
+        HttpStatus.NOT_FOUND,
+      );
     const dup = await this.repo.duplicate(source);
     return ShoppingListResponseDto.fromEntity(dup);
   }
@@ -102,7 +114,12 @@ export class ShoppingListsService {
 
   async totals(userId: string, listId: string): Promise<ListTotalsDto> {
     const list = await this.repo.findByIdForUser(listId, userId);
-    if (!list) throw new NotFoundException(`Lista "${listId}" não encontrada`);
+    if (!list)
+      throw new AppException(
+        'LISTS.NOT_FOUND',
+        `Lista "${listId}" não encontrada`,
+        HttpStatus.NOT_FOUND,
+      );
 
     const dto = ShoppingListResponseDto.fromEntity(list);
     const items = dto.items ?? [];

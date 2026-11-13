@@ -37,6 +37,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? (payload as { error: string }).error
         : HttpStatus[status];
 
+    // AppException (Sprint 38) expõe errorCode namespaced pra i18n frontend.
+    const errorCode =
+      typeof payload === 'object' && payload !== null && 'errorCode' in payload
+        ? (payload as { errorCode: string }).errorCode
+        : undefined;
+
+    const meta =
+      typeof payload === 'object' && payload !== null && 'meta' in payload
+        ? (payload as { meta?: Record<string, unknown> }).meta
+        : undefined;
+
     if (status >= 500) {
       this.logger.error(
         `${request.method} ${request.url} → ${status}`,
@@ -49,6 +60,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
       statusCode: status,
       message,
       error: errorName,
+      ...(errorCode ? { errorCode } : {}),
+      ...(meta ? { meta } : {}),
       timestamp: new Date().toISOString(),
       path: request.url,
     });
