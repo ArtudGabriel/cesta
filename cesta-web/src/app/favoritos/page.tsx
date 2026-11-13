@@ -149,7 +149,7 @@ export default function FavoritosPage() {
           </Link>
         </Button>
         <h1 className="flex-1 font-display text-lg font-bold text-ink">
-          Mis favoritos
+          {t("title")}
           {hasActiveFilters && favorites.length > 0 && (
             <span className="ml-2 text-xs font-normal text-muted">
               ({t("filteredCount", { visible: filtered.length, total: favorites.length })})

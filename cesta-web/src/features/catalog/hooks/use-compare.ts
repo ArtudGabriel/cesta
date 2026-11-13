@@ -8,7 +8,7 @@ export function useCompare(ids: string[]) {
   return useQuery({
     queryKey: ["compare", key],
     queryFn: () => compareService.fetch(ids),
-    enabled: ids.length >= 1,
+    enabled: ids.length >= 2,
     staleTime: 5 * 60 * 1000,
   });
 }

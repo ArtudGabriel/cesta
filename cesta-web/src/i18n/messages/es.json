@@ -41,6 +41,7 @@
     "sortUnit": "Por unidad",
     "searching": "Buscando…",
     "clearSearch": "Limpiar búsqueda",
+    "searchPlaceholder": "Buscar producto…",
     "filters": {
       "sortByNutri": "Ordenar por Nutri-Score",
       "onlyHealthy": "Solo A+B"
@@ -54,6 +55,7 @@
     }
   },
   "favorites": {
+    "title": "Mis favoritos",
     "filteredCount": "{visible} de {total}",
     "emptyFilteredTitle": "No tienes favoritos que cumplan tus restricciones",
     "emptyFilteredCta": "Quitar filtros"

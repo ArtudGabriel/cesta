@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { cn, formatPrice } from "@/lib/utils";
 import { usePriceHistory } from "../hooks/use-price-history";
+import type { PriceHistorySeries } from "../services/price-history.service";
 
 type Range = 30 | 60 | 90;
 
@@ -141,12 +142,10 @@ interface SeriesMeta {
   color: string;
 }
 
-function buildRows(data: ReturnType<typeof usePriceHistory>["data"] extends infer T
-  ? T extends undefined
-    ? never
-    : T
-  : never):
-  | { rows: ChartRow[]; series: SeriesMeta[] } {
+function buildRows(data: PriceHistorySeries[] | undefined): {
+  rows: ChartRow[];
+  series: SeriesMeta[];
+} {
   const series: SeriesMeta[] = (data ?? []).map((s) => ({
     slug: s.supermarketSlug,
     name: s.supermarketName,

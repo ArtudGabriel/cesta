@@ -96,12 +96,17 @@ export default function HomePage() {
       if (next.has(flag)) next.delete(flag);
       else next.add(flag);
       const params = new URLSearchParams(searchParams.toString());
-      // Sempre grava o param diet (vazio inclusive) pra sinalizar override local
-      // vs. "ausente -> cai no profile". Profile preferences so dirigem o estado
-      // inicial quando URL nao tem ?diet=.
       const sorted = DIETARY_FLAGS.filter((f) => next.has(f));
-      params.set("diet", sorted.join(","));
-      router.replace(`/?${params.toString()}`, { scroll: false });
+      if (sorted.length > 0) {
+        params.set("diet", sorted.join(","));
+      } else {
+        // Set vazio: remove param pra URL limpa. Ausência vs vazio semanticamente
+        // significava override local — agora profile dirige se URL não tem ?diet=,
+        // mas ao desligar tudo o usuário também não quer forçar restrições.
+        params.delete("diet");
+      }
+      const qs = params.toString();
+      router.replace(qs ? `/?${qs}` : "/", { scroll: false });
     },
     [dietary, router, searchParams],
   );
@@ -205,6 +210,7 @@ export default function HomePage() {
           }}
           onFocus={() => setSuggestOpen(true)}
           isPending={searchPending || products.isFetching}
+          placeholder={t("searchPlaceholder")}
           clearLabel={t("clearSearch")}
           ariaExpanded={suggestOpen}
           className="mb-1"

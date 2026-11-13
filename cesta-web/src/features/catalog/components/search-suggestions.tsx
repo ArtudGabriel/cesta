@@ -72,8 +72,9 @@ export function SearchSuggestions({
         e.preventDefault();
         setActiveIndex((i) => (i - 1 + items.length) % items.length);
       } else if (e.key === "Enter") {
-        if (activeIndex < 0) return;
-        const item = items[activeIndex];
+        // activeIndex=-1 (user não navegou setas): usa primeira sugestão disponível.
+        const idx = activeIndex < 0 ? 0 : activeIndex;
+        const item = items[idx];
         if (!item) return;
         e.preventDefault();
         if (item.kind === "recent") {
