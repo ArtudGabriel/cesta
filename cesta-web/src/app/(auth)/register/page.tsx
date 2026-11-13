@@ -1,16 +1,18 @@
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { RegisterForm } from "@/features/auth/components/register-form";
+import { RegisterHeading } from "./register-heading";
 
-export const metadata = {
-  title: "Crear cuenta — Cesta",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("auth.register");
+  return { title: `${t("title")} · Cesta` };
+}
 
 export default function RegisterPage() {
   return (
     <div>
-      <h2 className="mb-4 font-display text-xl font-bold text-ink">
-        Crear cuenta
-      </h2>
+      <RegisterHeading />
       <Suspense fallback={<FormSkeleton />}>
         <RegisterForm />
       </Suspense>

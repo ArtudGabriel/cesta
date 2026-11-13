@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field-error";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ type Method = "email" | "phone";
 export function LoginForm() {
   const [method, setMethod] = useState<Method>("email");
   const login = useLogin();
+  const t = useTranslations("auth");
 
   const {
     register,
@@ -49,31 +51,31 @@ export function LoginForm() {
                 : "text-muted hover:text-ink"
             }`}
           >
-            {m === "email" ? "Email" : "Teléfono"}
+            {m === "email" ? t("methodEmail") : t("methodPhone")}
           </button>
         ))}
       </div>
 
       {method === "email" ? (
         <div>
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{t("login.emailLabel")}</Label>
           <Input
             id="email"
             type="email"
             autoComplete="email"
-            placeholder="tu@email.com"
+            placeholder={t("login.emailPlaceholder")}
             {...register("email")}
           />
           <FieldError message={errors.email?.message} />
         </div>
       ) : (
         <div>
-          <Label htmlFor="phone">Teléfono</Label>
+          <Label htmlFor="phone">{t("login.phoneLabel")}</Label>
           <Input
             id="phone"
             type="tel"
             autoComplete="tel"
-            placeholder="+34600111222"
+            placeholder={t("login.phonePlaceholder")}
             {...register("phone")}
           />
           <FieldError message={errors.phone?.message} />
@@ -81,7 +83,7 @@ export function LoginForm() {
       )}
 
       <div>
-        <Label htmlFor="password">Contraseña</Label>
+        <Label htmlFor="password">{t("login.passwordLabel")}</Label>
         <Input
           id="password"
           type="password"
@@ -93,13 +95,13 @@ export function LoginForm() {
 
       <Button type="submit" className="w-full" disabled={login.isPending}>
         {login.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-        Entrar
+        {t("login.submit")}
       </Button>
 
       <p className="text-center text-sm text-muted">
-        ¿No tienes cuenta?{" "}
+        {t("login.noAccount")}{" "}
         <Link href="/register" className="text-cesta-green font-medium">
-          Crear cuenta
+          {t("login.createAccount")}
         </Link>
       </p>
     </form>

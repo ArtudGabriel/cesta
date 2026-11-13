@@ -8,6 +8,34 @@
       }
     }
   },
+  "auth": {
+    "methodEmail": "E-mail",
+    "methodPhone": "Telefone",
+    "login": {
+      "title": "Entrar",
+      "emailLabel": "E-mail",
+      "emailPlaceholder": "voce@email.com",
+      "phoneLabel": "Telefone",
+      "phonePlaceholder": "+5511999999999",
+      "passwordLabel": "Senha",
+      "submit": "Entrar",
+      "noAccount": "Ainda não tem conta?",
+      "createAccount": "Criar conta"
+    },
+    "register": {
+      "title": "Criar conta",
+      "nameLabel": "Nome (opcional)",
+      "emailLabel": "E-mail",
+      "emailPlaceholder": "voce@email.com",
+      "phoneLabel": "Telefone",
+      "phonePlaceholder": "+5511999999999",
+      "passwordLabel": "Senha",
+      "passwordPlaceholder": "Mínimo 8 caracteres",
+      "submit": "Criar conta",
+      "hasAccount": "Já tem conta?",
+      "login": "Entrar"
+    }
+  },
   "errors": {
     "fallback": "Ocorreu um erro",
     "auth": {

@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field-error";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,7 @@ type Method = "email" | "phone";
 export function RegisterForm() {
   const [method, setMethod] = useState<Method>("email");
   const registerMutation = useRegister();
+  const t = useTranslations("auth");
 
   const {
     register,
@@ -62,31 +64,31 @@ export function RegisterForm() {
                 : "text-muted hover:text-ink"
             }`}
           >
-            {m === "email" ? "Email" : "Teléfono"}
+            {m === "email" ? t("methodEmail") : t("methodPhone")}
           </button>
         ))}
       </div>
 
       {method === "email" ? (
         <div>
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{t("register.emailLabel")}</Label>
           <Input
             id="email"
             type="email"
             autoComplete="email"
-            placeholder="tu@email.com"
+            placeholder={t("register.emailPlaceholder")}
             {...register("email")}
           />
           <FieldError message={errors.email?.message} />
         </div>
       ) : (
         <div>
-          <Label htmlFor="phone">Teléfono</Label>
+          <Label htmlFor="phone">{t("register.phoneLabel")}</Label>
           <Input
             id="phone"
             type="tel"
             autoComplete="tel"
-            placeholder="+34600111222"
+            placeholder={t("register.phonePlaceholder")}
             {...register("phone")}
           />
           <FieldError message={errors.phone?.message} />
@@ -94,7 +96,7 @@ export function RegisterForm() {
       )}
 
       <div>
-        <Label htmlFor="name">Nombre (opcional)</Label>
+        <Label htmlFor="name">{t("register.nameLabel")}</Label>
         <Input
           id="name"
           type="text"
@@ -105,12 +107,12 @@ export function RegisterForm() {
       </div>
 
       <div>
-        <Label htmlFor="password">Contraseña</Label>
+        <Label htmlFor="password">{t("register.passwordLabel")}</Label>
         <Input
           id="password"
           type="password"
           autoComplete="new-password"
-          placeholder="Mínimo 8 caracteres"
+          placeholder={t("register.passwordPlaceholder")}
           {...register("password")}
         />
         <FieldError message={errors.password?.message} />
@@ -124,13 +126,13 @@ export function RegisterForm() {
         {registerMutation.isPending && (
           <Loader2 className="h-4 w-4 animate-spin" />
         )}
-        Crear cuenta
+        {t("register.submit")}
       </Button>
 
       <p className="text-center text-sm text-muted">
-        ¿Ya tienes cuenta?{" "}
+        {t("register.hasAccount")}{" "}
         <Link href="/login" className="text-cesta-green font-medium">
-          Iniciar sesión
+          {t("register.login")}
         </Link>
       </p>
     </form>
