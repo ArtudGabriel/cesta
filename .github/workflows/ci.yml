@@ -80,7 +80,13 @@ jobs:
       - run: npm ci
       - run: npm run lint --if-present
         continue-on-error: true
-      - run: npm run test:run
+      - run: npm run test:coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: cesta-web/coverage/
+          retention-days: 7
       # Next 16 gera LayoutProps/PageProps types via `next build`; rodar tsc
       # standalone falha com TS2304. O proprio `next build` type-checa.
       - run: npm run build

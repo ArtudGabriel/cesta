@@ -87,6 +87,30 @@ cd cesta-api && npm ci && npx prisma generate && npm run lint --if-present && np
 cd cesta-web && npm ci && npm run lint --if-present && npx tsc --noEmit && npm run build
 ```
 
+### Coverage policy (Sprint 43)
+
+CI web roda `npm run test:coverage` (vitest + @vitest/coverage-v8) e faz upload de artifact `coverage-report` (retention 7 dias).
+
+**Thresholds atuais** (baseline Sprint 43, atual - 5pp):
+
+| Métrica | Threshold | Baseline atual |
+|---|---|---|
+| Statements | 6% | 11.81% |
+| Branches | 3% | 5.37% |
+| Functions | 4% | 9.5% |
+| Lines | 6% | 11.71% |
+
+Política: incrementar threshold incrementalmente a cada 5-10 sprints (ex: +5pp). Zero regressão aceita — PR cai se coverage despenca abaixo do threshold.
+
+Antes de abrir PR:
+
+```bash
+cd cesta-web && npm run test:coverage
+# → stats no terminal + coverage/index.html (HTML report)
+```
+
+Download report em prod: GH Actions run → Artifacts → `coverage-report`.
+
 ---
 
 ## Deploy
