@@ -15,6 +15,7 @@ import { CategoriesModule } from './modules/categories/categories.module';
 import { ExpensesModule } from './modules/expenses/expenses.module';
 import { FamilyBasketsModule } from './modules/family-baskets/family-baskets.module';
 import { FavoritesModule } from './modules/favorites/favorites.module';
+import { SearchHistoryModule } from './modules/search-history/search-history.module';
 import { FamilyProfilesModule } from './modules/family-profiles/family-profiles.module';
 import { HealthModule } from './modules/health/health.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -67,6 +68,7 @@ import { UsersModule } from './modules/users/users.module';
     ReceiptsModule,
     ExpensesModule,
     FavoritesModule,
+    SearchHistoryModule,
     HealthModule,
   ],
   controllers: [AppController],
