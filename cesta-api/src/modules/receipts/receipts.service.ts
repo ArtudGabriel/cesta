@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import * as path from 'path';
+import * as Sentry from '@sentry/node';
 import { AppException } from '../../common/exceptions/app-exception';
 import {
   UpdateReceiptItemDto,
@@ -41,10 +42,14 @@ export class ReceiptsService {
     const imageUrl = `/uploads/${path.basename(file.path)}`;
     const receipt = await this.repo.create(userId, imageUrl, notes);
 
-    const job = await this.queue.add('process', {
-      receiptId: receipt.id,
-      imagePath: file.path,
-    });
+    const job = await Sentry.startSpan(
+      { name: 'ocr.enqueue', op: 'queue.publish' },
+      () =>
+        this.queue.add('process', {
+          receiptId: receipt.id,
+          imagePath: file.path,
+        }),
+    );
 
     return {
       jobId: job.id ?? receipt.id,

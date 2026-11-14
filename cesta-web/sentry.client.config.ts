@@ -18,5 +18,25 @@ if (dsn) {
       process.env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE,
       0.1,
     ),
+    // Sprint 58: Session Replay — grava interação pra reproduzir bugs.
+    // 5% default das sessões + 100% das que explodem (on-error). Privacy:
+    // inputs sempre mascarados (cobre senha + email), mídia bloqueada pra
+    // zerar bandwidth. Texto renderizado permanece pra permitir diagnose
+    // de flow (nome produto, preço, estados UI).
+    replaysSessionSampleRate: parseRate(
+      process.env.NEXT_PUBLIC_SENTRY_REPLAY_SAMPLE_RATE,
+      0.05,
+    ),
+    replaysOnErrorSampleRate: parseRate(
+      process.env.NEXT_PUBLIC_SENTRY_REPLAY_ON_ERROR_SAMPLE_RATE,
+      1.0,
+    ),
+    integrations: [
+      Sentry.replayIntegration({
+        maskAllText: false,
+        maskAllInputs: true,
+        blockAllMedia: true,
+      }),
+    ],
   });
 }

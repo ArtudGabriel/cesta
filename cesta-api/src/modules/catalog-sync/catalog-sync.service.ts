@@ -1,5 +1,6 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import * as Sentry from '@sentry/node';
 import { Queue } from 'bullmq';
 import { RevalidateService } from '../../common/revalidate/revalidate.service';
 import {
@@ -84,7 +85,13 @@ export class CatalogSyncService {
     const updatedProductIds = new Set<string>();
 
     try {
-      const raws = await adapter.fetchProducts();
+      const raws = await Sentry.startSpan(
+        {
+          name: `catalog-sync.${supermarketSlug}`,
+          op: 'http.client',
+        },
+        () => adapter.fetchProducts(),
+      );
 
       for (const raw of raws) {
         stats.itemsProcessed += 1;

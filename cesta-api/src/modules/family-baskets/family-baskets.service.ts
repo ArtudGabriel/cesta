@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Queue } from 'bullmq';
+import * as Sentry from '@sentry/node';
 import { ProductsRepository } from '../products/products.repository';
 import { FamilyProfilesService } from '../family-profiles/family-profiles.service';
 import {
@@ -34,11 +35,15 @@ export class FamilyBasketsService {
     const profile = await this.profilesService.getOrThrow(userId);
     const basket = await this.repo.createEmpty(userId, profile.id);
 
-    const job = await this.queue.add('generate', {
-      userId,
-      basketId: basket.id,
-      preserveLocked: false,
-    });
+    const job = await Sentry.startSpan(
+      { name: 'basket.generate.enqueue', op: 'queue.publish' },
+      () =>
+        this.queue.add('generate', {
+          userId,
+          basketId: basket.id,
+          preserveLocked: false,
+        }),
+    );
 
     return {
       jobId: job.id ?? basket.id,
@@ -56,11 +61,15 @@ export class FamilyBasketsService {
 
     await this.repo.updateStatus(basketId, 'pending');
 
-    const job = await this.queue.add('regenerate', {
-      userId,
-      basketId,
-      preserveLocked: true,
-    });
+    const job = await Sentry.startSpan(
+      { name: 'basket.regenerate.enqueue', op: 'queue.publish' },
+      () =>
+        this.queue.add('regenerate', {
+          userId,
+          basketId,
+          preserveLocked: true,
+        }),
+    );
 
     return {
       jobId: job.id ?? basketId,

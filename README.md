@@ -164,9 +164,9 @@ Portal no navegador: Vercel URL → login → navegar. Primeira request pode lev
 
 Variáveis de referência: [`.env.example`](./.env.example) (api) + [`cesta-web/.env.example`](./cesta-web/.env.example) (web).
 
-### 6. Sentry (opcional — Sprint 31 errors + Sprint 55 Performance/source maps)
+### 6. Sentry (opcional — Sprint 31 errors + Sprint 55 Performance/source maps + Sprint 58 Replay/spans)
 
-Observabilidade de erros + performance em prod. Sem DSN, SDK fica no-op e app roda normal.
+Observabilidade de erros + performance + session replay em prod. Sem DSN, SDK fica no-op e app roda normal.
 
 1. https://sentry.io → criar 2 projetos (NestJS + Next.js) → copiar DSN de cada
 2. Render → envVars → preencher `SENTRY_DSN` (sync: false já configurado em `render.yaml`); `SENTRY_TRACES_SAMPLE_RATE` já setado em `0.1` no `render.yaml` (10% traces em prod)
@@ -187,3 +187,21 @@ Pra stack traces legíveis em prod (minificação Next/Nest apaga nomes):
 4. Vercel: mesmos 4 secrets como Environment Variables (Build-time). `withSentryConfig` em `next.config.ts` gatilha upload automático quando `SENTRY_AUTH_TOKEN` presente.
 5. `deleteSourcemapsAfterUpload: true` garante que os `.map` não vazam no bundle final de prod — ficam só no Sentry.
 6. Sem secrets → `sourcemaps.disable: true` kicks in → build normal sem upload (dev local + CI de PR público permanecem iguais).
+
+#### Session Replay (Sprint 58)
+
+Grava interação do user na página pra reproduzir bugs reportados dentro do painel Sentry (replay com DOM mutations + console logs + network).
+
+- Vercel envs: `NEXT_PUBLIC_SENTRY_REPLAY_SAMPLE_RATE=0.05` (5% das sessões) + `NEXT_PUBLIC_SENTRY_REPLAY_ON_ERROR_SAMPLE_RATE=1.0` (100% das sessões que derem erro, só a partir do erro — buffer anterior incluso).
+- Privacy: `maskAllInputs: true` (senha + email + qualquer `<input>` ficam mascarados), `blockAllMedia: true` (imagens/vídeo não sobem — zero bandwidth), `maskAllText: false` (texto renderizado permanece pra diagnose de flow — nome produto, preço, estados UI).
+- Sem `NEXT_PUBLIC_SENTRY_DSN` setado → integration não roda (guard Sprint 31 preservado). Dev local segue zero-config.
+
+#### Custom spans backend (Sprint 58)
+
+3 pontos de enfileiramento/fetch ficam auto-instrumentados além dos HTTP spans do `@sentry/node`:
+
+- `ocr.enqueue` — `receipts.service.upload` publica job na fila `receipts`.
+- `basket.generate.enqueue` / `basket.regenerate.enqueue` — `family-baskets.service` publica na fila `basket-generation`.
+- `catalog-sync.<supermarket-slug>` — `catalog-sync.service.runFor` chama `adapter.fetchProducts()` do mercado específico (Mercadona, Carrefour, …).
+
+Sem DSN, `Sentry.startSpan` é no-op — zero overhead.
