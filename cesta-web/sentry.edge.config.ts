@@ -13,6 +13,8 @@ if (dsn) {
   Sentry.init({
     dsn,
     environment: process.env.NODE_ENV,
+    // Sprint 60: release tracking — Vercel/CI popula via NEXT_PUBLIC_SENTRY_RELEASE.
+    release: process.env.NEXT_PUBLIC_SENTRY_RELEASE,
     // Sprint 55: sample rate via env (prod default 10%, dev local pode zerar).
     tracesSampleRate: parseRate(
       process.env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE,

@@ -27,6 +27,12 @@ export default withSentryConfig(withNextIntl(nextConfig), {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
+  // Sprint 60: release tracking — withSentryConfig anota upload de artifacts
+  // (source maps) pro release específico, batendo com o `release` dos
+  // sentry.*.config.ts. Sem SENTRY_AUTH_TOKEN, upload é disabled abaixo.
+  release: {
+    name: process.env.NEXT_PUBLIC_SENTRY_RELEASE,
+  },
   // Sprint 55: source maps upload condicional em SENTRY_AUTH_TOKEN. Dev local
   // sem token → disable graceful. CI com secret → upload + delete pra não
   // vazar source maps no bundle de produção.

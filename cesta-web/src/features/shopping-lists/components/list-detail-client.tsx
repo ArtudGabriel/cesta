@@ -32,6 +32,12 @@ export function ListDetailClient({ initialList }: ListDetailClientProps) {
   const router = useRouter();
   // initialData evita loading flash — useList bate /shopping-lists/:id em
   // background e revalida se mudou (totals continua separado em useListTotals).
+  // Fallback `list = initialList` mantido: TanStack v5 narrowing pra
+  // DefinedUseQueryResult exige initialData **required** no overload, mas
+  // useList recebe `options?.initialData` optional pra manter API flexível —
+  // TS infere `T | undefined` e precisamos do default pra evitar `possibly
+  // undefined` nos consumers. Sprint 60 avaliou remover (nit Reviewer) mas
+  // narrowing não funciona com signature atual; revert documentado.
   const { data: list = initialList } = useList(initialList.id, {
     initialData: initialList,
   });

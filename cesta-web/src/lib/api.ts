@@ -1,4 +1,4 @@
-import axios, { AxiosError } from "axios";
+import axios, { AxiosError, type AxiosRequestConfig } from "axios";
 
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1",
@@ -56,23 +56,114 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Sprint 60: refresh interceptor queue — garante único /auth/refresh in-flight
+ * mesmo com múltiplas requests paralelas pegando 401. Requests pendentes
+ * esperam pelo mesmo refresh, retomam com o novo access token OU falham
+ * juntas se refresh der 401 (sessão realmente expirou).
+ */
+interface RetryableConfig extends AxiosRequestConfig {
+  _retried?: boolean;
+}
+
+let isRefreshing = false;
+let pendingQueue: Array<(token: string | null) => void> = [];
+
+function flushQueue(token: string | null) {
+  pendingQueue.forEach((cb) => cb(token));
+  pendingQueue = [];
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  try {
+    // Chamada crua (sem axios interceptor pra evitar loop infinito em 401).
+    const res = await fetch(`${api.defaults.baseURL ?? ""}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      data: { tokens: { accessToken: string } };
+    };
+    const token = json.data?.tokens?.accessToken ?? null;
+    if (token) setAccessToken(token);
+    return token;
+  } catch {
+    return null;
+  }
+}
+
 api.interceptors.response.use(
   (response) => response,
-  (
+  async (
     error: AxiosError<{
       message?: string;
       errorCode?: string;
     }>,
   ) => {
-    if (error.response?.status === 401 && typeof window !== "undefined") {
-      setAccessToken(null);
-      // TODO: tentar refresh antes de redirecionar
+    const original = error.config as RetryableConfig | undefined;
+    const status = error.response?.status;
+
+    // 401 fora de window (SSR) ou request já retentada → falha direto.
+    const canRetry =
+      status === 401 &&
+      typeof window !== "undefined" &&
+      original &&
+      !original._retried &&
+      // Não retry em chamadas de auth (login/refresh/logout) pra evitar loops.
+      !(original.url?.includes("/auth/login") ?? false) &&
+      !(original.url?.includes("/auth/refresh") ?? false) &&
+      !(original.url?.includes("/auth/register") ?? false);
+
+    if (canRetry) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          pendingQueue.push((token) => {
+            if (!token) {
+              reject(buildApiError(error));
+              return;
+            }
+            original._retried = true;
+            original.headers = {
+              ...original.headers,
+              Authorization: `Bearer ${token}`,
+            };
+            resolve(api.request(original));
+          });
+        });
+      }
+
+      isRefreshing = true;
+      try {
+        const newToken = await refreshAccessToken();
+        if (!newToken) {
+          flushQueue(null);
+          setAccessToken(null);
+          return Promise.reject(buildApiError(error));
+        }
+        flushQueue(newToken);
+        original._retried = true;
+        original.headers = {
+          ...original.headers,
+          Authorization: `Bearer ${newToken}`,
+        };
+        return api.request(original);
+      } finally {
+        isRefreshing = false;
+      }
     }
-    const message =
-      error.response?.data?.message ?? error.message ?? "Erro de rede";
-    const errorCode = error.response?.data?.errorCode;
-    return Promise.reject(
-      new ApiError(message, errorCode, error.response?.status),
-    );
+
+    return Promise.reject(buildApiError(error));
   },
 );
+
+function buildApiError(
+  error: AxiosError<{ message?: string; errorCode?: string }>,
+): ApiError {
+  const message =
+    error.response?.data?.message ?? error.message ?? "Erro de rede";
+  const errorCode = error.response?.data?.errorCode;
+  return new ApiError(message, errorCode, error.response?.status);
+}

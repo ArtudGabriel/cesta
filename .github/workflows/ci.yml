@@ -45,6 +45,8 @@ jobs:
       JWT_ACCESS_SECRET: ci_access_secret_32_chars_minimum_abc
       JWT_REFRESH_SECRET: ci_refresh_secret_32_chars_minimum_xyz
       NODE_ENV: test
+      # Sprint 60: release tracking — Sentry anexa erros/perf ao commit SHA.
+      SENTRY_RELEASE: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -85,6 +87,8 @@ jobs:
     env:
       API_URL: http://localhost:3001/api/v1
       NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+      # Sprint 60: release tracking propagado pro bundle client via NEXT_PUBLIC_.
+      NEXT_PUBLIC_SENTRY_RELEASE: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -120,6 +124,8 @@ jobs:
           # em withSentryConfig (next.config.ts) garante build normal sem upload.
           NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
           NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE: '0.1'
+          # Sprint 60: release tracking — bind no mesmo SHA do job root.
+          NEXT_PUBLIC_SENTRY_RELEASE: ${{ github.sha }}
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
