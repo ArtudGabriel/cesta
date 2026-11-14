@@ -7,7 +7,7 @@
 export function LayoutSkeleton() {
   return (
     <div className="flex min-h-full flex-1 flex-col bg-cream">
-      <div className="flex h-14 items-center gap-3 border-b border-neutral-200 bg-white/60 px-4">
+      <div className="flex h-14 items-center gap-3 border-b border-neutral-200 bg-cream/60 px-4">
         <div className="h-8 w-8 animate-pulse rounded-full bg-neutral-200" />
         <div className="h-5 flex-1 animate-pulse rounded bg-neutral-200" />
       </div>
@@ -19,7 +19,7 @@ export function LayoutSkeleton() {
       <div
         role="presentation"
         aria-hidden
-        className="flex h-16 items-center justify-around border-t border-neutral-200 bg-white"
+        className="flex h-16 items-center justify-around border-t border-neutral-200 bg-cream"
       >
         {[0, 1, 2, 3, 4].map((i) => (
           <div

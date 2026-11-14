@@ -5,7 +5,14 @@ const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 function parseRate(raw: string | undefined, fallback: number): number {
   if (!raw) return fallback;
   const n = parseFloat(raw);
-  if (Number.isNaN(n) || n < 0 || n > 1) return fallback;
+  if (Number.isNaN(n) || n < 0 || n > 1) {
+    // Sprint 66 nit: alerta loud quando env presente mas inválido.
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[sentry.server] invalid sample rate "${raw}" — fallback ${fallback}`,
+    );
+    return fallback;
+  }
   return n;
 }
 

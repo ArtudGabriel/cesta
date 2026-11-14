@@ -47,10 +47,11 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
-  // `lang` fica fixo em "es" (locale padrão do Cesta por `cesta.md` 5.1).
-  // Locale real é aplicado dentro do <LocalizedShell> suspenso; sem Suspense
-  // boundary, `cacheComponents: true` quebra prerender do /_not-found porque
-  // getLocale/getMessages leem cookies/headers top-level.
+  // Sprint 66 nit avaliado + descartado: lang dinâmico no root exige
+  // `cookies()` top-level, o que quebra o prerender do `/_not-found` (mesmo
+  // issue da Sprint 52.5 que isolou i18n dentro de Suspense). Mantemos lang
+  // "es" static + hydration client atualiza document.documentElement.lang
+  // via NextIntlClientProvider — trade-off aceito desde 52.5.
   return (
     <html lang="es" className="h-full antialiased">
       <head>

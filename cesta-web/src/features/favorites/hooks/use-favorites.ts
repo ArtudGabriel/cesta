@@ -24,8 +24,20 @@ export function useFavorites() {
   });
 }
 
-export function useIsFavorite(productId: string) {
+/**
+ * Sprint 66 nit: aceita `initialData` opcional pra evitar flash 1-frame
+ * quando o caller já sabe o estado inicial (ex: página /favoritos que lista
+ * tudo). Enquanto a query global ainda não resolveu, retorna o initial;
+ * depois passa a refletir o cache real.
+ */
+export function useIsFavorite(
+  productId: string,
+  options?: { initialData?: boolean },
+): boolean {
   const { data } = useFavorites();
+  if (data === undefined && options?.initialData !== undefined) {
+    return options.initialData;
+  }
   return Boolean(data?.some((f) => f.productId === productId));
 }
 

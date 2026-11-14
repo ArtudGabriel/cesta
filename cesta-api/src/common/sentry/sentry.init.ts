@@ -3,7 +3,15 @@ import * as Sentry from '@sentry/node';
 function parseRate(raw: string | undefined, fallback: number): number {
   if (!raw) return fallback;
   const n = parseFloat(raw);
-  if (Number.isNaN(n) || n < 0 || n > 1) return fallback;
+  if (Number.isNaN(n) || n < 0 || n > 1) {
+    // Sprint 66 nit: alerta loud quando var presente mas inválida — evita
+    // misconfig silencioso em CI/prod.
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[sentry.init] invalid sample rate "${raw}" — fallback ${fallback}`,
+    );
+    return fallback;
+  }
   return n;
 }
 

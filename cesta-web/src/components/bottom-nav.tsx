@@ -58,7 +58,32 @@ export function BottomNav() {
 
   const isAuthRoute = HIDDEN_PREFIXES.some((p) => pathname.startsWith(p));
   if (isAuthRoute) return null;
-  if (isError || !profile) return null;
+  if (isError) return null;
+  // Sprint 66 nit: durante loading inicial do profile, render skeleton
+  // em vez de return null — evita content jump quando nav aparece.
+  if (!profile) {
+    return (
+      <nav
+        aria-hidden
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-40",
+          "border-t border-neutral-200 bg-white/95 backdrop-blur",
+        )}
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0)" }}
+      >
+        <ul className="mx-auto flex max-w-lg">
+          {NAV_ITEMS.map(({ href }) => (
+            <li key={href} className="flex-1">
+              <div className="flex min-h-14 flex-col items-center justify-center gap-1 py-1.5">
+                <div className="h-5 w-5 animate-pulse rounded bg-neutral-200" />
+                <div className="h-2 w-10 animate-pulse rounded bg-neutral-200" />
+              </div>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    );
+  }
 
   return (
     <nav
