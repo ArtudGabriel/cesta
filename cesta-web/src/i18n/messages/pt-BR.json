@@ -57,6 +57,10 @@
     },
     "familyProfile": {
       "notFound": "Primeiro configure sua cesta familiar"
+    },
+    "users": {
+      "deleteConfirmationMismatch": "Confirmação incorreta",
+      "alreadyDeleted": "Conta já excluída"
     }
   },
   "meta": {
@@ -250,6 +254,20 @@
     "syncDietary": {
       "button": "Aplicar minhas restrições à cesta familiar",
       "success": "Restrições aplicadas à sua cesta familiar"
+    },
+    "dsr": {
+      "title": "Meus dados",
+      "subtitle": "Baixe ou exclua suas informações pessoais conforme o LGPD/RGPD.",
+      "exportButton": "Baixar meus dados",
+      "exportSuccess": "Dados baixados",
+      "deleteButton": "Excluir minha conta",
+      "deleteConfirmTitle": "Excluir sua conta?",
+      "deleteConfirmBody": "Esta ação é permanente. Você perderá acesso a listas, favoritos, gastos, cesta familiar e alertas. Seu contato ficará disponível para um novo cadastro.",
+      "deleteConfirmPrompt": "Digite ELIMINAR para confirmar",
+      "deleteConfirmWord": "ELIMINAR",
+      "deleteConfirmButton": "Excluir permanentemente",
+      "deleteCancel": "Cancelar",
+      "deleteSuccess": "Conta excluída"
     }
   },
   "toast": {
