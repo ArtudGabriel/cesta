@@ -1,6 +1,7 @@
 # Cesta
 
 [![CI](https://github.com/ArtudGabriel/cesta/actions/workflows/ci.yml/badge.svg)](https://github.com/ArtudGabriel/cesta/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/ArtudGabriel/cesta/branch/main/graph/badge.svg)](https://codecov.io/gh/ArtudGabriel/cesta)
 
 App mobile-first (PWA) de comparação de preços de supermercados para a Comunidade de Madrid. Catálogo em tempo quase-real, controle de gastos via OCR de notas fiscais, alertas de preço, avaliações de produtos e cesta familiar personalizada.
 
@@ -87,20 +88,22 @@ cd cesta-api && npm ci && npx prisma generate && npm run lint --if-present && np
 cd cesta-web && npm ci && npm run lint --if-present && npx tsc --noEmit && npm run build
 ```
 
-### Coverage policy (Sprint 43)
+### Coverage policy (Sprint 43 web + Sprint 56 api + Codecov)
 
-CI web roda `npm run test:coverage` (vitest + @vitest/coverage-v8) e faz upload de artifact `coverage-report` (retention 7 dias).
+CI roda `npm run test:coverage` em ambos os lados (`cesta-web` via vitest+@vitest/coverage-v8, `cesta-api` via jest+istanbul), sobe os artifacts `coverage-report` e `coverage-api` (retention 7 dias), e tenta enviar o `lcov.info` de cada lado pro Codecov com flags `web` e `api` (passo `continue-on-error: true` — sem `CODECOV_TOKEN` configurado, o upload falha graceful, CI segue verde).
 
-**Thresholds atuais** (baseline Sprint 43, atual - 5pp):
+**Thresholds atuais** (baseline - 5pp):
 
-| Métrica | Threshold | Baseline atual |
-|---|---|---|
-| Statements | 6% | 11.81% |
-| Branches | 3% | 5.37% |
-| Functions | 4% | 9.5% |
-| Lines | 6% | 11.71% |
+| Métrica | Web (Sprint 43) | API (Sprint 56) | Baseline API |
+|---|---|---|---|
+| Statements | 6% | 9% | 12.46% |
+| Branches | 3% | 2% | 7.35% |
+| Functions | 4% | 4% | 9.6% |
+| Lines | 6% | 9% | 12.04% |
 
 Política: incrementar threshold incrementalmente a cada 5-10 sprints (ex: +5pp). Zero regressão aceita — PR cai se coverage despenca abaixo do threshold.
+
+Pra habilitar upload Codecov em prod: criar conta em [codecov.io](https://codecov.io), autorizar o repo, copiar o token, adicionar como secret `CODECOV_TOKEN` no GitHub Actions. Em repo público o upload funciona sem token, só mais lento.
 
 Antes de abrir PR:
 

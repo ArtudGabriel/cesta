@@ -59,8 +59,22 @@ jobs:
         continue-on-error: true
       - run: npm run audit:dtos
       - run: npm run audit:repos
-      - run: npx jest --ci
+      - run: npm run test:coverage -- --ci
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-api
+          path: cesta-api/coverage/
+          retention-days: 7
       - run: npm run build
+      - name: Upload coverage to Codecov (api)
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          files: cesta-api/coverage/lcov.info
+          flags: api
+          token: ${{ secrets.CODECOV_TOKEN }}
+        continue-on-error: true
 
   web:
     name: Web (lint + typecheck + build)
@@ -88,6 +102,14 @@ jobs:
           name: coverage-report
           path: cesta-web/coverage/
           retention-days: 7
+      - name: Upload coverage to Codecov (web)
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          files: cesta-web/coverage/lcov.info
+          flags: web
+          token: ${{ secrets.CODECOV_TOKEN }}
+        continue-on-error: true
       # Next 16 gera LayoutProps/PageProps types via `next build`; rodar tsc
       # standalone falha com TS2304. O proprio `next build` type-checa.
       - run: npm run build
