@@ -6,9 +6,13 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   /* config options here */
-  // cacheComponents desligado: páginas client dynamic (/produto/[pid], /gastos/[id],
-  // /minha-lista/[id]) usam useParams + React Query no browser, incompatível com
-  // partial prerendering. Reavaliar quando migrar dynamic pages pra Server Components.
+  // cacheComponents + partialPrefetching mantidos desligados: habilitação
+  // tentada na Sprint 52 após série SC refactor (46/49/50/51), mas root layout
+  // usa getLocale/getMessages/getTranslations (dinâmicos por Accept-Language)
+  // sem Suspense boundary dedicado — Next 16 cacheComponents exige wrap ou
+  // "use cache" em todo dynamic data access, inclusive /_not-found. Reativar
+  // numa sprint própria quando i18n for isolado em boundary suspense/stream.
+  // partialPrefetching requer cacheComponents, então acompanha.
   cacheComponents: false,
   partialPrefetching: false,
   turbopack: {

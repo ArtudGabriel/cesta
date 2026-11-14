@@ -25,7 +25,10 @@ export async function fetchCompareSSR(ids: string[]): Promise<Product[]> {
   const qs = new URLSearchParams({ ids: ids.join(",") });
   const res = await fetch(`${resolveBaseUrl()}/products/compare?${qs}`, {
     headers: { "content-type": "application/json" },
-    next: { tags: ids.map((id) => `product:${id}`) },
+    // Cesta prices mudam diariamente — revalidate 1h é razoável. Tags permitem
+    // invalidação on-demand via RevalidateService (Sprint 47/48) quando
+    // catalog-sync atualiza preço de qualquer produto do set.
+    next: { revalidate: 3600, tags: ids.map((id) => `product:${id}`) },
   });
   if (!res.ok) {
     throw new Error(`Failed to fetch compare set: ${res.status}`);

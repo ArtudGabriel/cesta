@@ -23,8 +23,8 @@ function resolveBaseUrl(): string {
  * Authorization: Bearer. Reconstrói o token do cookie cesta_access_token
  * (lib/api.ts setAccessToken espelha em cookie pra SSR).
  *
- * Retorna null em 401/403/404 pra caller chamar notFound(). Tag `list:${id}`
- * permite revalidateTag dedicada no futuro.
+ * `cache: 'no-store'` evita cross-user leak (fetch cache do Next não keya por
+ * header de auth). Retorna null em 401/403/404 pra caller chamar notFound().
  */
 export async function fetchListSSR(id: string): Promise<ShoppingList | null> {
   const cookieStore = await cookies();
@@ -36,7 +36,10 @@ export async function fetchListSSR(id: string): Promise<ShoppingList | null> {
       authorization: `Bearer ${token}`,
       "content-type": "application/json",
     },
-    next: { tags: [`list:${id}`] },
+    // Dado user-scoped (Authorization header) — fetch cache key do Next não
+    // inclui header de auth, cachear vazaria dados entre usuários. no-store
+    // garante refetch per-request. Sem tags (sem cache = tag no-op).
+    cache: "no-store",
   });
   if (res.status === 401 || res.status === 403 || res.status === 404) {
     return null;
