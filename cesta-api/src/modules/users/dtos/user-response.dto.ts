@@ -41,6 +41,16 @@ export class UserResponseDto {
   @ApiProperty()
   nutriHealthyOnly: boolean;
 
+  @ApiProperty({
+    nullable: true,
+    enum: ['all', 'essential'],
+    description: 'GDPR cookie consent level (Sprint 62). null = banner ainda não respondido.',
+  })
+  cookieConsentLevel: 'all' | 'essential' | null;
+
+  @ApiProperty({ nullable: true })
+  cookiesAcceptedAt: Date | null;
+
   @ApiProperty()
   createdAt: Date;
 
@@ -59,6 +69,11 @@ export class UserResponseDto {
     dto.sortUnitPreference = user.sortUnitPreference as 'absolute' | 'unit';
     dto.nutriSortEnabled = user.nutriSortEnabled;
     dto.nutriHealthyOnly = user.nutriHealthyOnly;
+    dto.cookieConsentLevel = user.cookieConsentLevel as
+      | 'all'
+      | 'essential'
+      | null;
+    dto.cookiesAcceptedAt = user.cookiesAcceptedAt;
     dto.createdAt = user.createdAt;
     return dto;
   }

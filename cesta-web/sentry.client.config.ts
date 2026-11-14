@@ -9,7 +9,18 @@ function parseRate(raw: string | undefined, fallback: number): number {
   return n;
 }
 
-if (dsn) {
+/**
+ * Sprint 62 GDPR: gate consent. Sentry client (replay/perf/errors) só
+ * inicializa com consent=all explícito via cookie `cesta:consent`. Sem o
+ * cookie OU consent=essential → init skipado (sessão atual não envia nada
+ * pro Sentry). Decisão aplicada no próximo page load após user aceitar.
+ */
+function hasFullConsent(): boolean {
+  if (typeof document === "undefined") return false;
+  return /cesta:consent=all(?:;|$)/.test(document.cookie);
+}
+
+if (dsn && hasFullConsent()) {
   Sentry.init({
     dsn,
     environment: process.env.NODE_ENV,

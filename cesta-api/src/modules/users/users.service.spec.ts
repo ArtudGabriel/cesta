@@ -148,4 +148,28 @@ describe('UsersService.updateProfile', () => {
     expect(result.id).toBe('u1');
     expect(result).not.toHaveProperty('passwordHash');
   });
+
+  it('saveConsent persiste cookieConsentLevel + cookiesAcceptedAt (Sprint 62)', async () => {
+    repoMock.update.mockResolvedValue(fakeUser());
+    await service.saveConsent('u1', 'all');
+
+    expect(repoMock.update).toHaveBeenCalledTimes(1);
+    const [calledUserId, data] = repoMock.update.mock.calls[0] as [
+      string,
+      { cookieConsentLevel: string; cookiesAcceptedAt: Date },
+    ];
+    expect(calledUserId).toBe('u1');
+    expect(data.cookieConsentLevel).toBe('all');
+    expect(data.cookiesAcceptedAt).toBeInstanceOf(Date);
+  });
+
+  it('saveConsent level essential também persiste (Sprint 62)', async () => {
+    repoMock.update.mockResolvedValue(fakeUser());
+    await service.saveConsent('u1', 'essential');
+
+    expect(repoMock.update).toHaveBeenCalledWith(
+      'u1',
+      expect.objectContaining({ cookieConsentLevel: 'essential' }),
+    );
+  });
 });

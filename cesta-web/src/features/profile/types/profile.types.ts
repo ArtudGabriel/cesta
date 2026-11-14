@@ -1,4 +1,5 @@
 export type SortUnitPreference = "absolute" | "unit";
+export type CookieConsentLevel = "all" | "essential";
 
 export interface Profile {
   id: string;
@@ -14,6 +15,8 @@ export interface Profile {
   sortUnitPreference: SortUnitPreference;
   nutriSortEnabled: boolean;
   nutriHealthyOnly: boolean;
+  cookieConsentLevel: CookieConsentLevel | null;
+  cookiesAcceptedAt: string | null;
   createdAt: string;
 }
 

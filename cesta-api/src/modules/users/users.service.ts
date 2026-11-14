@@ -1,6 +1,7 @@
 import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, User } from '@prisma/client';
 import { AppException } from '../../common/exceptions/app-exception';
+import type { CookieConsentLevel } from './dtos/consent.dto';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { UserResponseDto } from './dtos/user-response.dto';
 import { UsersRepository } from './users.repository';
@@ -101,5 +102,15 @@ export class UsersService {
   async getProfile(userId: string): Promise<UserResponseDto> {
     const user = await this.findById(userId);
     return UserResponseDto.fromEntity(user);
+  }
+
+  async saveConsent(
+    userId: string,
+    level: CookieConsentLevel,
+  ): Promise<void> {
+    await this.usersRepository.update(userId, {
+      cookieConsentLevel: level,
+      cookiesAcceptedAt: new Date(),
+    });
   }
 }

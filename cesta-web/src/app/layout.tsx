@@ -8,6 +8,7 @@ import { BottomNav } from "@/components/bottom-nav";
 import { InstallPrompt } from "@/components/install-prompt";
 import { LayoutSkeleton } from "@/components/layout-skeleton";
 import { SentryBoundary } from "@/components/sentry-boundary";
+import { CookieBanner } from "@/features/consent/components/cookie-banner";
 import { QueryProvider } from "@/providers/query-provider";
 import { Toaster } from "sonner";
 
@@ -78,6 +79,8 @@ async function LocalizedShell({ children }: { children: React.ReactNode }) {
         <QueryProvider>
           <BodyPadding>{children}</BodyPadding>
           <BottomNav />
+          {/* Sprint 62 GDPR: banner precisa de QueryProvider (lê useProfile). */}
+          <CookieBanner />
         </QueryProvider>
         <InstallPrompt />
         <Toaster position="top-center" richColors />

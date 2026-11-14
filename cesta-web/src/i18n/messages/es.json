@@ -374,5 +374,11 @@
       "promotionEnding": "Promoción terminando",
       "backInStock": "Vuelve a stock"
     }
+  },
+  "consent": {
+    "title": "Cookies y privacidad",
+    "description": "Usamos cookies esenciales para que el app funcione. Las analíticas nos ayudan a mejorar, pero puedes rechazarlas.",
+    "acceptAll": "Aceptar todo",
+    "rejectNonEssential": "Rechazar no esenciales"
   }
 }
