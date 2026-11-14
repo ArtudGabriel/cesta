@@ -6,11 +6,12 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   /* config options here */
-  // Flip final das flags desacoplado — Sprint 52.5 só adiciona Suspense
-  // boundary em layout.tsx (unblocker) + LayoutSkeleton. Build local com
-  // ambas: true passou verde após fix; Sprint 53 faz o flip definitivo.
-  cacheComponents: false,
-  partialPrefetching: false,
+  // Débito Sprint 1 fechado na Sprint 53. Habilitadas após Sprint 52.5 isolar
+  // getLocale/getMessages em Suspense boundary (LocalizedShell) + série SC
+  // refactor completa (Sprint 46/49/50/51). Rotas RSC renderizam ◐ Partial
+  // Prerender; dynamic data streams sob Suspense.
+  cacheComponents: true,
+  partialPrefetching: true,
   turbopack: {
     rules: {
       "*.css": {
