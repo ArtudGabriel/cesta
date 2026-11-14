@@ -7,6 +7,8 @@ describe('UsersService.updateProfile', () => {
   let repoMock: {
     findById: jest.Mock;
     update: jest.Mock;
+    exportUserData: jest.Mock;
+    softDeleteWithRevoke: jest.Mock;
   };
 
   const fakeUser = (overrides: Partial<Record<string, unknown>> = {}) => ({
@@ -34,6 +36,8 @@ describe('UsersService.updateProfile', () => {
     repoMock = {
       findById: jest.fn(),
       update: jest.fn(),
+      exportUserData: jest.fn(),
+      softDeleteWithRevoke: jest.fn(),
     };
     const module = await Test.createTestingModule({
       providers: [
@@ -171,5 +175,53 @@ describe('UsersService.updateProfile', () => {
       'u1',
       expect.objectContaining({ cookieConsentLevel: 'essential' }),
     );
+  });
+
+  it('exportMyData retorna shape completo sem passwordHash (Sprint 63 GDPR Art. 20)', async () => {
+    repoMock.exportUserData.mockResolvedValue({
+      ...fakeUser(),
+      favorites: [{ id: 'f1', productId: 'p1' }],
+      shoppingLists: [],
+      reviews: [],
+      alerts: [],
+      receipts: [],
+      familyProfile: null,
+      familyBaskets: [],
+      searchHistory: [{ id: 'h1', query: 'aceite' }],
+    });
+    const result = await service.exportMyData('u1');
+
+    expect(repoMock.exportUserData).toHaveBeenCalledWith('u1');
+    expect(result).toHaveProperty('exportedAt');
+    expect(result.user).toBeDefined();
+    const user = result.user as Record<string, unknown>;
+    expect(user).not.toHaveProperty('passwordHash');
+    expect(user).not.toHaveProperty('deletedAt');
+    expect(user.favorites).toHaveLength(1);
+    expect(user.searchHistory).toHaveLength(1);
+  });
+
+  it('exportMyData user inexistente → NotFoundException', async () => {
+    repoMock.exportUserData.mockResolvedValue(null);
+    await expect(service.exportMyData('missing')).rejects.toThrow(
+      /not found/i,
+    );
+  });
+
+  it('deleteMyAccount chama softDeleteWithRevoke quando user existe (Sprint 63 GDPR Art. 17)', async () => {
+    repoMock.findById.mockResolvedValue(fakeUser());
+    repoMock.softDeleteWithRevoke.mockResolvedValue(fakeUser());
+    await service.deleteMyAccount('u1');
+
+    expect(repoMock.findById).toHaveBeenCalledWith('u1');
+    expect(repoMock.softDeleteWithRevoke).toHaveBeenCalledWith('u1');
+  });
+
+  it('deleteMyAccount user já deletado → USERS.ALREADY_DELETED', async () => {
+    repoMock.findById.mockResolvedValue(null);
+    await expect(service.deleteMyAccount('u1')).rejects.toMatchObject({
+      errorCode: 'USERS.ALREADY_DELETED',
+    });
+    expect(repoMock.softDeleteWithRevoke).not.toHaveBeenCalled();
   });
 });

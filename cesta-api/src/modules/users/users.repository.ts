@@ -39,4 +39,79 @@ export class UsersRepository {
       data: { deletedAt: new Date() },
     });
   }
+
+  /**
+   * Sprint 63 GDPR Art. 20 (data portability). Agrega todas as entidades
+   * per-user num único payload de export. Cross-feature por natureza; DSR
+   * fica contido no users module (não espalha repos em services).
+   */
+  async exportUserData(id: string) {
+    return this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        favorites: {
+          include: {
+            product: { select: { id: true, name: true, brand: true } },
+          },
+        },
+        shoppingLists: {
+          where: { deletedAt: null },
+          include: {
+            items: {
+              include: {
+                product: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
+        reviews: {
+          where: { deletedAt: null },
+          include: {
+            product: { select: { id: true, name: true } },
+          },
+        },
+        alerts: {
+          include: {
+            product: { select: { id: true, name: true } },
+          },
+        },
+        receipts: {
+          where: { deletedAt: null },
+          include: {
+            items: true,
+          },
+        },
+        familyProfile: true,
+        familyBaskets: {
+          where: { deletedAt: null },
+          include: {
+            items: true,
+          },
+        },
+        searchHistory: true,
+      },
+    });
+  }
+
+  /**
+   * Sprint 63 GDPR Art. 17 (right to be forgotten). Transaction:
+   * soft-delete user + revoga refresh tokens + zera consent (user não existe
+   * mais, não pode manter tracking consent).
+   */
+  async softDeleteWithRevoke(id: string): Promise<User> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.refreshToken.updateMany({
+        where: { userId: id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      return tx.user.update({
+        where: { id },
+        data: {
+          deletedAt: new Date(),
+          cookieConsentLevel: null,
+          cookiesAcceptedAt: null,
+        },
+      });
+    });
+  }
 }

@@ -113,4 +113,41 @@ export class UsersService {
       cookiesAcceptedAt: new Date(),
     });
   }
+
+  /**
+   * Sprint 63 GDPR Art. 20: agrega todas as entidades per-user num payload
+   * de export. Nunca inclui passwordHash nem refreshTokens (privilegiados).
+   */
+  async exportMyData(userId: string): Promise<Record<string, unknown>> {
+    const row = await this.usersRepository.exportUserData(userId);
+    if (!row) {
+      throw new NotFoundException(`User "${userId}" not found`);
+    }
+    const {
+      passwordHash: _passwordHash,
+      deletedAt: _deletedAt,
+      ...user
+    } = row;
+    return {
+      exportedAt: new Date().toISOString(),
+      user,
+    };
+  }
+
+  /**
+   * Sprint 63 GDPR Art. 17: soft-delete + revoke refresh tokens + zera
+   * consent. User que chama DELETE na própria conta já estava autenticado,
+   * então o guard garante que só o dono dispara.
+   */
+  async deleteMyAccount(userId: string): Promise<void> {
+    const user = await this.usersRepository.findById(userId);
+    if (!user) {
+      throw new AppException(
+        'USERS.ALREADY_DELETED',
+        'Conta já excluída',
+        HttpStatus.GONE,
+      );
+    }
+    await this.usersRepository.softDeleteWithRevoke(userId);
+  }
 }
