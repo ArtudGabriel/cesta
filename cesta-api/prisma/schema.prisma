@@ -41,6 +41,11 @@ model User {
   cookiesAcceptedAt  DateTime? @map("cookies_accepted_at")
   cookieConsentLevel String?   @map("cookie_consent_level") // "all" | "essential"
 
+  // GDPR Art.17 scheduled hard-delete (Sprint 64). Marcado em deleteMyAccount
+  // = deletedAt + 30d. Worker user-cleanup verifica elapsed + executa hard
+  // delete via cascade FK (todas 11 relações User têm onDelete: Cascade).
+  hardDeleteScheduledAt DateTime? @map("hard_delete_scheduled_at")
+
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")
