@@ -56,7 +56,7 @@ export const handlers = [
         },
         tokens: {
           accessToken: "mock-access-token",
-          refreshToken: "mock-refresh-token",
+          expiresIn: 900,
         },
       }),
     );

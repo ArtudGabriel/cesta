@@ -21,14 +21,14 @@ function signInMock() {
       roles: ["user"],
       createdAt: "2026-01-01T00:00:00.000Z",
     },
-    refreshToken: "mock-refresh",
+
     isHydrated: true,
   });
 }
 
 function signOutMock() {
   setAccessToken(null);
-  useAuthStore.setState({ user: null, refreshToken: null, isHydrated: true });
+  useAuthStore.setState({ user: null, isHydrated: true });
 }
 
 describe("useRecentSearches", () => {

@@ -7,35 +7,35 @@ import type { AuthTokens, AuthUser } from "@/features/auth/types/auth.types";
 
 interface AuthState {
   user: AuthUser | null;
-  refreshToken: string | null;
   isHydrated: boolean;
   setSession: (user: AuthUser, tokens: AuthTokens) => void;
   updateUser: (user: AuthUser) => void;
   clear: () => void;
 }
 
+/**
+ * Sprint 54: refresh token saiu do estado — virou cookie httpOnly gerenciado
+ * pelo browser. Store persiste só o user; access token fica em memória via
+ * lib/api.setAccessToken (localStorage pra SSR cookie bridge).
+ */
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
-      refreshToken: null,
       isHydrated: false,
       setSession: (user, tokens) => {
         setAccessToken(tokens.accessToken);
-        set({ user, refreshToken: tokens.refreshToken });
+        set({ user });
       },
       updateUser: (user) => set({ user }),
       clear: () => {
         setAccessToken(null);
-        set({ user: null, refreshToken: null });
+        set({ user: null });
       },
     }),
     {
       name: "cesta-auth",
-      partialize: (state) => ({
-        user: state.user,
-        refreshToken: state.refreshToken,
-      }),
+      partialize: (state) => ({ user: state.user }),
       onRehydrateStorage: () => (state) => {
         if (state) state.isHydrated = true;
       },

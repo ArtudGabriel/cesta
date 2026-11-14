@@ -12,7 +12,7 @@ vi.mock("next/navigation", () => ({
 
 describe("useLogin", () => {
   beforeEach(() => {
-    useAuthStore.setState({ user: null, refreshToken: null, isHydrated: true });
+    useAuthStore.setState({ user: null, isHydrated: true });
   });
 
   it("login OK → setSession chamado + user populado", async () => {
@@ -25,9 +25,10 @@ describe("useLogin", () => {
       });
     });
 
+    // Sprint 54: refresh token saiu do estado (cookie httpOnly) — só user + access token em memória.
     const state = useAuthStore.getState();
     expect(state.user?.email).toBe("test@cesta.app");
-    expect(state.refreshToken).toBe("mock-refresh-token");
+    expect(state.user?.id).toBe("u1");
   });
 
   it("login senha errada → user null + rejeita", async () => {

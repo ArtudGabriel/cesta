@@ -7,6 +7,9 @@ export const api = axios.create({
   // fetch adapter garante intercept por MSW (setupServer/fetch) em testes jsdom.
   // Em browser real axios escolhe XHR — zero diff funcional.
   adapter: "fetch",
+  // Refresh token httpOnly (Sprint 54) — browser precisa incluir cookie em
+  // cross-origin calls (web 3000, api 3001). Backend CORS já credentials:true.
+  withCredentials: true,
 });
 
 const ACCESS_TOKEN_KEY = "cesta_access_token";

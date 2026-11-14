@@ -10,6 +10,11 @@ interface Envelope<T> {
   data: T;
 }
 
+/**
+ * Refresh token agora é cookie httpOnly (Sprint 54) — browser envia
+ * automaticamente em cada call desde que axios tenha withCredentials: true
+ * (lib/api.ts). Response body não traz mais refreshToken.
+ */
 export const authService = {
   async register(payload: RegisterPayload): Promise<AuthResponse> {
     const { data } = await api.post<Envelope<AuthResponse>>(
@@ -27,15 +32,16 @@ export const authService = {
     return data.data;
   },
 
-  async refresh(refreshToken: string): Promise<AuthResponse> {
-    const { data } = await api.post<Envelope<AuthResponse>>("/auth/refresh", {
-      refreshToken,
-    });
+  async refresh(): Promise<AuthResponse> {
+    const { data } = await api.post<Envelope<AuthResponse>>(
+      "/auth/refresh",
+      {},
+    );
     return data.data;
   },
 
-  async logout(refreshToken?: string): Promise<void> {
-    await api.post("/auth/logout", refreshToken ? { refreshToken } : {});
+  async logout(): Promise<void> {
+    await api.post("/auth/logout", {});
   },
 
   async me(): Promise<AuthUser> {

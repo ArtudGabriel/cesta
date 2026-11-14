@@ -88,12 +88,13 @@ export function useRegister() {
 
 export function useLogout() {
   const clear = useAuthStore((s) => s.clear);
-  const refreshToken = useAuthStore((s) => s.refreshToken);
   const router = useRouter();
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: () => authService.logout(refreshToken ?? undefined),
+    // Refresh token é lido do cookie httpOnly pelo backend (Sprint 54) —
+    // frontend não precisa enviar nada.
+    mutationFn: () => authService.logout(),
     onSettled: () => {
       clear();
       qc.removeQueries({ queryKey: AUTH_QUERY_KEY });

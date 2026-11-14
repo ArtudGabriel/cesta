@@ -12,10 +12,24 @@ export class AuthTokensDto {
   expiresIn: number;
 }
 
+/**
+ * Retorno interno do AuthService (contém refreshToken pro controller usar
+ * no Set-Cookie httpOnly). O corpo HTTP retornado ao cliente é derivado em
+ * AuthController — refreshToken nunca sai no body.
+ */
 export class AuthResponseDto {
   @ApiProperty()
   user: UserResponseDto;
 
   @ApiProperty()
   tokens: AuthTokensDto;
+}
+
+/** Shape efetivo do corpo HTTP (sem refreshToken — cookie-only). */
+export interface AuthWireResponse {
+  user: UserResponseDto;
+  tokens: {
+    accessToken: string;
+    expiresIn: number;
+  };
 }
