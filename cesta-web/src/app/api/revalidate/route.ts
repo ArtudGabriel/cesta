@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { revalidateTag } from "next/cache";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -6,36 +6,46 @@ interface RevalidateBody {
   tags: unknown;
 }
 
-// Constant-time comparison: previne timing side-channel na validação do secret.
-// timingSafeEqual exige buffers de mesmo tamanho — length check antes evita
-// throw e mantém short-circuit O(1) pra provided vazio ou tamanho diferente.
-function secretMatches(provided: string, expected: string): boolean {
+/**
+ * Sprint 57: auth via HMAC-SHA256 do body (header `x-revalidate-hmac`).
+ * Replace in place do `x-revalidate-secret` simples das Sprints 47/48 —
+ * agora detecta tampering em trânsito. Secret continua compartilhado via
+ * REVALIDATE_SECRET env; só o HMAC viaja.
+ */
+function hmacMatches(provided: string, expected: string): boolean {
   if (provided.length !== expected.length) return false;
   return timingSafeEqual(Buffer.from(provided), Buffer.from(expected));
 }
 
 export async function POST(request: NextRequest) {
-  const provided = request.headers.get("x-revalidate-secret");
-  const expected = process.env.REVALIDATE_SECRET;
+  const providedHmac = request.headers.get("x-revalidate-hmac");
+  const secret = process.env.REVALIDATE_SECRET;
 
-  if (!expected) {
+  if (!secret) {
     return NextResponse.json(
       { error: "REVALIDATE_SECRET not configured" },
       { status: 503 },
     );
   }
-  if (!provided || !secretMatches(provided, expected)) {
+  if (!providedHmac) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: RevalidateBody;
+  // Raw body necessário pra bater HMAC bit-a-bit (JSON.stringify do remetente).
+  const body = await request.text();
+  const expectedHmac = createHmac("sha256", secret).update(body).digest("hex");
+  if (!hmacMatches(providedHmac, expectedHmac)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let parsed: RevalidateBody;
   try {
-    body = (await request.json()) as RevalidateBody;
+    parsed = JSON.parse(body) as RevalidateBody;
   } catch {
     return NextResponse.json({ error: "invalid json" }, { status: 400 });
   }
 
-  const tags = body.tags;
+  const tags = parsed.tags;
   if (!Array.isArray(tags) || !tags.every((t) => typeof t === "string")) {
     return NextResponse.json(
       { error: "tags must be string[]" },

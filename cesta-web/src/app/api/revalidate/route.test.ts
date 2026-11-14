@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 // revalidateTag é no-op fora de request context Next — mock pra observar chamadas.
@@ -8,37 +9,49 @@ vi.mock("next/cache", () => ({
 import { revalidateTag } from "next/cache";
 import { POST } from "./route";
 
+const SECRET = "test-secret";
+
+function hmacOf(body: string, secret = SECRET): string {
+  return createHmac("sha256", secret).update(body).digest("hex");
+}
+
 function makeRequest(opts: {
-  secret?: string | null;
+  hmac?: string | null;
+  signWith?: string;
   body?: unknown;
   rawBody?: string;
 }): Request {
   const headers = new Headers({ "content-type": "application/json" });
-  if (opts.secret !== null && opts.secret !== undefined) {
-    headers.set("x-revalidate-secret", opts.secret);
-  }
-  const body =
+  const rawBody =
     opts.rawBody !== undefined
       ? opts.rawBody
       : opts.body !== undefined
         ? JSON.stringify(opts.body)
-        : undefined;
+        : "";
+  const providedHmac =
+    opts.hmac !== undefined
+      ? opts.hmac
+      : opts.signWith !== undefined
+        ? hmacOf(rawBody, opts.signWith)
+        : hmacOf(rawBody);
+  if (providedHmac !== null) {
+    headers.set("x-revalidate-hmac", providedHmac);
+  }
   return new Request("http://localhost/api/revalidate", {
     method: "POST",
     headers,
-    body,
+    body: rawBody,
   });
 }
 
 describe("POST /api/revalidate", () => {
   beforeEach(() => {
     vi.mocked(revalidateTag).mockClear();
-    process.env.REVALIDATE_SECRET = "test-secret";
+    process.env.REVALIDATE_SECRET = SECRET;
   });
 
-  it("secret match + tags válidos → 200 + revalidateTag chamado por tag", async () => {
+  it("HMAC válido + tags válidos → 200 + revalidateTag chamado por tag", async () => {
     const req = makeRequest({
-      secret: "test-secret",
       body: { tags: ["product:abc", "product:xyz"] },
     });
     // @ts-expect-error — NextRequest estende Request; aceita Request em runtime.
@@ -51,9 +64,9 @@ describe("POST /api/revalidate", () => {
     expect(vi.mocked(revalidateTag)).toHaveBeenNthCalledWith(2, "product:xyz", "default");
   });
 
-  it("secret errado → 401 + revalidateTag não chamado", async () => {
+  it("HMAC assinado com secret errado → 401 + revalidateTag não chamado", async () => {
     const req = makeRequest({
-      secret: "wrong",
+      signWith: "wrong-secret",
       body: { tags: ["product:abc"] },
     });
     // @ts-expect-error
@@ -62,9 +75,9 @@ describe("POST /api/revalidate", () => {
     expect(vi.mocked(revalidateTag)).not.toHaveBeenCalled();
   });
 
-  it("secret ausente → 401", async () => {
+  it("HMAC ausente → 401", async () => {
     const req = makeRequest({
-      secret: null,
+      hmac: null,
       body: { tags: ["product:abc"] },
     });
     // @ts-expect-error
@@ -72,10 +85,29 @@ describe("POST /api/revalidate", () => {
     expect(res.status).toBe(401);
   });
 
+  it("HMAC correto mas body modificado → 401 (tamper)", async () => {
+    const original = JSON.stringify({ tags: ["product:abc"] });
+    const hmac = hmacOf(original);
+    const tampered = JSON.stringify({ tags: ["product:xyz"] });
+    const headers = new Headers({
+      "content-type": "application/json",
+      "x-revalidate-hmac": hmac,
+    });
+    const req = new Request("http://localhost/api/revalidate", {
+      method: "POST",
+      headers,
+      body: tampered,
+    });
+    // @ts-expect-error
+    const res = await POST(req);
+    expect(res.status).toBe(401);
+    expect(vi.mocked(revalidateTag)).not.toHaveBeenCalled();
+  });
+
   it("REVALIDATE_SECRET não configurado → 503", async () => {
     delete process.env.REVALIDATE_SECRET;
     const req = makeRequest({
-      secret: "anything",
+      hmac: "anything",
       body: { tags: ["product:abc"] },
     });
     // @ts-expect-error
@@ -85,7 +117,6 @@ describe("POST /api/revalidate", () => {
 
   it("body inválido (não-array) → 400", async () => {
     const req = makeRequest({
-      secret: "test-secret",
       body: { tags: "product:abc" },
     });
     // @ts-expect-error
@@ -96,7 +127,6 @@ describe("POST /api/revalidate", () => {
 
   it("tags array contém non-string → 400", async () => {
     const req = makeRequest({
-      secret: "test-secret",
       body: { tags: ["ok", 42] },
     });
     // @ts-expect-error
@@ -105,9 +135,15 @@ describe("POST /api/revalidate", () => {
   });
 
   it("JSON malformado → 400", async () => {
-    const req = makeRequest({
-      secret: "test-secret",
-      rawBody: "{not json",
+    const rawBody = "{not json";
+    const headers = new Headers({
+      "content-type": "application/json",
+      "x-revalidate-hmac": hmacOf(rawBody),
+    });
+    const req = new Request("http://localhost/api/revalidate", {
+      method: "POST",
+      headers,
+      body: rawBody,
     });
     // @ts-expect-error
     const res = await POST(req);
