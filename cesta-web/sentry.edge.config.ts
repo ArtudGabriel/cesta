@@ -18,5 +18,7 @@ if (dsn) {
       process.env.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE,
       0.1,
     ),
+    // Sprint 59 GDPR: zero PII automático. sendDefaultPii default-false no
+    // @sentry/nextjs 11 (tipo não expõe mais).
   });
 }

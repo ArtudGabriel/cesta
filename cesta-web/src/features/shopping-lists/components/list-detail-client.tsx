@@ -77,7 +77,10 @@ export function ListDetailClient({ initialList }: ListDetailClientProps) {
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>
-        <h1 className="line-clamp-1 flex-1 font-display text-lg font-bold text-ink">
+        <h1
+          data-sentry-mask
+          className="line-clamp-1 flex-1 font-display text-lg font-bold text-ink"
+        >
           {list.name}
         </h1>
         <Button
@@ -131,7 +134,10 @@ export function ListDetailClient({ initialList }: ListDetailClientProps) {
           </div>
         )}
         {list.items && list.items.length > 0 ? (
-          <div className="space-y-2">
+          // Sprint 59 GDPR: combinação produtos+quantidades pode revelar
+          // contexto médico (ex: fraldas qty alta = bebê). Nome produto é
+          // público, mas scope-row mascarado é mais seguro.
+          <div className="space-y-2" data-sentry-mask>
             {sortedItems.map((item) => (
               <ListItemRow key={item.id} listId={list.id} item={item} />
             ))}

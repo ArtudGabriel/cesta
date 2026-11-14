@@ -94,6 +94,7 @@ export function BottomNav() {
                   aria-hidden
                 />
                 <span
+                  data-sentry-unmask
                   className={cn(
                     "text-[11px] leading-tight",
                     active && "font-semibold",

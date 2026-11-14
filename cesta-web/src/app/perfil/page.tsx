@@ -125,10 +125,13 @@ export default function PerfilPage() {
       {/* Información */}
       <section className="px-4 pt-2">
         <div className="flex items-start gap-4 rounded-card bg-white p-4 shadow-sm">
-          <div className="flex h-[72px] w-[72px] flex-shrink-0 items-center justify-center rounded-full bg-cesta-green text-xl font-bold text-white">
+          <div
+            data-sentry-mask
+            className="flex h-[72px] w-[72px] flex-shrink-0 items-center justify-center rounded-full bg-cesta-green text-xl font-bold text-white"
+          >
             {initials}
           </div>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1" data-sentry-mask>
             {editingName ? (
               <div className="flex items-center gap-2">
                 <Input

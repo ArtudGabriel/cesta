@@ -47,7 +47,7 @@ export function ProductCard({
               </div>
             )}
           </div>
-          <div className="min-w-0 flex-1 pr-10">
+          <div className="min-w-0 flex-1 pr-10" data-sentry-unmask>
             <h3 className="line-clamp-2 text-sm font-medium text-ink group-hover:text-cesta-green">
               <HighlightedText text={product.name} highlight={highlight} />
             </h3>

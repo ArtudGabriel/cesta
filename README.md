@@ -164,7 +164,7 @@ Portal no navegador: Vercel URL → login → navegar. Primeira request pode lev
 
 Variáveis de referência: [`.env.example`](./.env.example) (api) + [`cesta-web/.env.example`](./cesta-web/.env.example) (web).
 
-### 6. Sentry (opcional — Sprint 31 errors + Sprint 55 Performance/source maps + Sprint 58 Replay/spans)
+### 6. Sentry (opcional — Sprint 31 errors + Sprint 55 Performance/source maps + Sprint 58 Replay/spans + Sprint 59 GDPR mask hardening)
 
 Observabilidade de erros + performance + session replay em prod. Sem DSN, SDK fica no-op e app roda normal.
 
@@ -195,6 +195,19 @@ Grava interação do user na página pra reproduzir bugs reportados dentro do pa
 - Vercel envs: `NEXT_PUBLIC_SENTRY_REPLAY_SAMPLE_RATE=0.05` (5% das sessões) + `NEXT_PUBLIC_SENTRY_REPLAY_ON_ERROR_SAMPLE_RATE=1.0` (100% das sessões que derem erro, só a partir do erro — buffer anterior incluso).
 - Privacy: `maskAllInputs: true` (senha + email + qualquer `<input>` ficam mascarados), `blockAllMedia: true` (imagens/vídeo não sobem — zero bandwidth), `maskAllText: false` (texto renderizado permanece pra diagnose de flow — nome produto, preço, estados UI).
 - Sem `NEXT_PUBLIC_SENTRY_DSN` setado → integration não roda (guard Sprint 31 preservado). Dev local segue zero-config.
+
+#### Privacy / GDPR (Sprint 59)
+
+Cesta opera na Espanha → GDPR aplica. Session Replay precisa mascarar PII por padrão:
+
+- `maskAllText: true` (secure-by-default) — qualquer texto renderizado no DOM vai como `***` no replay.
+- `maskAllInputs: true` — senha, email, qualquer `<input>` sempre mascarados.
+- `blockAllMedia: true` — fotos de ticket (OCR) + imagens não sobem.
+- `sendDefaultPii: false` em todos os 3 configs frontend + backend `sentry.init.ts` → IPs, cookies e headers sensíveis não vão pro Sentry sem opt-in explícito via `beforeSend`.
+- Opt-in granular via atributo HTML:
+  - `data-sentry-unmask` em elementos cujo texto é chrome i18n público (bottom-nav labels, nome/preço do produto em catálogo público).
+  - `data-sentry-mask` reaplicado em elementos sensíveis mesmo com default secure (defense-in-depth): `/perfil` (nome/email/telefone/data de cadastro), `/minha-cesta/configurar` wizard (composição familiar + restrições alimentares — dados saúde Art. 9 GDPR), `/gastos` dashboard + lista de receipts (valores pessoais), `/minha-lista/[id]` nome da lista + linhas de itens (combinações podem revelar contexto médico).
+- Regra permanente (`CLAUDE.md` do projeto): qualquer novo componente que exiba PII do usuário deve ganhar `data-sentry-mask` no commit.
 
 #### Custom spans backend (Sprint 58)
 

@@ -48,9 +48,12 @@ export default function GastosPage() {
       <div className="px-4 py-4 space-y-6">
         <ScanButton />
 
-        <ExpenseDashboard />
+        {/* Sprint 59 GDPR: dashboard de gastos + lista de tickets com valores. */}
+        <div data-sentry-mask>
+          <ExpenseDashboard />
+        </div>
 
-        <section>
+        <section data-sentry-mask>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
             {t("recentReceipts")}
           </h2>

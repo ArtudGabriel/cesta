@@ -19,10 +19,10 @@ if (dsn) {
       0.1,
     ),
     // Sprint 58: Session Replay — grava interação pra reproduzir bugs.
-    // 5% default das sessões + 100% das que explodem (on-error). Privacy:
-    // inputs sempre mascarados (cobre senha + email), mídia bloqueada pra
-    // zerar bandwidth. Texto renderizado permanece pra permitir diagnose
-    // de flow (nome produto, preço, estados UI).
+    // Sprint 59 (GDPR Espanha): maskAllText flip pra true — secure-by-default.
+    // Elementos chrome i18n públicos ganham [data-sentry-unmask]; PII sensível
+    // (Art. 9 saúde, gastos, user profile) ganha [data-sentry-mask] explícito
+    // defense-in-depth.
     replaysSessionSampleRate: parseRate(
       process.env.NEXT_PUBLIC_SENTRY_REPLAY_SAMPLE_RATE,
       0.05,
@@ -31,11 +31,16 @@ if (dsn) {
       process.env.NEXT_PUBLIC_SENTRY_REPLAY_ON_ERROR_SAMPLE_RATE,
       1.0,
     ),
+    // sendDefaultPii é false por default no @sentry/nextjs 11 (removido do
+     // tipo público). Mantém zero PII automático; para incluir, usar
+     // beforeSend/beforeBreadcrumb opt-in.
     integrations: [
       Sentry.replayIntegration({
-        maskAllText: false,
+        maskAllText: true,
         maskAllInputs: true,
         blockAllMedia: true,
+        mask: ["[data-sentry-mask]"],
+        unmask: ["[data-sentry-unmask]"],
       }),
     ],
   });

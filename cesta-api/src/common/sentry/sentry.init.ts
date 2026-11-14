@@ -18,6 +18,9 @@ export function initSentry(): void {
     // aqui — @sentry/node exige `@sentry/profiling-node` integração dedicada
     // (plano pago); habilitar em sprint própria quando upgrade justificar.
     tracesSampleRate: parseRate(process.env.SENTRY_TRACES_SAMPLE_RATE, 0.1),
+    // Sprint 59 GDPR: zero PII automático. sendDefaultPii default-false no
+    // @sentry/node 11 (tipo não expõe mais); opt-in explícito via
+    // `beforeSend` quando user identification for necessário.
   });
 }
 

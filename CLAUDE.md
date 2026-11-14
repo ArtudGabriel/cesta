@@ -1,98 +1,3 @@
-# Regras do Maestri (só valem quando a sessão roda DENTRO do Maestri)
-
-## 0. Primeiro, descubra em silêncio se você está no Maestri
-
-Na primeira ação da sessão, rode uma vez:
-
-    command -v maestri >/dev/null 2>&1 || [ -n "$MAESTRI_CLI" ] && echo MAESTRI || echo FORA
-
-- **MAESTRI:** todas as regras abaixo valem, sem exceção.
-- **FORA:** ignore este arquivo inteiro e trabalhe normal. Subagente interno
-  liberado, navegação pelas ferramentas de sempre, sem nota de status, sem
-  `maestri list`. E **não comente nada** sobre o Maestri: não avise que não está
-  nele, não diga que pulou a nota, não explique a regra. Só siga a vida.
-
-Dentro do Maestri, a regra que manda em todas as outras: **tudo o que você
-fizer tem que ser visível para mim no canvas.** Se eu não consigo ver acontecendo,
-está errado, mesmo que o resultado final esteja certo.
-
-A CLI `maestri` está no PATH (se não achar, use "$MAESTRI_CLI"). Antes da primeira
-ação de qualquer tarefa, rode `maestri list` para ver o que já está conectado a você.
-
-## 1. Uma nota de status por sessão, e só uma
-
-Antes do primeiro trabalho da sessão, rode `maestri list`. Se já existe uma nota
-de status conectada a você, use ela. Se não existe, crie UMA:
-
-    maestri note create --name "Status: <assunto da sessão>" "- [ ] etapa 1
-    - [ ] etapa 2"
-
-Daí em diante **não crie nota nova**. Cada pedido novo que eu fizer na mesma
-sessão entra como item novo nessa mesma nota (`maestri note edit`, acrescentando
-as linhas no fim). Nota nova só se eu pedir com essas palavras.
-
-A nota é um checklist com uma linha por etapa. Marque cada etapa com
-`maestri note edit` assim que ela terminar, e escreva o resultado final nela.
-
-A nota de status é a ÚNICA nota que você cria por conta própria. Nada de nota
-pra guardar texto, prompt, copy ou resultado solto: texto pra colar vai só pro
-clipboard. Outra nota só quando eu pedir com essas palavras.
-
-Tarefa pequena também entra na nota, como item. Se você me respondeu sem ter
-registrado o pedido na nota, ou se abriu uma segunda nota sem eu pedir, você
-descumpriu a regra.
-
-## 2. Agente é terminal no canvas, nunca subagente interno
-
-Está proibido usar sua ferramenta interna de subagente ou de tarefas paralelas.
-
-Quando eu disser "chama X agentes", "manda dois agentes", "faz em paralelo",
-"divide isso", "monta um time" ou qualquer coisa parecida, isso é ordem direta.
-Recrute imediatamente um terminal por frente de trabalho:
-
-    maestri recruit "Codinome" --preset "<preset>" --role "<papel>"
-
-Rode `maestri preset list` e `maestri role list` antes, para usar os nomes certos.
-Depois delegue com `maestri ask "Codinome" "..."`, ou com
-`maestri ask --batch '{"A": "...", "B": "..."}'` para falar com vários em paralelo.
-
-Não me pergunte se pode. Não decida por mim que a tarefa é simples demais para
-valer um terminal: essa decisão é minha, não sua. Se eu pedi agente, é agente na
-tela, mesmo que você resolvesse sozinho em dois minutos.
-
-Se por algum motivo você NÃO conseguir recrutar, pare e me diga a razão exata
-(por exemplo: Modo Maestro desligado neste terminal). Nunca faça o trabalho
-sozinho e me entregue o resultado como se tivesse delegado.
-
-## 3. Internet é portal no canvas, nunca ferramenta de fora
-
-Está proibido usar WebSearch, WebFetch, curl, Playwright ou qualquer navegador
-que eu não veja. Toda navegação acontece em um portal:
-
-    maestri portal create <url> "Nome do portal"
-
-E use os comandos de portal para operar a página: `navigate`, `click`, `type`,
-`fill`, `scroll`, `text`, `snapshot`, `screenshot`, `evaluate`.
-
-Todo agente que você recrutar para pesquisar recebe o próprio portal.
-
-## 4. Todo terminal nasce em modo bypass
-
-Os presets já sobem em bypass. Se você precisar sobrescrever o comando, use
-`--command "claude --permission-mode bypassPermissions"`. Terminal que sobe
-pedindo permissão trava a fila inteira, porque quem chamou ele foi outro agente,
-que não vai clicar em nada.
-
-## 5. Conecte todo mundo na nota
-
-Recruta que não enxerga a nota de status trabalha cego. Conecte cada um com
-`maestri connect`, e deixe o time inteiro lendo e escrevendo a mesma nota.
-
-## 6. Fechamento
-
-Ao terminar: escreva o resultado na nota, dispense quem acabou com
-`maestri dismiss "Codinome"` e me avise com `maestri notify "<mensagem>"`.
-
 # CLAUDE.md — Cesta
 
 > **Leitura obrigatória antes de qualquer sessão de código:**
@@ -173,6 +78,14 @@ cesta/
 | `/minha-cesta/configurar` | Wizard familiar |
 | `/minha-cesta` | Cesta gerada editável |
 | `/perfil` | Idioma + localização + favoritos + config |
+
+---
+
+## GDPR / Privacy (Sprint 59)
+
+- Cesta opera na Espanha → GDPR aplica. Session Replay roda com `maskAllText: true` + `maskAllInputs: true` + `blockAllMedia: true` + `sendDefaultPii: false`.
+- **Novo componente que renderiza PII do usuário DEVE ganhar `data-sentry-mask`** no mesmo commit (nome, email, telefone, valores de gasto, nomes de membros família, restrições alimentares, nomes de lista pessoal). Regra non-negotiable — vai no gate de review.
+- Elementos de chrome (nav, chips de filtro, nome de produto público, preço público) ganham `data-sentry-unmask` pra permitir diagnose de flow sem vazar PII.
 
 ---
 

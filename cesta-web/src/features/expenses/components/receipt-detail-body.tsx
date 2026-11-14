@@ -30,7 +30,8 @@ export function ReceiptDetailBody({ receipt }: ReceiptDetailBodyProps) {
         <RemoveReceiptButton receiptId={receipt.id} />
       </header>
 
-      <div className="px-4 py-4 space-y-4">
+      {/* Sprint 59 GDPR: total + items + imagem são gastos pessoais (PII). */}
+      <div className="px-4 py-4 space-y-4" data-sentry-mask>
         {receipt.status === "pending" || receipt.status === "processing" ? (
           <div className="flex flex-col items-center gap-2 rounded-card bg-white p-6 text-center shadow-card">
             <Loader2 className="h-6 w-6 animate-spin text-cesta-green" />

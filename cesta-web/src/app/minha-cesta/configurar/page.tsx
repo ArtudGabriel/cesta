@@ -97,7 +97,10 @@ export default function ConfigurarCestaPage() {
   }
 
   return (
-    <main className="flex-1 pb-24">
+    // Sprint 59 GDPR: wizard inteiro masked — composição familiar (member counts)
+    // + restrições dietéticas = dados saúde sensíveis Art. 9 GDPR. Labels i18n
+    // dos steps são chrome; counts/restrictions escolhidas = PII.
+    <main className="flex-1 pb-24" data-sentry-mask>
       <header className="sticky top-0 z-10 flex items-center gap-3 bg-cream px-4 py-3">
         <Button asChild size="icon" variant="ghost" aria-label={tNav("back")}>
           <Link href="/minha-cesta">
