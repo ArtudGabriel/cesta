@@ -262,7 +262,7 @@
       "exportSuccess": "Dados baixados",
       "deleteButton": "Excluir minha conta",
       "deleteConfirmTitle": "Excluir sua conta?",
-      "deleteConfirmBody": "Esta ação é permanente. Você perderá acesso a listas, favoritos, gastos, cesta familiar e alertas. Seu contato ficará disponível para um novo cadastro.",
+      "deleteConfirmBody": "Esta ação é permanente. Seus dados serão excluídos em 30 dias. Durante este período você não pode fazer login com este email.",
       "deleteConfirmPrompt": "Digite ELIMINAR para confirmar",
       "deleteConfirmWord": "ELIMINAR",
       "deleteConfirmButton": "Excluir permanentemente",

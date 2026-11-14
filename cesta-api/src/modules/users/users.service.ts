@@ -1,10 +1,18 @@
+import { InjectQueue } from '@nestjs/bullmq';
 import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, User } from '@prisma/client';
+import { Queue } from 'bullmq';
 import { AppException } from '../../common/exceptions/app-exception';
 import type { CookieConsentLevel } from './dtos/consent.dto';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { UserResponseDto } from './dtos/user-response.dto';
+import {
+  HardDeleteJob,
+  USER_CLEANUP_QUEUE,
+} from './user-cleanup.constants';
 import { UsersRepository } from './users.repository';
+
+const HARD_DELETE_DELAY_MS = 30 * 24 * 60 * 60 * 1000;
 
 export interface CreateUserInput {
   email?: string;
@@ -16,7 +24,11 @@ export interface CreateUserInput {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly usersRepository: UsersRepository) {}
+  constructor(
+    private readonly usersRepository: UsersRepository,
+    @InjectQueue(USER_CLEANUP_QUEUE)
+    private readonly userCleanupQueue: Queue<HardDeleteJob>,
+  ) {}
 
   async findById(id: string): Promise<User> {
     const user = await this.usersRepository.findById(id);
@@ -149,5 +161,18 @@ export class UsersService {
       );
     }
     await this.usersRepository.softDeleteWithRevoke(userId);
+    // Sprint 64 GDPR Art.17: enqueue hard-delete 30d após soft-delete.
+    // Queue delay + job attempts + exponential backoff cobrem flakes transient.
+    await this.userCleanupQueue.add(
+      'hard-delete',
+      { userId },
+      {
+        delay: HARD_DELETE_DELAY_MS,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 60_000 },
+        removeOnComplete: 100,
+        removeOnFail: 50,
+      },
+    );
   }
 }

@@ -1,6 +1,11 @@
 import { Test } from '@nestjs/testing';
+import { USER_CLEANUP_QUEUE } from './user-cleanup.constants';
 import { UsersService } from './users.service';
 import { UsersRepository } from './users.repository';
+
+// Mesma forma do token que @nestjs/bullmq getQueueToken produz, hardcoded
+// como string pra evitar carga ESM-only de @nestjs/bull-shared em Jest.
+const USER_CLEANUP_QUEUE_TOKEN = `BullQueue_${USER_CLEANUP_QUEUE}`;
 
 describe('UsersService.updateProfile', () => {
   let service: UsersService;
@@ -10,6 +15,7 @@ describe('UsersService.updateProfile', () => {
     exportUserData: jest.Mock;
     softDeleteWithRevoke: jest.Mock;
   };
+  let queueMock: { add: jest.Mock };
 
   const fakeUser = (overrides: Partial<Record<string, unknown>> = {}) => ({
     id: 'u1',
@@ -39,10 +45,12 @@ describe('UsersService.updateProfile', () => {
       exportUserData: jest.fn(),
       softDeleteWithRevoke: jest.fn(),
     };
+    queueMock = { add: jest.fn() };
     const module = await Test.createTestingModule({
       providers: [
         UsersService,
         { provide: UsersRepository, useValue: repoMock },
+        { provide: USER_CLEANUP_QUEUE_TOKEN, useValue: queueMock },
       ],
     }).compile();
     service = module.get(UsersService);
@@ -208,20 +216,31 @@ describe('UsersService.updateProfile', () => {
     );
   });
 
-  it('deleteMyAccount chama softDeleteWithRevoke quando user existe (Sprint 63 GDPR Art. 17)', async () => {
+  it('deleteMyAccount chama softDeleteWithRevoke + enqueues hard-delete 30d (Sprint 64)', async () => {
     repoMock.findById.mockResolvedValue(fakeUser());
     repoMock.softDeleteWithRevoke.mockResolvedValue(fakeUser());
     await service.deleteMyAccount('u1');
 
     expect(repoMock.findById).toHaveBeenCalledWith('u1');
     expect(repoMock.softDeleteWithRevoke).toHaveBeenCalledWith('u1');
+    expect(queueMock.add).toHaveBeenCalledTimes(1);
+    const [jobName, payload, options] = queueMock.add.mock.calls[0] as [
+      string,
+      { userId: string },
+      { delay: number; attempts: number },
+    ];
+    expect(jobName).toBe('hard-delete');
+    expect(payload).toEqual({ userId: 'u1' });
+    expect(options.delay).toBe(30 * 24 * 60 * 60 * 1000);
+    expect(options.attempts).toBe(3);
   });
 
-  it('deleteMyAccount user já deletado → USERS.ALREADY_DELETED', async () => {
+  it('deleteMyAccount user já deletado → USERS.ALREADY_DELETED (não enqueue)', async () => {
     repoMock.findById.mockResolvedValue(null);
     await expect(service.deleteMyAccount('u1')).rejects.toMatchObject({
       errorCode: 'USERS.ALREADY_DELETED',
     });
     expect(repoMock.softDeleteWithRevoke).not.toHaveBeenCalled();
+    expect(queueMock.add).not.toHaveBeenCalled();
   });
 });

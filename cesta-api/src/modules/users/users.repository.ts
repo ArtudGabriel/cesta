@@ -41,6 +41,22 @@ export class UsersRepository {
   }
 
   /**
+   * Sprint 64: lookup ignorando deletedAt filter — worker user-cleanup
+   * precisa ver users soft-deleted pra validar grace period.
+   */
+  async findByIdIgnoreDeleted(id: string): Promise<User | null> {
+    return this.prisma.user.findUnique({ where: { id } });
+  }
+
+  /**
+   * Sprint 64: hard-delete GDPR Art.17 pós grace period. Cascade FK apaga
+   * as 11 relações User em uma transação implícita Prisma.
+   */
+  async hardDelete(id: string): Promise<void> {
+    await this.prisma.user.delete({ where: { id } });
+  }
+
+  /**
    * Sprint 63 GDPR Art. 20 (data portability). Agrega todas as entidades
    * per-user num único payload de export. Cross-feature por natureza; DSR
    * fica contido no users module (não espalha repos em services).
@@ -99,15 +115,22 @@ export class UsersRepository {
    * mais, não pode manter tracking consent).
    */
   async softDeleteWithRevoke(id: string): Promise<User> {
+    // Sprint 64: além do soft-delete + token revoke, agenda hard-delete
+    // em 30d via hardDeleteScheduledAt. Worker user-cleanup processa.
     return this.prisma.$transaction(async (tx) => {
       await tx.refreshToken.updateMany({
         where: { userId: id, revokedAt: null },
         data: { revokedAt: new Date() },
       });
+      const now = new Date();
+      const scheduledFor = new Date(
+        now.getTime() + 30 * 24 * 60 * 60 * 1000,
+      );
       return tx.user.update({
         where: { id },
         data: {
-          deletedAt: new Date(),
+          deletedAt: now,
+          hardDeleteScheduledAt: scheduledFor,
           cookieConsentLevel: null,
           cookiesAcceptedAt: null,
         },
