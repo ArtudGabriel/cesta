@@ -26,6 +26,7 @@ export function UnitSortToggle({
     return (
       <div
         role="radiogroup"
+        data-sentry-unmask
         aria-label={t("sortAbsolute") + " / " + t("sortUnit")}
         className={cn("inline-flex items-center gap-2 text-xs text-muted", className)}
       >
@@ -58,6 +59,7 @@ export function UnitSortToggle({
   return (
     <div
       role="radiogroup"
+      data-sentry-unmask
       aria-label={t("sortAbsolute") + " / " + t("sortUnit")}
       className={cn("flex gap-2", className)}
     >

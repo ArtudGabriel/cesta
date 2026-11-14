@@ -31,7 +31,9 @@ export function ProductCard({
   const unitPrimary = sortMode === "unit" && unitPriceStr != null;
 
   return (
-    <div className="relative">
+    // Sprint 59 GDPR: card inteiro é catálogo público (nome + preço + marca).
+    // data-sentry-unmask no root permite diagnose Sentry Replay sem vazar PII.
+    <div className="relative" data-sentry-unmask>
       <Link
         href={`/produto/${product.id}`}
         className={cn(

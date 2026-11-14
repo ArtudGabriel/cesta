@@ -23,7 +23,9 @@ export function DietaryFilters({ active, onToggle }: DietaryFiltersProps) {
   const t = useTranslations("product.dietary");
 
   return (
-    <div className="-mx-4 overflow-x-auto px-4">
+    // Sprint 59 GDPR: chips dietary são labels i18n (vegan/vegetarian/sin
+    // gluten/sin lactosa) — chrome público, não PII.
+    <div className="-mx-4 overflow-x-auto px-4" data-sentry-unmask>
       <div className="flex gap-2 pb-1">
         {ORDER.map((flag) => {
           const Icon = ICONS[flag];

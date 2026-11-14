@@ -38,7 +38,11 @@ export function NutriFilters({
 }: NutriFiltersProps) {
   const t = useTranslations("catalog.nutriFilters");
   return (
-    <div className={cn("flex flex-wrap items-center gap-2", className)}>
+    // Sprint 59 GDPR: labels de filtro são chrome i18n público (não PII).
+    <div
+      data-sentry-unmask
+      className={cn("flex flex-wrap items-center gap-2", className)}
+    >
       <button
         type="button"
         onClick={() => onSortByNutriChange(!sortByNutri)}
