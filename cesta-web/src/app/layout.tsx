@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
+import { Suspense } from "react";
 import "./globals.css";
 import { BodyPadding } from "@/components/body-padding";
 import { BottomNav } from "@/components/bottom-nav";
 import { InstallPrompt } from "@/components/install-prompt";
+import { LayoutSkeleton } from "@/components/layout-skeleton";
 import { SentryBoundary } from "@/components/sentry-boundary";
 import { QueryProvider } from "@/providers/query-provider";
 import { Toaster } from "sonner";
@@ -43,11 +45,13 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const locale = await getLocale();
-  const messages = await getMessages();
+export default function RootLayout({ children }: LayoutProps<"/">) {
+  // `lang` fica fixo em "es" (locale padrão do Cesta por `cesta.md` 5.1).
+  // Locale real é aplicado dentro do <LocalizedShell> suspenso; sem Suspense
+  // boundary, `cacheComponents: true` quebra prerender do /_not-found porque
+  // getLocale/getMessages leem cookies/headers top-level.
   return (
-    <html lang={locale} className="h-full antialiased">
+    <html lang="es" className="h-full antialiased">
       <head>
         <link
           rel="stylesheet"
@@ -57,17 +61,27 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body className="min-h-full flex flex-col bg-cream text-ink">
-        <NextIntlClientProvider locale={locale} messages={messages}>
-          <SentryBoundary>
-            <QueryProvider>
-              <BodyPadding>{children}</BodyPadding>
-              <BottomNav />
-            </QueryProvider>
-            <InstallPrompt />
-            <Toaster position="top-center" richColors />
-          </SentryBoundary>
-        </NextIntlClientProvider>
+        <Suspense fallback={<LayoutSkeleton />}>
+          <LocalizedShell>{children}</LocalizedShell>
+        </Suspense>
       </body>
     </html>
+  );
+}
+
+async function LocalizedShell({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+  return (
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <SentryBoundary>
+        <QueryProvider>
+          <BodyPadding>{children}</BodyPadding>
+          <BottomNav />
+        </QueryProvider>
+        <InstallPrompt />
+        <Toaster position="top-center" richColors />
+      </SentryBoundary>
+    </NextIntlClientProvider>
   );
 }

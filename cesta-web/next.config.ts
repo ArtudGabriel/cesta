@@ -6,13 +6,9 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   /* config options here */
-  // cacheComponents + partialPrefetching mantidos desligados: habilitação
-  // tentada na Sprint 52 após série SC refactor (46/49/50/51), mas root layout
-  // usa getLocale/getMessages/getTranslations (dinâmicos por Accept-Language)
-  // sem Suspense boundary dedicado — Next 16 cacheComponents exige wrap ou
-  // "use cache" em todo dynamic data access, inclusive /_not-found. Reativar
-  // numa sprint própria quando i18n for isolado em boundary suspense/stream.
-  // partialPrefetching requer cacheComponents, então acompanha.
+  // Flip final das flags desacoplado — Sprint 52.5 só adiciona Suspense
+  // boundary em layout.tsx (unblocker) + LayoutSkeleton. Build local com
+  // ambas: true passou verde após fix; Sprint 53 faz o flip definitivo.
   cacheComponents: false,
   partialPrefetching: false,
   turbopack: {
