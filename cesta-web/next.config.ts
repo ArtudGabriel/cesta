@@ -24,4 +24,14 @@ const nextConfig: NextConfig = {
 
 export default withSentryConfig(withNextIntl(nextConfig), {
   silent: !process.env.CI,
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  // Sprint 55: source maps upload condicional em SENTRY_AUTH_TOKEN. Dev local
+  // sem token → disable graceful. CI com secret → upload + delete pra não
+  // vazar source maps no bundle de produção.
+  sourcemaps: {
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+    deleteSourcemapsAfterUpload: true,
+  },
 });

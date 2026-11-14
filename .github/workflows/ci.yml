@@ -91,3 +91,13 @@ jobs:
       # Next 16 gera LayoutProps/PageProps types via `next build`; rodar tsc
       # standalone falha com TS2304. O proprio `next build` type-checa.
       - run: npm run build
+        env:
+          API_URL: http://localhost:3001/api/v1
+          NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+          # Sprint 55: Sentry source maps upload — secrets undefined → sourcemaps.disable
+          # em withSentryConfig (next.config.ts) garante build normal sem upload.
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+          NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE: '0.1'
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}

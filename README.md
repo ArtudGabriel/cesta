@@ -161,12 +161,26 @@ Portal no navegador: Vercel URL → login → navegar. Primeira request pode lev
 
 Variáveis de referência: [`.env.example`](./.env.example) (api) + [`cesta-web/.env.example`](./cesta-web/.env.example) (web).
 
-### 6. Sentry (opcional — Sprint 31)
+### 6. Sentry (opcional — Sprint 31 errors + Sprint 55 Performance/source maps)
 
-Observabilidade de erros em prod. Sem DSN, SDK fica no-op e app roda normal.
+Observabilidade de erros + performance em prod. Sem DSN, SDK fica no-op e app roda normal.
 
 1. https://sentry.io → criar 2 projetos (NestJS + Next.js) → copiar DSN de cada
-2. Render → envVars → preencher `SENTRY_DSN` (sync: false já configurado em `render.yaml`)
-3. Vercel → Environment Variables → `NEXT_PUBLIC_SENTRY_DSN` (prefix `NEXT_PUBLIC_` obrigatório — DSN frontend é pública)
-4. Redeploy ambos. 5xx + non-HttpException do backend capturados via `AllExceptionsFilter`; erros React capturados via `<SentryBoundary />` no `layout.tsx`
-5. Source map upload + release tracking ficam pra fase 2 (requer Sentry CLI auth token no CI)
+2. Render → envVars → preencher `SENTRY_DSN` (sync: false já configurado em `render.yaml`); `SENTRY_TRACES_SAMPLE_RATE` já setado em `0.1` no `render.yaml` (10% traces em prod)
+3. Vercel → Environment Variables → `NEXT_PUBLIC_SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=0.1`
+4. Redeploy ambos. 5xx + non-HttpException do backend capturados via `AllExceptionsFilter`; erros React via `<SentryBoundary />` no `layout.tsx`; Performance tracing captura p95, slow transactions, DB query time, fetches RSC automaticamente
+
+#### Source maps upload CI (Sprint 55)
+
+Pra stack traces legíveis em prod (minificação Next/Nest apaga nomes):
+
+1. Em Sentry: Settings → Auth Tokens → criar token com scope `project:releases` + `org:read` → copiar
+2. Sentry Organization/Project settings → copiar slug `SENTRY_ORG` + `SENTRY_PROJECT`
+3. GitHub repo → Settings → Secrets and variables → Actions → adicionar 3 secrets:
+   - `SENTRY_AUTH_TOKEN` (token do passo 1)
+   - `SENTRY_ORG` (slug)
+   - `SENTRY_PROJECT` (slug)
+   - `NEXT_PUBLIC_SENTRY_DSN` (opcional — se setado, build CI já roda com tracing habilitado no bundle)
+4. Vercel: mesmos 4 secrets como Environment Variables (Build-time). `withSentryConfig` em `next.config.ts` gatilha upload automático quando `SENTRY_AUTH_TOKEN` presente.
+5. `deleteSourcemapsAfterUpload: true` garante que os `.map` não vazam no bundle final de prod — ficam só no Sentry.
+6. Sem secrets → `sourcemaps.disable: true` kicks in → build normal sem upload (dev local + CI de PR público permanecem iguais).
