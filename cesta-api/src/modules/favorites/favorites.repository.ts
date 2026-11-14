@@ -24,10 +24,12 @@ export interface FavoriteWithProductRow extends FavoriteRow {
     calories: unknown;
     sugar: unknown;
     saturatedFat: unknown;
+    fat: unknown;
     salt: unknown;
     fiber: unknown;
     protein: unknown;
     nutritionPer: unknown;
+    category: { slug: string } | null;
     prices: Array<{
       currentPrice: unknown;
       supermarket: { slug: string; name: string };
@@ -80,10 +82,12 @@ export class FavoritesRepository {
             calories: true,
             sugar: true,
             saturatedFat: true,
+            fat: true,
             salt: true,
             fiber: true,
             protein: true,
             nutritionPer: true,
+            category: { select: { slug: true } },
             prices: {
               where: {
                 isAvailable: true,

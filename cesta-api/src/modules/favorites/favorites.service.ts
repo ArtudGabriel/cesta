@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { MeasureUnit } from '@prisma/client';
 import { calculateUnitPrice } from '../../common/utils/price-normalization';
 import { calculateNutriScore } from '../../common/utils/nutri-score';
+import { resolveNutriCategory } from '../products/dtos/product-response.dto';
 import {
   CheapestPriceDto,
   FavoriteResponseDto,
@@ -75,6 +76,7 @@ export class FavoritesService {
             saturatedFat: f.product.saturatedFat
               ? Number(f.product.saturatedFat)
               : null,
+            fat: f.product.fat ? Number(f.product.fat) : null,
             salt: f.product.salt ? Number(f.product.salt) : null,
             fiber: f.product.fiber ? Number(f.product.fiber) : null,
             protein: f.product.protein ? Number(f.product.protein) : null,
@@ -82,6 +84,7 @@ export class FavoritesService {
               ? Number(f.product.nutritionPer)
               : null,
             comparisonUnit: f.product.comparisonUnit,
+            category: resolveNutriCategory(f.product.category?.slug),
           }),
         },
         cheapestPrice: cheapest,

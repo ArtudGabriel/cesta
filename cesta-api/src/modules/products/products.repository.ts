@@ -1,10 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, Product, ProductPrice, Supermarket } from '@prisma/client';
+import {
+  Category,
+  Prisma,
+  Product,
+  ProductPrice,
+  Supermarket,
+} from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { ProductFiltersDto } from './dtos/product-filters.dto';
 
 export type ProductWithPrices = Product & {
   prices: (ProductPrice & { supermarket: Supermarket })[];
+  category: Category | null;
 };
 
 const PRICE_INCLUDE = {
@@ -12,6 +19,9 @@ const PRICE_INCLUDE = {
     include: { supermarket: true },
     where: { supermarket: { isActive: true } },
   },
+  // Sprint 61: category.slug alimenta o mapping de variante Nutri-Score em
+  // `ProductResponseDto.fromEntity`.
+  category: true,
 } as const;
 
 @Injectable()

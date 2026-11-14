@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  Category,
   MeasureUnit,
   Product,
   ProductPrice,
@@ -11,9 +12,31 @@ import {
   calculateUnitPrice,
 } from '../../../common/utils/price-normalization';
 import {
+  NutriCategory,
   NutriGrade,
   calculateNutriScore,
 } from '../../../common/utils/nutri-score';
+
+// Sprint 61: Nutri-Score oficial com variantes por categoria.
+// Mapping category.slug → variant Nutri-Score. Slugs não listados caem no
+// `general`. Ampliar quando catálogo adicionar novas categorias.
+const NUTRI_CATEGORY_MAP: Record<string, NutriCategory> = {
+  bebidas: 'beverage',
+  refrescos: 'beverage',
+  zumos: 'beverage',
+  aguas: 'beverage',
+  aceites: 'fat',
+  grasas: 'fat',
+  mantequilla: 'fat',
+  quesos: 'cheese',
+};
+
+export function resolveNutriCategory(
+  categorySlug: string | null | undefined,
+): NutriCategory {
+  if (!categorySlug) return 'general';
+  return NUTRI_CATEGORY_MAP[categorySlug] ?? 'general';
+}
 
 export class NutriScoreDto {
   @ApiProperty({ example: -2 }) score: number;
@@ -90,6 +113,7 @@ export class ProductResponseDto {
   static fromEntity(
     product: Product & {
       prices?: (ProductPrice & { supermarket: Supermarket })[];
+      category?: Category | null;
     },
   ): ProductResponseDto {
     const dto = new ProductResponseDto();
@@ -114,11 +138,13 @@ export class ProductResponseDto {
       calories: dto.calories,
       sugar: dto.sugar,
       saturatedFat: dto.saturatedFat,
+      fat: dto.fat,
       salt: dto.salt,
       fiber: dto.fiber,
       protein: dto.protein,
       nutritionPer: dto.nutritionPer,
       comparisonUnit: product.comparisonUnit,
+      category: resolveNutriCategory(product.category?.slug),
     });
     dto.isVegan = product.isVegan;
     dto.isVegetarian = product.isVegetarian;
