@@ -1,8 +1,20 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  forwardRef,
+  HttpStatus,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, User } from '@prisma/client';
 import { Queue } from 'bullmq';
 import { AppException } from '../../common/exceptions/app-exception';
+import {
+  DIETARY_KEYS,
+  mergeRestrictions,
+  prefsToRestrictionsSet,
+} from '../../common/utils/dietary-sync';
+import { FamilyProfilesRepository } from '../family-profiles/family-profiles.repository';
 import type { CookieConsentLevel } from './dtos/consent.dto';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
 import { UserResponseDto } from './dtos/user-response.dto';
@@ -28,6 +40,11 @@ export class UsersService {
     private readonly usersRepository: UsersRepository,
     @InjectQueue(USER_CLEANUP_QUEUE)
     private readonly userCleanupQueue: Queue<HardDeleteJob>,
+    // Sprint 65 bidirectional sync: forwardRef pra quebrar cycle com
+    // FamilyProfilesService. Usa Repository direto (não Service) nos writes
+    // pra evitar recursão service-to-service.
+    @Inject(forwardRef(() => FamilyProfilesRepository))
+    private readonly familyProfilesRepository: FamilyProfilesRepository,
   ) {}
 
   async findById(id: string): Promise<User> {
@@ -108,6 +125,31 @@ export class UsersService {
     }
 
     const updated = await this.usersRepository.update(userId, data);
+
+    // Sprint 65 bidirectional dietary sync: se qualquer prefers* mudou e
+    // user tem FamilyProfile, propaga pro restrictions (merge preservando
+    // non-dietary strings). Repository-level write evita recursão.
+    const touchedDietary =
+      dto.prefersVegan !== undefined ||
+      dto.prefersVegetarian !== undefined ||
+      dto.prefersGlutenFree !== undefined ||
+      dto.prefersLactoseFree !== undefined;
+    if (touchedDietary) {
+      const familyProfile =
+        await this.familyProfilesRepository.findByUser(userId);
+      if (familyProfile) {
+        const prefsSet = prefsToRestrictionsSet(updated);
+        const merged = mergeRestrictions(
+          familyProfile.restrictions ?? [],
+          prefsSet,
+        );
+        await this.familyProfilesRepository.updateRestrictions(
+          userId,
+          merged,
+        );
+      }
+    }
+
     return UserResponseDto.fromEntity(updated);
   }
 

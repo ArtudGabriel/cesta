@@ -1,5 +1,6 @@
 import { BullModule } from '@nestjs/bullmq';
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
+import { FamilyProfilesModule } from '../family-profiles/family-profiles.module';
 import {
   USER_CLEANUP_QUEUE,
   UserCleanupProcessor,
@@ -9,7 +10,11 @@ import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
 
 @Module({
-  imports: [BullModule.registerQueue({ name: USER_CLEANUP_QUEUE })],
+  imports: [
+    BullModule.registerQueue({ name: USER_CLEANUP_QUEUE }),
+    // Sprint 65 bidirectional sync: forwardRef quebra cycle com FamilyProfilesModule.
+    forwardRef(() => FamilyProfilesModule),
+  ],
   controllers: [UsersController],
   providers: [UsersService, UsersRepository, UserCleanupProcessor],
   exports: [UsersService],

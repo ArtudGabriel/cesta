@@ -1,6 +1,8 @@
 import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { FamilyProfile, Prisma } from '@prisma/client';
 import { AppException } from '../../common/exceptions/app-exception';
+import { restrictionsToPrefs } from '../../common/utils/dietary-sync';
+import { UsersRepository } from '../users/users.repository';
 import { UsersService } from '../users/users.service';
 import { DietaryQuestionDto } from './dtos/dietary-question.dto';
 import {
@@ -21,6 +23,9 @@ export class FamilyProfilesService {
   constructor(
     private readonly repo: FamilyProfilesRepository,
     private readonly usersService: UsersService,
+    // Sprint 65 bidirectional sync: reverse propagation restrictions → user.prefers*
+    // via Repository (não Service) pra evitar recursão.
+    private readonly usersRepository: UsersRepository,
   ) {}
 
   async listQuestions(): Promise<DietaryQuestionDto[]> {
@@ -50,6 +55,13 @@ export class FamilyProfilesService {
       blockedCategories: dto.blockedCategories ?? [],
       requiredProductIds: dto.requiredProductIds ?? [],
     });
+    // Sprint 65 bidirectional sync: restrictions do wizard → user.prefers*.
+    // Mirror exato dos 4 dietary strings conhecidos (restrições extra do
+    // wizard ex: 'kosher' ficam só em FamilyProfile).
+    await this.usersRepository.update(
+      userId,
+      restrictionsToPrefs(profile.restrictions ?? []),
+    );
     return FamilyProfileResponseDto.fromEntity(profile);
   }
 

@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { FamilyProfilesRepository } from '../family-profiles/family-profiles.repository';
 import { USER_CLEANUP_QUEUE } from './user-cleanup.constants';
 import { UsersService } from './users.service';
 import { UsersRepository } from './users.repository';
@@ -16,6 +17,10 @@ describe('UsersService.updateProfile', () => {
     softDeleteWithRevoke: jest.Mock;
   };
   let queueMock: { add: jest.Mock };
+  let familyProfilesRepoMock: {
+    findByUser: jest.Mock;
+    updateRestrictions: jest.Mock;
+  };
 
   const fakeUser = (overrides: Partial<Record<string, unknown>> = {}) => ({
     id: 'u1',
@@ -46,11 +51,19 @@ describe('UsersService.updateProfile', () => {
       softDeleteWithRevoke: jest.fn(),
     };
     queueMock = { add: jest.fn() };
+    familyProfilesRepoMock = {
+      findByUser: jest.fn().mockResolvedValue(null),
+      updateRestrictions: jest.fn(),
+    };
     const module = await Test.createTestingModule({
       providers: [
         UsersService,
         { provide: UsersRepository, useValue: repoMock },
         { provide: USER_CLEANUP_QUEUE_TOKEN, useValue: queueMock },
+        {
+          provide: FamilyProfilesRepository,
+          useValue: familyProfilesRepoMock,
+        },
       ],
     }).compile();
     service = module.get(UsersService);
@@ -242,5 +255,78 @@ describe('UsersService.updateProfile', () => {
     });
     expect(repoMock.softDeleteWithRevoke).not.toHaveBeenCalled();
     expect(queueMock.add).not.toHaveBeenCalled();
+  });
+
+  it('PATCH prefersVegan=true + user tem FamilyProfile → restrictions ganha "vegan" (Sprint 65)', async () => {
+    repoMock.update.mockResolvedValue(fakeUser({ prefersVegan: true }));
+    familyProfilesRepoMock.findByUser.mockResolvedValue({
+      userId: 'u1',
+      restrictions: ['glutenFree'],
+    });
+    await service.updateProfile('u1', { prefersVegan: true });
+
+    expect(familyProfilesRepoMock.findByUser).toHaveBeenCalledWith('u1');
+    expect(familyProfilesRepoMock.updateRestrictions).toHaveBeenCalledTimes(1);
+    const [userId, merged] =
+      familyProfilesRepoMock.updateRestrictions.mock.calls[0] as [
+        string,
+        string[],
+      ];
+    expect(userId).toBe('u1');
+    // Merge: 'glutenFree' preservado (non-dietary não é aplicável aqui porque
+    // 'glutenFree' ∈ DIETARY_KEYS; depende apenas das prefs). After merge,
+    // final set reflete prefers*: só 'vegan' (prefersGlutenFree=false).
+    expect(new Set(merged)).toEqual(new Set(['vegan']));
+  });
+
+  it('PATCH prefersVegan=false com restrictions=["vegan"] → remove "vegan" (Sprint 65)', async () => {
+    repoMock.update.mockResolvedValue(fakeUser({ prefersVegan: false }));
+    familyProfilesRepoMock.findByUser.mockResolvedValue({
+      userId: 'u1',
+      restrictions: ['vegan'],
+    });
+    await service.updateProfile('u1', { prefersVegan: false });
+
+    const [, merged] =
+      familyProfilesRepoMock.updateRestrictions.mock.calls[0] as [
+        string,
+        string[],
+      ];
+    expect(merged).toEqual([]);
+  });
+
+  it('PATCH prefersVegan=true + user SEM FamilyProfile → no-op sync (Sprint 65)', async () => {
+    repoMock.update.mockResolvedValue(fakeUser({ prefersVegan: true }));
+    familyProfilesRepoMock.findByUser.mockResolvedValue(null);
+    await service.updateProfile('u1', { prefersVegan: true });
+
+    expect(familyProfilesRepoMock.findByUser).toHaveBeenCalledWith('u1');
+    expect(familyProfilesRepoMock.updateRestrictions).not.toHaveBeenCalled();
+  });
+
+  it('PATCH sem dietary prefs mudadas → não chama FamilyProfilesRepo (Sprint 65)', async () => {
+    repoMock.update.mockResolvedValue(fakeUser({ name: 'Novo' }));
+    await service.updateProfile('u1', { name: 'Novo' });
+
+    expect(familyProfilesRepoMock.findByUser).not.toHaveBeenCalled();
+    expect(familyProfilesRepoMock.updateRestrictions).not.toHaveBeenCalled();
+  });
+
+  it('PATCH prefersVegan=true preserva restrictions non-dietary (ex: kosher) (Sprint 65)', async () => {
+    repoMock.update.mockResolvedValue(fakeUser({ prefersVegan: true }));
+    familyProfilesRepoMock.findByUser.mockResolvedValue({
+      userId: 'u1',
+      restrictions: ['kosher', 'glutenFree'],
+    });
+    await service.updateProfile('u1', { prefersVegan: true });
+
+    const [, merged] =
+      familyProfilesRepoMock.updateRestrictions.mock.calls[0] as [
+        string,
+        string[],
+      ];
+    // kosher preservado (non-dietary), glutenFree removido (prefs=false),
+    // vegan adicionado (prefs=true).
+    expect(new Set(merged)).toEqual(new Set(['kosher', 'vegan']));
   });
 });

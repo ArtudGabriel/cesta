@@ -1,5 +1,6 @@
 import { Test } from '@nestjs/testing';
 import { AppException } from '../../common/exceptions/app-exception';
+import { UsersRepository } from '../users/users.repository';
 import { UsersService } from '../users/users.service';
 import { FamilyProfilesRepository } from './family-profiles.repository';
 import { FamilyProfilesService } from './family-profiles.service';
@@ -13,6 +14,7 @@ describe('FamilyProfilesService.syncDietaryFromUser', () => {
     listQuestions: jest.Mock;
   };
   let usersService: { findById: jest.Mock };
+  let usersRepo: { update: jest.Mock };
 
   const fakeUser = (overrides: Partial<Record<string, unknown>> = {}) => ({
     id: 'u1',
@@ -43,11 +45,13 @@ describe('FamilyProfilesService.syncDietaryFromUser', () => {
       listQuestions: jest.fn(),
     };
     usersService = { findById: jest.fn() };
+    usersRepo = { update: jest.fn() };
     const module = await Test.createTestingModule({
       providers: [
         FamilyProfilesService,
         { provide: FamilyProfilesRepository, useValue: repo },
         { provide: UsersService, useValue: usersService },
+        { provide: UsersRepository, useValue: usersRepo },
       ],
     }).compile();
     service = module.get(FamilyProfilesService);
@@ -95,5 +99,41 @@ describe('FamilyProfilesService.syncDietaryFromUser', () => {
     const result = await service.syncDietaryFromUser('u1');
 
     expect(result.restrictions).toEqual(['sin-sal']);
+  });
+
+  it('upsertMine com restrictions ["vegan","glutenFree"] → usersRepo.update prefers* mirror (Sprint 65)', async () => {
+    const profile = fakeFamily(['vegan', 'glutenFree']);
+    repo.upsert.mockResolvedValue(profile);
+
+    await service.upsertMine('u1', {
+      members: { adults: 1 },
+      answers: {},
+      restrictions: ['vegan', 'glutenFree'],
+    } as never);
+
+    expect(usersRepo.update).toHaveBeenCalledWith('u1', {
+      prefersVegan: true,
+      prefersVegetarian: false,
+      prefersGlutenFree: true,
+      prefersLactoseFree: false,
+    });
+  });
+
+  it('upsertMine sem dietary primárias → prefers* todos false (Sprint 65)', async () => {
+    const profile = fakeFamily(['kosher']);
+    repo.upsert.mockResolvedValue(profile);
+
+    await service.upsertMine('u1', {
+      members: { adults: 1 },
+      answers: {},
+      restrictions: ['kosher'],
+    } as never);
+
+    expect(usersRepo.update).toHaveBeenCalledWith('u1', {
+      prefersVegan: false,
+      prefersVegetarian: false,
+      prefersGlutenFree: false,
+      prefersLactoseFree: false,
+    });
   });
 });
