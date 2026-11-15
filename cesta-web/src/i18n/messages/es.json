@@ -397,6 +397,106 @@
     "title": "Cookies y privacidad",
     "description": "Usamos cookies esenciales para que el app funcione. Las analíticas nos ayudan a mejorar, pero puedes rechazarlas.",
     "acceptAll": "Aceptar todo",
-    "rejectNonEssential": "Rechazar no esenciales"
+    "rejectNonEssential": "Rechazar no esenciales",
+    "learnMore": "Más información"
+  },
+  "legal": {
+    "privacyLink": "Política de privacidad",
+    "termsLink": "Términos de uso",
+    "privacy": {
+      "title": "Política de privacidad",
+      "lastUpdated": "Última actualización: {date}",
+      "placeholder": "Este texto es un borrador preliminar. La versión final será revisada por asesoría jurídica antes del lanzamiento público.",
+      "sections": {
+        "intro": {
+          "title": "Introducción",
+          "body": "Cesta trata tus datos personales conforme al Reglamento (UE) 2016/679 (RGPD) y a la LOPDGDD (Ley Orgánica 3/2018). Esta política explica qué datos recopilamos, con qué finalidad, en qué base legal, cuánto tiempo los conservamos y qué derechos puedes ejercer."
+        },
+        "controller": {
+          "title": "Responsable del tratamiento",
+          "body": "El responsable es el equipo de Cesta. Antes del despliegue público se publicarán aquí la razón social, dirección fiscal y datos del delegado de protección de datos (DPO) si aplica."
+        },
+        "dataCollected": {
+          "title": "Datos que recopilamos",
+          "body": "Datos de cuenta (correo o teléfono, nombre, idioma, preferencias dietéticas), listas de la compra, favoritos, alertas de precio, tickets escaneados con OCR, perfil familiar y respuestas del asistente, historial de búsquedas. También metadatos técnicos (IP, user-agent) agregados al mínimo necesario."
+        },
+        "purpose": {
+          "title": "Finalidad del tratamiento",
+          "body": "Prestar el servicio (comparar precios, generar listas y cestas familiares, enviar alertas), mejorar la calidad del catálogo, diagnosticar errores y asegurar la plataforma. No usamos tus datos para publicidad dirigida."
+        },
+        "legalBasis": {
+          "title": "Base legal",
+          "body": "Ejecución del contrato (Art. 6.1.b RGPD) para las funciones del servicio, consentimiento (Art. 6.1.a) para cookies no esenciales y analíticas, e interés legítimo (Art. 6.1.f) para seguridad e integridad de la plataforma."
+        },
+        "retention": {
+          "title": "Conservación",
+          "body": "Mantenemos tus datos mientras la cuenta esté activa. Al solicitar la eliminación, aplicamos un periodo de gracia de 30 días durante el cual puedes revertir la decisión; transcurrido ese plazo, los datos personales se eliminan de forma definitiva conforme al Art. 17 RGPD."
+        },
+        "sharing": {
+          "title": "Comunicación de datos",
+          "body": "No vendemos tus datos. Compartimos datos estrictamente necesarios con encargados del tratamiento (hosting Render/Vercel, base de datos Neon, Redis Upstash, Sentry para observabilidad) bajo acuerdos de encargado del tratamiento (DPA)."
+        },
+        "rights": {
+          "title": "Tus derechos",
+          "body": "Puedes ejercer los siguientes derechos escribiendo al contacto indicado abajo o desde la sección \"Mis datos\" en tu perfil:",
+          "access": "Acceso — consultar qué datos tratamos sobre ti.",
+          "portability": "Portabilidad — recibir tus datos en formato estructurado (JSON).",
+          "erasure": "Supresión — eliminar tu cuenta y datos asociados.",
+          "rectification": "Rectificación — corregir datos inexactos.",
+          "objection": "Oposición y limitación — oponerte al tratamiento o restringirlo."
+        },
+        "cookies": {
+          "title": "Cookies",
+          "body": "Usamos cookies esenciales para autenticación y preferencias de idioma. Las cookies no esenciales (analíticas, replay de sesión Sentry) requieren tu consentimiento explícito mediante el banner. Puedes retirar el consentimiento en cualquier momento."
+        },
+        "contact": {
+          "title": "Contacto",
+          "body": "Para ejercer tus derechos o resolver dudas, escríbenos al correo que se publicará aquí antes del lanzamiento. También puedes presentar una reclamación ante la Agencia Española de Protección de Datos (AEPD)."
+        },
+        "changes": {
+          "title": "Cambios en esta política",
+          "body": "Publicaremos cualquier cambio importante en esta página con la nueva fecha de \"Última actualización\". Si el cambio afecta tus derechos, te lo comunicaremos por correo o dentro de la app."
+        }
+      }
+    },
+    "terms": {
+      "title": "Términos de uso",
+      "lastUpdated": "Última actualización: {date}",
+      "placeholder": "Este texto es un borrador preliminar. La versión final será revisada por asesoría jurídica antes del lanzamiento público.",
+      "sections": {
+        "acceptance": {
+          "title": "Aceptación",
+          "body": "Al crear una cuenta en Cesta confirmas tener al menos 16 años (umbral mínimo RGPD España) y aceptas estos términos. Si no estás de acuerdo, no uses el servicio."
+        },
+        "service": {
+          "title": "Descripción del servicio",
+          "body": "Cesta es una aplicación que compara precios de supermercados de la Comunidad de Madrid, permite listas de la compra, alertas, control de gastos y una cesta familiar personalizada. El servicio se presta tal cual, sin garantía de disponibilidad continua."
+        },
+        "account": {
+          "title": "Cuenta de usuario",
+          "body": "Eres responsable de las credenciales de tu cuenta. Puedes eliminar la cuenta en cualquier momento desde \"Mis datos\" en tu perfil. La eliminación activa un periodo de gracia de 30 días antes del borrado definitivo."
+        },
+        "acceptableUse": {
+          "title": "Uso aceptable",
+          "body": "Queda prohibido: automatizar el acceso sin autorización (scraping masivo, bots), interferir con la integridad del servicio, usar la plataforma para actividades ilícitas o compartir tu cuenta."
+        },
+        "intellectualProperty": {
+          "title": "Propiedad intelectual",
+          "body": "El código, diseño, marca y textos de Cesta son propiedad de sus titulares. Los precios y datos de catálogo son referenciales; las marcas de supermercados pertenecen a sus respectivos dueños."
+        },
+        "liability": {
+          "title": "Limitación de responsabilidad",
+          "body": "Los precios mostrados dependen de fuentes externas y pueden estar desactualizados; una etiqueta de \"precio desactualizado\" se muestra cuando es el caso. Cesta no se responsabiliza por diferencias de precio, errores de catálogo o indisponibilidad de productos en tienda."
+        },
+        "termination": {
+          "title": "Suspensión y terminación",
+          "body": "Podemos suspender cuentas que incumplan estos términos o comprometan la seguridad del servicio, notificándolo cuando sea legalmente posible."
+        },
+        "law": {
+          "title": "Ley aplicable",
+          "body": "Estos términos se rigen por la ley española. Para cualquier controversia, los tribunales competentes serán los del domicilio del consumidor en España."
+        }
+      }
+    }
   }
 }

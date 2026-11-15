@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { FormSkeleton } from "@/features/auth/components/form-skeleton";
+import { LegalFooter } from "@/features/auth/components/legal-footer";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { LoginHeading } from "./login-heading";
 
@@ -17,6 +18,7 @@ export default function LoginPage() {
       <Suspense fallback={<FormSkeleton rows={2} />}>
         <LoginForm />
       </Suspense>
+      <LegalFooter />
     </div>
   );
 }

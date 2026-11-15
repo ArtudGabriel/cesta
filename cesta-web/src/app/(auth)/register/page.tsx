@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { FormSkeleton } from "@/features/auth/components/form-skeleton";
+import { LegalFooter } from "@/features/auth/components/legal-footer";
 import { RegisterForm } from "@/features/auth/components/register-form";
 import { RegisterHeading } from "./register-heading";
 
@@ -17,6 +18,7 @@ export default function RegisterPage() {
       <Suspense fallback={<FormSkeleton rows={3} />}>
         <RegisterForm />
       </Suspense>
+      <LegalFooter />
     </div>
   );
 }

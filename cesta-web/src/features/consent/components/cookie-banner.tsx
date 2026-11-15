@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { useConsent } from "../hooks/use-consent";
@@ -34,7 +35,15 @@ export function CookieBanner() {
       >
         {t("title")}
       </p>
-      <p className="mt-1 text-sm text-muted">{t("description")}</p>
+      <p className="mt-1 text-sm text-muted">
+        {t("description")}{" "}
+        <Link
+          href="/politica-privacidade"
+          className="text-cesta-green underline decoration-dotted underline-offset-2"
+        >
+          {t("learnMore")}
+        </Link>
+      </p>
       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:gap-3">
         <Button
           type="button"
