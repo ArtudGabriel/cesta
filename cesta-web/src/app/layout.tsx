@@ -14,13 +14,24 @@ import { Toaster } from "sonner";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("meta.title");
+  const tOg = await getTranslations("meta.og");
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://cesta.vercel.app";
+  const defaultTitle = `${t("home")} · Cesta`;
+  const description = tOg("description");
+  const ogImage = {
+    url: "/og-image.png",
+    width: 1200,
+    height: 630,
+    alt: "Cesta — Comparador de precios Comunidad de Madrid",
+  };
   return {
+    metadataBase: new URL(baseUrl),
     title: {
-      default: `${t("home")} · Cesta`,
+      default: defaultTitle,
       template: "%s",
     },
-    description:
-      "Compara precios, promociones y nutrición de Mercadona, Carrefour, Alcampo, LIDL y Froiz en Madrid, y controla tus gastos.",
+    description,
     applicationName: "Cesta",
     manifest: "/manifest.webmanifest",
     formatDetection: { telephone: false },
@@ -35,6 +46,23 @@ export async function generateMetadata(): Promise<Metadata> {
         { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
       ],
       apple: [{ url: "/icons/icon-192.png", sizes: "192x192" }],
+    },
+    // Sprint 69: OG + Twitter cards pra preview em WhatsApp/Twitter/LinkedIn.
+    openGraph: {
+      type: "website",
+      locale: "es_ES",
+      alternateLocale: ["pt_BR"],
+      url: baseUrl,
+      siteName: "Cesta",
+      title: defaultTitle,
+      description,
+      images: [ogImage],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: defaultTitle,
+      description,
+      images: [ogImage.url],
     },
   };
 }

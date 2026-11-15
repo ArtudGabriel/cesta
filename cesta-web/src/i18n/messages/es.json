@@ -61,6 +61,16 @@
     "users": {
       "deleteConfirmationMismatch": "Confirmación incorrecta",
       "alreadyDeleted": "Cuenta ya eliminada"
+    },
+    "notFound": {
+      "title": "Página no encontrada",
+      "body": "La página que buscas no existe o fue movida.",
+      "cta": "Volver al inicio"
+    },
+    "global": {
+      "title": "Algo salió mal",
+      "body": "Ocurrió un error inesperado. Nuestro equipo ya fue notificado.",
+      "retry": "Reintentar"
     }
   },
   "meta": {
@@ -77,6 +87,9 @@
       "minhaLista": "Mis listas",
       "minhaListaDetail": "Detalle de lista",
       "produto": "Producto"
+    },
+    "og": {
+      "description": "Compara precios de Mercadona, Carrefour, Alcampo, LIDL y Froiz en Madrid. Controla gastos, pon alertas y come mejor."
     }
   },
   "nav": {
