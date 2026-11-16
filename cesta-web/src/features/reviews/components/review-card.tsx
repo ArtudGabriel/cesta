@@ -38,7 +38,10 @@ export function ReviewCard({
     <article className="rounded-card bg-white p-4 shadow-card">
       <header className="flex items-center justify-between">
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-ink">
+          <p
+            className="truncate text-sm font-medium text-ink"
+            data-sentry-mask
+          >
             {review.authorName ?? t("anonymous")}
           </p>
           <div className="mt-1 flex items-center gap-2">

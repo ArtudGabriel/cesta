@@ -88,7 +88,7 @@ export default function MyListsPage() {
                   className="block rounded-card bg-white p-4 shadow-card transition-shadow hover:shadow-card-elevated"
                 >
                   <div className="flex items-center justify-between">
-                    <div>
+                    <div data-sentry-mask>
                       <h3 className="font-display font-bold text-ink">
                         {list.name}
                       </h3>

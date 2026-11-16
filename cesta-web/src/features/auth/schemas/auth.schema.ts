@@ -26,16 +26,46 @@ export const loginSchema = identifierSchema.and(
   }),
 );
 
-export const registerSchema = identifierSchema.and(
-  z.object({
-    password: z
-      .string()
-      .min(8, "Mínimo 8 caracteres")
-      .max(128, "Máximo 128 caracteres"),
-    name: z.string().max(120).optional(),
-    locale: z.enum(["es", "pt-BR"]).optional(),
-  }),
-);
+export const buildRegisterSchema = (messages: {
+  emailMismatch: string;
+  passwordMismatch: string;
+}) =>
+  z
+    .object({
+      email: z
+        .string()
+        .email("Email inválido")
+        .optional()
+        .or(z.literal("").transform(() => undefined)),
+      confirmEmail: z
+        .string()
+        .optional()
+        .or(z.literal("").transform(() => undefined)),
+      phone: z
+        .string()
+        .regex(PHONE_REGEX, "Telefone inválido (ex: +34600111222)")
+        .optional()
+        .or(z.literal("").transform(() => undefined)),
+      password: z
+        .string()
+        .min(8, "Mínimo 8 caracteres")
+        .max(128, "Máximo 128 caracteres"),
+      confirmPassword: z.string(),
+      name: z.string().max(120).optional(),
+      locale: z.enum(["es", "pt-BR"]).optional(),
+    })
+    .refine((data) => Boolean(data.email || data.phone), {
+      message: "Informe email ou telefone",
+      path: ["email"],
+    })
+    .refine((data) => !data.email || data.email === data.confirmEmail, {
+      message: messages.emailMismatch,
+      path: ["confirmEmail"],
+    })
+    .refine((data) => data.password === data.confirmPassword, {
+      message: messages.passwordMismatch,
+      path: ["confirmPassword"],
+    });
 
 export type LoginFormData = z.infer<typeof loginSchema>;
-export type RegisterFormData = z.infer<typeof registerSchema>;
+export type RegisterFormData = z.infer<ReturnType<typeof buildRegisterSchema>>;

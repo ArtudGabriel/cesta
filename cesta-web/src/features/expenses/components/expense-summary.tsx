@@ -44,7 +44,10 @@ export function ExpenseDashboard() {
       </div>
 
       {summary.data && (
-        <div className="rounded-card bg-cesta-green p-4 text-white">
+        <div
+          className="rounded-card bg-cesta-green p-4 text-white"
+          data-sentry-mask
+        >
           <p className="text-xs opacity-80">{t("totalSpent")}</p>
           <p className="font-display text-3xl font-extrabold">
             {formatPrice(summary.data.total)}
