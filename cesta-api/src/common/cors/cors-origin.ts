@@ -12,8 +12,9 @@ export function isAllowedOrigin(
 
 export function parseCorsWhitelist(raw: string | undefined): string[] {
   if (!raw) return [];
-  return raw
+  const trimmed = raw
     .split(',')
     .map((o) => o.trim())
     .filter((o) => o.length > 0);
+  return Array.from(new Set(trimmed));
 }

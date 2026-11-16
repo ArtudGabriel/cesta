@@ -54,6 +54,16 @@ describe("shouldRetryOnNetworkError", () => {
     ).toBe(true);
   });
 
+  it("GET + ECONNRESET não retentado → retry (Render cold-start spin-down)", () => {
+    const config = makeConfig({ method: "get", url: "/x" });
+    expect(
+      shouldRetryOnNetworkError(
+        makeError({ code: "ECONNRESET", config }),
+        config,
+      ),
+    ).toBe(true);
+  });
+
   it("GET default method (undefined) → tratado como get", () => {
     const config = makeConfig({});
     expect(

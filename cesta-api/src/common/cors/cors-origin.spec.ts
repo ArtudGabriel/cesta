@@ -1,4 +1,8 @@
-import { isAllowedOrigin, VERCEL_PREVIEW_REGEX } from './cors-origin';
+import {
+  isAllowedOrigin,
+  parseCorsWhitelist,
+  VERCEL_PREVIEW_REGEX,
+} from './cors-origin';
 
 describe('isAllowedOrigin', () => {
   const whitelist = [
@@ -62,5 +66,37 @@ describe('isAllowedOrigin', () => {
         'http://cesta-web-git-abc-gabriels-projects-f5aa3b24.vercel.app',
       ),
     ).toBe(false);
+  });
+});
+
+describe('parseCorsWhitelist', () => {
+  it('returns [] for empty / undefined env var', () => {
+    expect(parseCorsWhitelist(undefined)).toEqual([]);
+    expect(parseCorsWhitelist('')).toEqual([]);
+  });
+
+  it('trims whitespace around each origin', () => {
+    expect(
+      parseCorsWhitelist(
+        '  https://cesta-web.vercel.app , http://localhost:3000 ',
+      ),
+    ).toEqual(['https://cesta-web.vercel.app', 'http://localhost:3000']);
+  });
+
+  it('dedupes repeated origins', () => {
+    expect(
+      parseCorsWhitelist(
+        'https://a.example.com,https://a.example.com,https://b.example.com',
+      ),
+    ).toEqual(['https://a.example.com', 'https://b.example.com']);
+  });
+
+  it('ignores trailing / interstitial commas', () => {
+    expect(parseCorsWhitelist('https://a.example.com,')).toEqual([
+      'https://a.example.com',
+    ]);
+    expect(
+      parseCorsWhitelist('https://a.example.com,,https://b.example.com,'),
+    ).toEqual(['https://a.example.com', 'https://b.example.com']);
   });
 });

@@ -69,7 +69,7 @@ export function FavoriteToggle({
           className={cn(
             "transition-colors",
             iconSize,
-            isFavorite ? "fill-[#ff6a4b] text-[#ff6a4b]" : "text-neutral-400",
+            isFavorite ? "fill-coral text-coral" : "text-muted",
           )}
         />
       </button>
