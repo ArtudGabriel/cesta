@@ -32,11 +32,12 @@ async function bootstrap(): Promise<void> {
   );
   app.enableCors({
     origin: (origin, callback) => {
-      if (isAllowedOrigin(origin, corsWhitelist)) {
-        callback(null, true);
-        return;
-      }
-      callback(new Error(`CORS blocked: ${origin}`), false);
+      // Sprint 80: origem desconhecida retorna (null, false) em vez de Error.
+      // Error propaga pro AllExceptionsFilter e vira 500 em preflight bogus,
+      // poluindo Sentry. `false` deixa a middleware do pacote `cors` responder
+      // sem headers Access-Control-Allow-Origin → browser bloqueia, servidor
+      // devolve 204 limpo na preflight e 200 vazio em GET (sem CORS leak).
+      callback(null, isAllowedOrigin(origin, corsWhitelist));
     },
     credentials: true,
   });

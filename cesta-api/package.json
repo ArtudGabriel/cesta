@@ -45,7 +45,7 @@
     "@prisma/client": "^5.22.0",
     "@sentry/node": "^11.12.0",
     "@types/cookie-parser": "^1.4.10",
-    "@vercel/blob": "^2.9.0",
+    "@vercel/blob": "2.4.0",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.56.0",
     "class-transformer": "^0.5.1",

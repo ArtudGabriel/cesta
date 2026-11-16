@@ -92,7 +92,8 @@ export function ProductCard({
                   <span
                     className="rounded-pill px-2 py-0.5 text-[10px] font-medium text-white"
                     style={{
-                      backgroundColor: cheapest.supermarketColor ?? "#1b6b48",
+                      backgroundColor:
+                        cheapest.supermarketColor ?? "var(--color-cesta-green)",
                     }}
                   >
                     {cheapest.supermarketName}

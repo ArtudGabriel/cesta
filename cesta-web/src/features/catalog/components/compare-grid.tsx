@@ -236,12 +236,12 @@ function ProductCompareCard({
             >
               <span
                 className="inline-flex items-center gap-2 font-medium"
-                style={{ color: price.supermarketColor ?? "#1b6b48" }}
+                style={{ color: price.supermarketColor ?? "var(--color-cesta-green)" }}
               >
                 <span
                   aria-hidden
                   className="inline-block h-2 w-2 rounded-pill"
-                  style={{ backgroundColor: price.supermarketColor ?? "#1b6b48" }}
+                  style={{ backgroundColor: price.supermarketColor ?? "var(--color-cesta-green)" }}
                 />
                 <span className="text-ink">{price.supermarketName}</span>
               </span>

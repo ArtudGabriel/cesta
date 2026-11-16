@@ -1,4 +1,5 @@
 import axios, { AxiosError, type AxiosRequestConfig } from "axios";
+import * as Sentry from "@sentry/nextjs";
 
 // Sprint 71: 45s pra absorver cold start do Render free tier (~30s pior caso).
 // Keep-alive cron reduz probabilidade, mas o primeiro user pós-spin-down
@@ -85,7 +86,15 @@ export function shouldRetryOnNetworkError(
   if (error.response) return false;
   const method = (config.method ?? "get").toLowerCase();
   if (method !== "get") return false;
-  return error.code === "ECONNABORTED" || error.code === "ERR_NETWORK";
+  // Sprint 80: Render free tier spin-down costuma emitir ECONNRESET quando
+  // o socket vem de uma conexão keep-alive morta. Antes, só ECONNABORTED
+  // (timeout) e ERR_NETWORK (fetch genérico) eram cobertos — reset ficava
+  // sem retry e o user via erro no primeiro GET pós cold-start.
+  return (
+    error.code === "ECONNABORTED" ||
+    error.code === "ERR_NETWORK" ||
+    error.code === "ECONNRESET"
+  );
 }
 
 let isRefreshing = false;
@@ -130,6 +139,18 @@ api.interceptors.response.use(
 
     if (shouldRetryOnNetworkError(error, original) && original) {
       original._networkRetried = true;
+      // Sprint 80: breadcrumb pra correlação no Sentry quando retry ainda
+      // falha. Não loga PII — só método, path relativo e código de erro.
+      Sentry.addBreadcrumb({
+        category: "retry",
+        level: "info",
+        message: "api retry on network error",
+        data: {
+          method: (original.method ?? "get").toUpperCase(),
+          url: original.url,
+          code: error.code,
+        },
+      });
       return api.request(original);
     }
 
