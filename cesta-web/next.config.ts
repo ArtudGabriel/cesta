@@ -20,6 +20,7 @@ const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [
+      { protocol: "https", hostname: "**.public.blob.vercel-storage.com" },
       { protocol: "https", hostname: "**.mercadona.es" },
       { protocol: "https", hostname: "**.carrefour.es" },
       { protocol: "https", hostname: "**.alcampo.es" },
