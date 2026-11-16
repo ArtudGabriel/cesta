@@ -15,6 +15,7 @@ App mobile-first (PWA) de comparação de preços de supermercados para a Comuni
 - [`cesta-identidade-visual.md`](./cesta-identidade-visual.md) — Design system
 - [`claude-geral-consolidado.md`](./claude-geral-consolidado.md) — Padrões de desenvolvimento
 - [`CLAUDE.md`](./CLAUDE.md) — Contexto do projeto para o assistente
+- [`SECURITY.md`](./SECURITY.md) — Política de segurança, reporting, SLA, GDPR
 
 ---
 
