@@ -38,20 +38,28 @@ export class CatalogSyncProcessor
     super();
   }
 
-  async onModuleInit(): Promise<void> {
+  onModuleInit(): void {
+    setImmediate(() => void this.scheduleCrons());
+  }
+
+  private async scheduleCrons(): Promise<void> {
     for (const entry of SCHEDULE) {
       const jobId = `cron:${entry.slug}`;
-      await this.queue.add(
-        'scheduled-sync',
-        { supermarketSlug: entry.slug },
-        {
-          jobId,
-          repeat: { pattern: entry.cron, tz: 'Europe/Madrid' },
-          removeOnComplete: 50,
-          removeOnFail: 50,
-        },
-      );
-      this.logger.log(`Scheduled ${entry.slug} with cron "${entry.cron}"`);
+      try {
+        await this.queue.add(
+          'scheduled-sync',
+          { supermarketSlug: entry.slug },
+          {
+            jobId,
+            repeat: { pattern: entry.cron, tz: 'Europe/Madrid' },
+            removeOnComplete: 50,
+            removeOnFail: 50,
+          },
+        );
+        this.logger.log(`Scheduled ${entry.slug} with cron "${entry.cron}"`);
+      } catch (err) {
+        this.logger.error(`Failed to schedule ${entry.slug}: ${(err as Error).message}`);
+      }
     }
   }
 
