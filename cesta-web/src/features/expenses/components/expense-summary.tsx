@@ -87,7 +87,7 @@ function BucketList({
 }) {
   const max = Math.max(...buckets.map((b) => b.total), 1);
   return (
-    <section>
+    <section data-sentry-mask>
       <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">
         {title}
       </h3>

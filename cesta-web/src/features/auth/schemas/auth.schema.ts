@@ -50,7 +50,7 @@ export const buildRegisterSchema = (messages: {
         .string()
         .min(8, "Mínimo 8 caracteres")
         .max(128, "Máximo 128 caracteres"),
-      confirmPassword: z.string(),
+      confirmPassword: z.string().max(128),
       name: z.string().max(120).optional(),
       locale: z.enum(["es", "pt-BR"]).optional(),
     })

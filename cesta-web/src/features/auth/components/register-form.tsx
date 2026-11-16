@@ -100,7 +100,7 @@ export function RegisterForm() {
             <Input
               id="confirmEmail"
               type="email"
-              autoComplete="email"
+              autoComplete="off"
               placeholder={t("register.emailPlaceholder")}
               {...register("confirmEmail")}
             />
@@ -151,7 +151,7 @@ export function RegisterForm() {
         <Input
           id="confirmPassword"
           type="password"
-          autoComplete="new-password"
+          autoComplete="off"
           placeholder={t("register.passwordPlaceholder")}
           {...register("confirmPassword")}
         />

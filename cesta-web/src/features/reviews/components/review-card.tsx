@@ -79,7 +79,10 @@ export function ReviewCard({
       </header>
 
       {review.comment && (
-        <p className="mt-3 whitespace-pre-wrap text-sm text-ink">
+        <p
+          className="mt-3 whitespace-pre-wrap text-sm text-ink"
+          data-sentry-mask
+        >
           {review.comment}
         </p>
       )}
