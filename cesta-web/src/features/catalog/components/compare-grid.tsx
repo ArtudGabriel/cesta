@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertCircle, Check, Leaf, Trophy, X } from "lucide-react";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { useMemo } from "react";
 import { cn, formatPrice } from "@/lib/utils";
@@ -162,7 +163,13 @@ function ProductCompareCard({
   return (
     <article className="relative rounded-card bg-white shadow-sm">
       <header className="flex items-start gap-3 p-4">
-        <div className="h-16 w-16 flex-shrink-0 rounded-md bg-surface" />
+        <Image
+          src={product.imageUrl ?? "/placeholder.webp"}
+          alt={product.name}
+          width={80}
+          height={80}
+          className="h-20 w-20 flex-shrink-0 rounded-md bg-surface object-contain"
+        />
         <div className="min-w-0 flex-1">
           <h3 className="line-clamp-2 text-sm font-semibold text-ink">
             {product.name}
@@ -308,7 +315,13 @@ function ProductNutritionCard({
   return (
     <article className="rounded-card bg-white shadow-sm">
       <header className="flex items-start gap-3 p-4">
-        <div className="h-12 w-12 flex-shrink-0 rounded-md bg-surface" />
+        <Image
+          src={product.imageUrl ?? "/placeholder.webp"}
+          alt={product.name}
+          width={48}
+          height={48}
+          className="h-12 w-12 flex-shrink-0 rounded-md bg-surface object-contain"
+        />
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-2">
             <h3 className="line-clamp-2 flex-1 text-sm font-semibold text-ink">

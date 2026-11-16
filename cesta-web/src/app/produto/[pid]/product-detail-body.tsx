@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowLeft } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -51,7 +52,14 @@ export function ProductDetailBody({ product }: { product: Product }) {
       </header>
 
       <div className="px-4 pb-4">
-        <div className="h-48 w-full rounded-card bg-surface" />
+        <Image
+          src={product.imageUrl ?? "/placeholder.webp"}
+          alt={product.name}
+          width={400}
+          height={400}
+          priority
+          className="h-48 w-full rounded-card bg-surface object-contain"
+        />
 
         <div className="mt-4 flex items-start gap-3">
           <div className="min-w-0 flex-1">
