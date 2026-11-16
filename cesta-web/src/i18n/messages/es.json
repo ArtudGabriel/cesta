@@ -46,8 +46,12 @@
       "emailPlaceholder": "tu@email.com",
       "phoneLabel": "Teléfono",
       "phonePlaceholder": "+34600111222",
+      "emailConfirmLabel": "Confirmar email",
       "passwordLabel": "Contraseña",
       "passwordPlaceholder": "Mínimo 8 caracteres",
+      "passwordConfirmLabel": "Confirmar contraseña",
+      "emailMismatch": "Los emails no coinciden",
+      "passwordMismatch": "Las contraseñas no coinciden",
       "submit": "Crear cuenta",
       "hasAccount": "¿Ya tienes cuenta?",
       "login": "Iniciar sesión"

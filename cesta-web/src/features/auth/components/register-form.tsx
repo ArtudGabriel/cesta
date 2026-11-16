@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRegister } from "../hooks/use-auth";
 import {
-  registerSchema,
+  buildRegisterSchema,
   type RegisterFormData,
 } from "../schemas/auth.schema";
 
@@ -23,16 +23,28 @@ export function RegisterForm() {
   const registerMutation = useRegister();
   const t = useTranslations("auth");
 
+  const schema = useMemo(
+    () =>
+      buildRegisterSchema({
+        emailMismatch: t("register.emailMismatch"),
+        passwordMismatch: t("register.passwordMismatch"),
+      }),
+    [t],
+  );
+
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
+    resolver: zodResolver(schema),
     defaultValues: {
       email: "",
+      confirmEmail: "",
       phone: "",
       password: "",
+      confirmPassword: "",
       name: "",
       locale: "es",
     },
@@ -57,7 +69,15 @@ export function RegisterForm() {
           <button
             key={m}
             type="button"
-            onClick={() => setMethod(m)}
+            onClick={() => {
+              setMethod(m);
+              if (m === "phone") {
+                setValue("email", "");
+                setValue("confirmEmail", "");
+              } else {
+                setValue("phone", "");
+              }
+            }}
             className={`flex-1 rounded-pill py-2 text-sm font-medium transition-colors cursor-pointer ${
               method === m
                 ? "bg-cesta-green text-white"
@@ -70,17 +90,32 @@ export function RegisterForm() {
       </div>
 
       {method === "email" ? (
-        <div>
-          <Label htmlFor="email">{t("register.emailLabel")}</Label>
-          <Input
-            id="email"
-            type="email"
-            autoComplete="email"
-            placeholder={t("register.emailPlaceholder")}
-            {...register("email")}
-          />
-          <FieldError message={errors.email?.message} />
-        </div>
+        <>
+          <div>
+            <Label htmlFor="email">{t("register.emailLabel")}</Label>
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              placeholder={t("register.emailPlaceholder")}
+              {...register("email")}
+            />
+            <FieldError message={errors.email?.message} />
+          </div>
+          <div>
+            <Label htmlFor="confirmEmail">
+              {t("register.emailConfirmLabel")}
+            </Label>
+            <Input
+              id="confirmEmail"
+              type="email"
+              autoComplete="off"
+              placeholder={t("register.emailPlaceholder")}
+              {...register("confirmEmail")}
+            />
+            <FieldError message={errors.confirmEmail?.message} />
+          </div>
+        </>
       ) : (
         <div>
           <Label htmlFor="phone">{t("register.phoneLabel")}</Label>
@@ -116,6 +151,20 @@ export function RegisterForm() {
           {...register("password")}
         />
         <FieldError message={errors.password?.message} />
+      </div>
+
+      <div>
+        <Label htmlFor="confirmPassword">
+          {t("register.passwordConfirmLabel")}
+        </Label>
+        <Input
+          id="confirmPassword"
+          type="password"
+          autoComplete="off"
+          placeholder={t("register.passwordPlaceholder")}
+          {...register("confirmPassword")}
+        />
+        <FieldError message={errors.confirmPassword?.message} />
       </div>
 
       <Button

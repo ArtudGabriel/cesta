@@ -46,8 +46,12 @@
       "emailPlaceholder": "voce@email.com",
       "phoneLabel": "Telefone",
       "phonePlaceholder": "+5511999999999",
+      "emailConfirmLabel": "Confirmar e-mail",
       "passwordLabel": "Senha",
       "passwordPlaceholder": "Mínimo 8 caracteres",
+      "passwordConfirmLabel": "Confirmar senha",
+      "emailMismatch": "Os e-mails não coincidem",
+      "passwordMismatch": "As senhas não coincidem",
       "submit": "Criar conta",
       "hasAccount": "Já tem conta?",
       "login": "Entrar"

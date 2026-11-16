@@ -44,7 +44,10 @@ export function ExpenseDashboard() {
       </div>
 
       {summary.data && (
-        <div className="rounded-card bg-cesta-green p-4 text-white">
+        <div
+          className="rounded-card bg-cesta-green p-4 text-white"
+          data-sentry-mask
+        >
           <p className="text-xs opacity-80">{t("totalSpent")}</p>
           <p className="font-display text-3xl font-extrabold">
             {formatPrice(summary.data.total)}
@@ -84,7 +87,7 @@ function BucketList({
 }) {
   const max = Math.max(...buckets.map((b) => b.total), 1);
   return (
-    <section>
+    <section data-sentry-mask>
       <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">
         {title}
       </h3>
