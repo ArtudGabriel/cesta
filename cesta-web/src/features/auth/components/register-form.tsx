@@ -35,6 +35,7 @@ export function RegisterForm() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(schema),
@@ -68,7 +69,15 @@ export function RegisterForm() {
           <button
             key={m}
             type="button"
-            onClick={() => setMethod(m)}
+            onClick={() => {
+              setMethod(m);
+              if (m === "phone") {
+                setValue("email", "");
+                setValue("confirmEmail", "");
+              } else {
+                setValue("phone", "");
+              }
+            }}
             className={`flex-1 rounded-pill py-2 text-sm font-medium transition-colors cursor-pointer ${
               method === m
                 ? "bg-cesta-green text-white"
