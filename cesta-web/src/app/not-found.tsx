@@ -3,13 +3,6 @@ import { House } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
-// Sprint 82: RootLayout virou async + getLocale() pra SSR <html lang>. Isso
-// marca o root como dinamico e quebra o prerender default de /_not-found
-// (Next 15 tenta prerender estatico e falha com "Export encountered an error
-// on /_not-found/page"). force-dynamic resolve — not-found ja era server
-// component com getTranslations.
-export const dynamic = "force-dynamic";
-
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("errors.notFound");
   return { title: `${t("title")} · Cesta`, robots: { index: false } };

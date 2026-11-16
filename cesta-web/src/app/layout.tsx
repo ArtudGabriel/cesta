@@ -76,14 +76,16 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-export default async function RootLayout({ children }: LayoutProps<"/">) {
-  // Sprint 82: lang resolvido via next-intl SSR (cookie cesta:locale →
-  // Accept-Language → "es"). Trade-off aceito: root agora é dynamic, /_not-found
-  // deixa de prerender ao build. Benefício: crawlers/leitores de tela recebem
-  // `lang` correto no HTML inicial, sem flash cliente (Sprint 52.5/66 revisadas).
-  const locale = await getLocale();
+export default function RootLayout({ children }: LayoutProps<"/">) {
+  // Sprint 82 AJUSTE #2: tentamos `<html lang={locale}>` via getLocale() SSR
+  // mas Next 16 Cache Components rejeita (root fica dinamico → quebra prerender
+  // de 23 rotas filhas, e `dynamic = "force-dynamic"` eh incompativel com
+  // cacheComponents). Rollback: lang="es" static + hydration cliente atualiza
+  // via NextIntlClientProvider. Backlog: proxima sprint migrar pra
+  // app/[locale]/layout.tsx (segmento dinamico, padrao oficial next-intl) pra
+  // recuperar SSR lang sem perder prerender. Sprint 52.5/66 trade-off persiste.
   return (
-    <html lang={locale} className="h-full antialiased">
+    <html lang="es" className="h-full antialiased">
       <head>
         <link
           rel="stylesheet"
@@ -94,20 +96,15 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-full flex flex-col bg-cream text-ink">
         <Suspense fallback={<LayoutSkeleton />}>
-          <LocalizedShell locale={locale}>{children}</LocalizedShell>
+          <LocalizedShell>{children}</LocalizedShell>
         </Suspense>
       </body>
     </html>
   );
 }
 
-async function LocalizedShell({
-  locale,
-  children,
-}: {
-  locale: string;
-  children: React.ReactNode;
-}) {
+async function LocalizedShell({ children }: { children: React.ReactNode }) {
+  const locale = await getLocale();
   const messages = await getMessages();
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
