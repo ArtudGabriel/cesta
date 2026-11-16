@@ -21,8 +21,13 @@ async function bootstrap(): Promise<void> {
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
   app.setGlobalPrefix('api/v1', { exclude: ['uploads/(.*)', 'health'] });
   app.enableShutdownHooks();
+  const corsOriginRaw = config.get<string>('CORS_ORIGIN', 'http://localhost:3000');
+  const corsOrigins = corsOriginRaw
+    .split(',')
+    .map((o) => o.trim())
+    .filter((o) => o.length > 0);
   app.enableCors({
-    origin: config.get<string>('CORS_ORIGIN', 'http://localhost:3000'),
+    origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
     credentials: true,
   });
 
