@@ -19,6 +19,7 @@ function signInMock() {
       name: "Test",
       locale: "es",
       roles: ["user"],
+      emailVerifiedAt: null,
       createdAt: "2026-01-01T00:00:00.000Z",
     },
 

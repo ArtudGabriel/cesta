@@ -86,6 +86,41 @@ export function useRegister() {
   });
 }
 
+export function useVerifyEmail() {
+  const qc = useQueryClient();
+  const tErr = useTranslations("errors");
+
+  return useMutation({
+    mutationFn: (token: string) => authService.verifyEmail(token),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: AUTH_QUERY_KEY });
+      qc.invalidateQueries({ queryKey: PROFILE_KEY });
+    },
+    onError: (err: Error) => {
+      toast.error(translateError(err, tErr));
+    },
+  });
+}
+
+export function useResendVerification() {
+  const t = useTranslations("auth.emailBanner");
+  const tErr = useTranslations("errors");
+
+  return useMutation({
+    mutationFn: () => authService.resendVerification(),
+    onSuccess: ({ status }) => {
+      if (status === "sent") toast.success(t("resendSent"));
+    },
+    onError: (err: Error) => {
+      const message =
+        (err as { statusCode?: number }).statusCode === 429
+          ? t("throttled")
+          : translateError(err, tErr);
+      toast.error(message);
+    },
+  });
+}
+
 export function useLogout() {
   const clear = useAuthStore((s) => s.clear);
   const router = useRouter();

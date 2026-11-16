@@ -55,6 +55,16 @@ export class EnvironmentVariables {
 
   @IsString()
   VAPID_SUBJECT: string = 'mailto:contact@cesta.app';
+
+  @IsString()
+  @MinLength(1)
+  RESEND_API_KEY: string = 'disabled';
+
+  @IsString()
+  RESEND_FROM: string = 'Cesta <noreply@cesta.app>';
+
+  @IsString()
+  EMAIL_VERIFY_BASE_URL: string = 'http://localhost:3000';
 }
 
 export function validateEnv(raw: Record<string, unknown>) {

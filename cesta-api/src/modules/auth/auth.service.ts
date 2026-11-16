@@ -1,9 +1,11 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { randomBytes, createHash } from 'crypto';
 import { AppException } from '../../common/exceptions/app-exception';
+import { EmailService } from '../email/email.service';
 import { UsersService } from '../users/users.service';
 import { UserResponseDto } from '../users/dtos/user-response.dto';
 import { AuthRepository } from './auth.repository';
@@ -14,6 +16,15 @@ import { JwtPayload } from './strategies/jwt.strategy';
 
 const BCRYPT_ROUNDS = 12;
 const REFRESH_TOKEN_TTL_DAYS = 7;
+const VERIFY_TOKEN_TTL_HOURS = 24;
+
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+function generateToken(): string {
+  return randomBytes(32).toString('hex');
+}
 
 export interface AuthRequestContext {
   userAgent?: string;
@@ -22,11 +33,14 @@ export interface AuthRequestContext {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly repo: AuthRepository,
+    private readonly emailService: EmailService,
   ) {}
 
   async register(
@@ -50,8 +64,84 @@ export class AuthService {
       locale: dto.locale,
     });
 
+    if (user.email) {
+      await this.dispatchVerificationEmail(user);
+    }
+
     const tokens = await this.issueTokens(user, ctx);
     return { user: UserResponseDto.fromEntity(user), tokens };
+  }
+
+  async verifyEmail(token: string): Promise<{ status: 'verified' }> {
+    const record = await this.repo.findVerificationTokenByHash(hashToken(token));
+    if (!record) {
+      throw new AppException(
+        'AUTH.VERIFY_INVALID',
+        'Token de verificação inválido',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    if (record.usedAt) {
+      throw new AppException(
+        'AUTH.VERIFY_USED',
+        'Token já utilizado',
+        HttpStatus.GONE,
+      );
+    }
+    if (record.expiresAt.getTime() < Date.now()) {
+      throw new AppException(
+        'AUTH.VERIFY_EXPIRED',
+        'Token expirado',
+        HttpStatus.GONE,
+      );
+    }
+
+    const now = new Date();
+    await this.repo.markVerificationTokenUsed(record.id);
+    await this.repo.markUserEmailVerified(record.userId, now);
+    return { status: 'verified' };
+  }
+
+  async resendVerification(userId: string): Promise<{ status: 'sent' | 'already_verified' | 'no_email' }> {
+    const user = await this.usersService.findById(userId);
+    if (!user.email) return { status: 'no_email' };
+    if (user.emailVerifiedAt) return { status: 'already_verified' };
+    await this.dispatchVerificationEmail(user);
+    return { status: 'sent' };
+  }
+
+  private async dispatchVerificationEmail(user: User): Promise<void> {
+    if (!user.email) return;
+    const token = generateToken();
+    const expiresAt = new Date(
+      Date.now() + VERIFY_TOKEN_TTL_HOURS * 60 * 60 * 1000,
+    );
+    await this.repo.createVerificationToken({
+      userId: user.id,
+      tokenHash: hashToken(token),
+      expiresAt,
+    });
+
+    const baseUrl = this.config.get<string>(
+      'EMAIL_VERIFY_BASE_URL',
+      'http://localhost:3000',
+    );
+    const verifyUrl = `${baseUrl.replace(/\/$/, '')}/verify-email?token=${token}`;
+    const locale = (user.locale === 'pt-BR' ? 'pt-BR' : 'es') as 'es' | 'pt-BR';
+
+    try {
+      await this.emailService.sendVerificationEmail({
+        to: user.email,
+        name: user.name,
+        locale,
+        verifyUrl,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `Falha ao enfileirar email de verificação para user ${user.id}: ${msg}`,
+      );
+    }
   }
 
   async login(
