@@ -46,8 +46,8 @@ async function bootstrap(): Promise<void> {
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swagger));
 
   const port = config.get<number>('PORT', 3001);
-  await app.listen(port);
-  new Logger('Bootstrap').log(`Cesta API rodando em http://localhost:${port}`);
+  await app.listen(port, '0.0.0.0');
+  new Logger('Bootstrap').log(`Cesta API rodando em porta ${port}`);
 }
 
 bootstrap();
