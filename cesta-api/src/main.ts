@@ -7,6 +7,7 @@ import * as cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { join } from 'path';
 import { AppModule } from './app.module';
+import { isAllowedOrigin, parseCorsWhitelist } from './common/cors/cors-origin';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { initSentry } from './common/sentry/sentry.init';
@@ -21,13 +22,17 @@ async function bootstrap(): Promise<void> {
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
   app.setGlobalPrefix('api/v1', { exclude: ['uploads/(.*)', 'health'] });
   app.enableShutdownHooks();
-  const corsOriginRaw = config.get<string>('CORS_ORIGIN', 'http://localhost:3000');
-  const corsOrigins = corsOriginRaw
-    .split(',')
-    .map((o) => o.trim())
-    .filter((o) => o.length > 0);
+  const corsWhitelist = parseCorsWhitelist(
+    config.get<string>('CORS_ORIGIN', 'http://localhost:3000'),
+  );
   app.enableCors({
-    origin: corsOrigins.length === 1 ? corsOrigins[0] : corsOrigins,
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin, corsWhitelist)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`CORS blocked: ${origin}`), false);
+    },
     credentials: true,
   });
 
