@@ -28,6 +28,9 @@
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
   },
+  "overrides": {
+    "zod": "^4.6.6"
+  },
   "dependencies": {
     "@nestjs/bullmq": "^12.0.1",
     "@nestjs/common": "^11.0.0",

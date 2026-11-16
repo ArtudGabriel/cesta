@@ -1,0 +1,22 @@
+# CODEOWNERS — Cesta
+# Sprint 79: baseline ownership. PRs tocando estes paths pedem review automático do owner.
+# Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/customizing-your-repository/about-code-owners
+
+# Default — tudo que não bate nos padrões abaixo
+* @ArtudGabriel
+
+# Segurança e políticas
+/SECURITY.md @ArtudGabriel
+/.github/ @ArtudGabriel
+/.github/workflows/ @ArtudGabriel
+/.github/CODEOWNERS @ArtudGabriel
+
+# Infra e deploy
+/docker-compose.yml @ArtudGabriel
+/cesta-api/render.yaml @ArtudGabriel
+/cesta-api/prisma/ @ArtudGabriel
+
+# Documentação de produto
+/cesta.md @ArtudGabriel
+/claude-geral-consolidado.md @ArtudGabriel
+/CLAUDE.md @ArtudGabriel
