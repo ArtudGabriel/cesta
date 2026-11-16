@@ -96,8 +96,18 @@ export class AuthService {
       );
     }
 
+    // Atomic claim fecha a janela entre "não usado" (check acima) e o UPDATE.
+    // Dois POSTs concorrentes com o mesmo token: Postgres serializa o updateMany
+    // via row lock → só uma linha é afetada; a outra recebe count=0 e 410.
     const now = new Date();
-    await this.repo.markVerificationTokenUsed(record.id);
+    const claimed = await this.repo.claimVerificationToken(record.id, now);
+    if (claimed === 0) {
+      throw new AppException(
+        'AUTH.VERIFY_USED',
+        'Token já utilizado',
+        HttpStatus.GONE,
+      );
+    }
     await this.repo.markUserEmailVerified(record.userId, now);
     return { status: 'verified' };
   }

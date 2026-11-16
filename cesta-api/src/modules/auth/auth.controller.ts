@@ -153,7 +153,7 @@ export class AuthController {
   @Post('resend-verification')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Reenvia email de verificação. 1/60s por usuário.' })
-  @HttpCode(HttpStatus.ACCEPTED)
+  @HttpCode(HttpStatus.OK)
   async resendVerification(@CurrentUser('id') userId: string) {
     return this.authService.resendVerification(userId);
   }

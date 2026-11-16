@@ -29,6 +29,18 @@ const COPY = {
   },
 } as const;
 
+// GDPR Sprint 59: email é PII. Nunca logar in-clear — Sentry breadcrumb captura
+// NestJS Logger auto e vaza em Replay/Issues. maskEmail mantém a observabilidade
+// (prefixo pra diagnose + domínio pra identificar provider) sem expor o local-part.
+function maskEmail(email: string): string {
+  const at = email.indexOf('@');
+  if (at < 0) return '***';
+  const local = email.slice(0, at);
+  const domain = email.slice(at);
+  const prefix = local.slice(0, 2);
+  return `${prefix}***${domain}`;
+}
+
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
@@ -53,10 +65,13 @@ export class EmailService {
     const copy = COPY[payload.locale] ?? COPY.es;
     const html = this.renderVerificationHtml(copy, payload);
     const text = this.renderVerificationText(copy, payload);
+    const masked = maskEmail(payload.to);
 
     if (!this.client) {
+      // Dev-only: link completo no log local pra debug do fluxo sem Resend real.
+      // Em prod RESEND_API_KEY está setado → ramo nunca executa, zero vazamento.
       this.logger.log(
-        `[no-op] verification email para ${payload.to} — link: ${payload.verifyUrl}`,
+        `[no-op] verification email para ${masked} — link: ${payload.verifyUrl}`,
       );
       return;
     }
@@ -71,16 +86,16 @@ export class EmailService {
       });
       if (result.error) {
         this.logger.error(
-          `Resend falhou para ${payload.to}: ${result.error.message}`,
+          `Resend falhou para ${masked}: ${result.error.message}`,
         );
         return;
       }
       this.logger.log(
-        `verification email enviado para ${payload.to} (id=${result.data?.id ?? 'n/a'})`,
+        `verification email enviado para ${masked} (id=${result.data?.id ?? 'n/a'})`,
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.logger.error(`Resend exception para ${payload.to}: ${msg}`);
+      this.logger.error(`Resend exception para ${masked}: ${msg}`);
     }
   }
 
