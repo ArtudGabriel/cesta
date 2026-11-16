@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EmailService } from './email.service';
 
@@ -125,5 +126,55 @@ describe('EmailService', () => {
         verifyUrl: 'http://localhost:3000/verify-email?token=abc',
       }),
     ).resolves.toBeUndefined();
+  });
+
+  it('mascara email em logs (GDPR) — sucesso', async () => {
+    const svc = new EmailService(
+      buildConfig({
+        RESEND_API_KEY: 're_key_live',
+        RESEND_FROM: 'Cesta <noreply@cesta.app>',
+      }),
+    );
+    const logSpy = jest
+      .spyOn((svc as unknown as { logger: Logger }).logger, 'log')
+      .mockImplementation(() => undefined);
+
+    await svc.sendVerificationEmail({
+      to: 'maria.garcia@example.com',
+      name: null,
+      locale: 'es',
+      verifyUrl: 'http://localhost:3000/verify-email?token=abc',
+    });
+
+    const joined = logSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(joined).not.toContain('maria.garcia@example.com');
+    expect(joined).toContain('ma***@example.com');
+  });
+
+  it('mascara email em logs (GDPR) — erro Resend', async () => {
+    sendMock.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'rate limit', name: 'rate_limited' },
+    });
+    const svc = new EmailService(
+      buildConfig({
+        RESEND_API_KEY: 're_key_live',
+        RESEND_FROM: 'Cesta <noreply@cesta.app>',
+      }),
+    );
+    const errSpy = jest
+      .spyOn((svc as unknown as { logger: Logger }).logger, 'error')
+      .mockImplementation(() => undefined);
+
+    await svc.sendVerificationEmail({
+      to: 'eve@example.com',
+      name: null,
+      locale: 'es',
+      verifyUrl: 'http://localhost:3000/verify-email?token=x',
+    });
+
+    const joined = errSpy.mock.calls.map((c) => String(c[0])).join('\n');
+    expect(joined).not.toContain('eve@example.com');
+    expect(joined).toContain('ev***@example.com');
   });
 });

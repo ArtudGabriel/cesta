@@ -78,11 +78,14 @@ export class AuthRepository {
     });
   }
 
-  async markVerificationTokenUsed(id: string): Promise<void> {
-    await this.prisma.emailVerificationToken.update({
-      where: { id },
-      data: { usedAt: new Date() },
+  // Atomic claim: só vence a primeira requisição concorrente. Double-submit
+  // retorna count=0 na segunda chamada → chamador trata como AUTH.VERIFY_USED.
+  async claimVerificationToken(id: string, when: Date): Promise<number> {
+    const result = await this.prisma.emailVerificationToken.updateMany({
+      where: { id, usedAt: null },
+      data: { usedAt: when },
     });
+    return result.count;
   }
 
   async markUserEmailVerified(userId: string, when: Date): Promise<void> {

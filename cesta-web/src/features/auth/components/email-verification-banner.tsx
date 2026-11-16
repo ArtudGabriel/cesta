@@ -22,12 +22,12 @@ export function EmailVerificationBanner() {
       role="status"
       aria-live="polite"
       data-sentry-unmask
-      className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+      className="border-b border-amber/30 bg-amber/10 px-4 py-3 text-sm text-ink"
     >
       <div className="mx-auto flex max-w-screen-sm items-start gap-3">
         <div className="flex-1">
-          <p className="font-medium">{t("title")}</p>
-          <p className="mt-0.5 text-amber-800">{t("body")}</p>
+          <p className="font-medium text-amber">{t("title")}</p>
+          <p className="mt-0.5 text-ink/80">{t("body")}</p>
           <button
             type="button"
             className="mt-2 font-medium text-cesta-green hover:underline disabled:opacity-60"
@@ -40,7 +40,7 @@ export function EmailVerificationBanner() {
         <button
           type="button"
           aria-label={t("dismiss")}
-          className="shrink-0 rounded-full p-1 text-amber-700 hover:bg-amber-100"
+          className="shrink-0 rounded-full p-1 text-amber hover:bg-amber/20"
           onClick={() => setDismissed(true)}
         >
           <svg

@@ -6,9 +6,11 @@ import { useTranslations } from "next-intl";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { useVerifyEmail } from "@/features/auth/hooks/use-auth";
+import { translateError } from "@/lib/translate-error";
 
 export function VerifyEmailClient() {
   const t = useTranslations("auth.verifyEmail");
+  const tErr = useTranslations("errors");
   const params = useSearchParams();
   const token = params.get("token");
   const verify = useVerifyEmail();
@@ -25,7 +27,7 @@ export function VerifyEmailClient() {
       <State title={t("missingTokenTitle")} body={t("missingTokenBody")}>
         <Link href="/login">
           <Button variant="secondary" className="w-full">
-            {t("openInbox")}
+            {t("goLogin")}
           </Button>
         </Link>
       </State>
@@ -53,7 +55,7 @@ export function VerifyEmailClient() {
   return (
     <State
       title={t("failedTitle")}
-      body={verify.error?.message ?? ""}
+      body={verify.error ? translateError(verify.error, tErr) : ""}
     >
       <Button
         className="w-full"
