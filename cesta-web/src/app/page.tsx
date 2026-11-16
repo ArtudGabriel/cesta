@@ -21,7 +21,7 @@ import { SearchBar } from "@/features/catalog/components/search-bar";
 import { SearchSuggestions } from "@/features/catalog/components/search-suggestions";
 import {
   useCategories,
-  useProducts,
+  useProductsInfinite,
   useSupermarkets,
 } from "@/features/catalog/hooks/use-catalog";
 import { useNutriPreferences } from "@/features/profile/hooks/use-nutri-preferences";
@@ -53,7 +53,7 @@ export default function HomePage() {
   const searchParams = useSearchParams();
 
   const [search, setSearch] = useState("");
-  const debouncedSearch = useDebounce(search, 250);
+  const debouncedSearch = useDebounce(search, 300);
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [onPromotion, setOnPromotion] = useState(false);
   const { value: sortMode, setValue: setSortMode } = useSortUnitPreference();
@@ -118,7 +118,7 @@ export default function HomePage() {
 
   const supermarkets = useSupermarkets();
   const categories = useCategories();
-  const products = useProducts({
+  const products = useProductsInfinite({
     search: debouncedSearch || undefined,
     category,
     onPromotion: onPromotion || undefined,
@@ -128,6 +128,25 @@ export default function HomePage() {
     isLactoseFree: dietary.has("lactoseFree") || undefined,
     limit: 20,
   });
+  const allItems = useMemo(
+    () => products.data?.pages.flatMap((p) => p.items) ?? [],
+    [products.data],
+  );
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && products.hasNextPage && !products.isFetchingNextPage) {
+          products.fetchNextPage();
+        }
+      },
+      { rootMargin: "320px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [products.hasNextPage, products.isFetchingNextPage, products]);
 
   const searchPending = search !== debouncedSearch;
   const searching = searchPending && search.length > 0;
@@ -140,7 +159,7 @@ export default function HomePage() {
   }, [debouncedSearch]);
 
   const sortedItems = useMemo(() => {
-    const items = products.data?.items ?? [];
+    const items = allItems;
     const filtered = onlyHealthy
       ? items.filter((p) => isHealthyGrade(p.nutriScore?.grade))
       : items;
@@ -160,7 +179,7 @@ export default function HomePage() {
       const bu = b.cheapestUnitPrice?.value ?? Infinity;
       return au - bu;
     });
-  }, [products.data, sortMode, sortByNutri, onlyHealthy]);
+  }, [allItems, sortMode, sortByNutri, onlyHealthy]);
 
   return (
     <main className="flex-1 flex flex-col px-4 py-6 pb-16">
@@ -361,16 +380,28 @@ export default function HomePage() {
           Error al cargar productos.
         </p>
       ) : sortedItems.length > 0 ? (
-        <div className="grid grid-cols-1 gap-3">
-          {sortedItems.map((p) => (
-            <ProductCard
-              key={p.id}
-              product={p}
-              sortMode={sortMode}
-              highlight={debouncedSearch || undefined}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 gap-3">
+            {sortedItems.map((p) => (
+              <ProductCard
+                key={p.id}
+                product={p}
+                sortMode={sortMode}
+                highlight={debouncedSearch || undefined}
+              />
+            ))}
+          </div>
+          {products.hasNextPage && (
+            <div ref={sentinelRef} className="mt-4 grid grid-cols-1 gap-3" aria-hidden>
+              {products.isFetchingNextPage && (
+                <>
+                  <ProductCardSkeleton />
+                  <ProductCardSkeleton />
+                </>
+              )}
+            </div>
+          )}
+        </>
       ) : (
         <HomeEmptyState
           query={debouncedSearch || undefined}

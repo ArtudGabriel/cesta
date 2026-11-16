@@ -22,7 +22,10 @@ export function useProfile() {
     queryKey: PROFILE_KEY,
     queryFn: profileService.me,
     enabled: isHydrated && Boolean(user),
-    staleTime: 5 * 60 * 1000,
+    // Sprint 76 (P5): 10s. User mantém hot cache sem refetch excessivo entre
+    // navegações rápidas; preferences (dietary/nutri/locale) refletem rápido
+    // em novas montagens de componente.
+    staleTime: 10 * 1000,
     retry: false,
   });
 }

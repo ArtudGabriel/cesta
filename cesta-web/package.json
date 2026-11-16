@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:analyze": "cross-env ANALYZE=true next build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
@@ -34,7 +35,9 @@
     "zustand": "^5.1.0"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "16.4.6",
     "@tailwindcss/turbopack": "4.3.3",
+    "cross-env": "^10.0.0",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",

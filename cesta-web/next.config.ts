@@ -1,8 +1,11 @@
 import createNextIntlPlugin from "next-intl/plugin";
+import withBundleAnalyzer from "@next/bundle-analyzer";
 import { withSentryConfig } from "@sentry/nextjs/config";
 import type { NextConfig } from "next";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
+// Sprint 76 (P5): ANALYZE=true abre relatórios HTML em .next/analyze/ após build.
+const withAnalyzer = withBundleAnalyzer({ enabled: process.env.ANALYZE === "true" });
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -12,6 +15,21 @@ const nextConfig: NextConfig = {
   // Prerender; dynamic data streams sob Suspense.
   cacheComponents: true,
   partialPrefetching: true,
+  // Sprint 76 (P5): formatos modernos de imagem reduzem payload de produto em
+  // 30-60% vs JPEG. AVIF cai pra WebP → JPEG no fallback automático do Next.
+  images: {
+    formats: ["image/avif", "image/webp"],
+    remotePatterns: [
+      { protocol: "https", hostname: "**.mercadona.es" },
+      { protocol: "https", hostname: "**.carrefour.es" },
+      { protocol: "https", hostname: "**.alcampo.es" },
+      { protocol: "https", hostname: "**.dia.es" },
+      { protocol: "https", hostname: "**.lidl.es" },
+      { protocol: "https", hostname: "**.froiz.com" },
+      { protocol: "https", hostname: "**.aldi.es" },
+      { protocol: "https", hostname: "images.openfoodfacts.org" },
+    ],
+  },
   turbopack: {
     rules: {
       "*.css": {
@@ -22,7 +40,7 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSentryConfig(withNextIntl(nextConfig), {
+export default withSentryConfig(withAnalyzer(withNextIntl(nextConfig)), {
   silent: !process.env.CI,
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,

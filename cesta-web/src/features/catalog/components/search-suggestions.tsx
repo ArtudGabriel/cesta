@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Clock, ImageOff, X } from "lucide-react";
@@ -186,12 +187,14 @@ export function SearchSuggestions({
                       isActive ? "bg-neutral-100" : "hover:bg-surface",
                     )}
                   >
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-surface text-muted">
+                    <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface text-muted">
                       {item.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
+                        <Image
                           src={item.imageUrl}
                           alt=""
+                          width={40}
+                          height={40}
+                          sizes="40px"
                           className="h-full w-full rounded-md object-cover"
                         />
                       ) : (

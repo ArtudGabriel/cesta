@@ -24,6 +24,7 @@ import { ReceiptsModule } from './modules/receipts/receipts.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { ShoppingListsModule } from './modules/shopping-lists/shopping-lists.module';
 import { SupermarketsModule } from './modules/supermarkets/supermarkets.module';
+import { TelemetryModule } from './modules/telemetry/telemetry.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -70,6 +71,7 @@ import { UsersModule } from './modules/users/users.module';
     FavoritesModule,
     SearchHistoryModule,
     HealthModule,
+    TelemetryModule,
   ],
   controllers: [AppController],
   providers: [
