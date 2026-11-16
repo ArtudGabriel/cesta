@@ -1,8 +1,13 @@
 import axios, { AxiosError, type AxiosRequestConfig } from "axios";
 
+// Sprint 71: 45s pra absorver cold start do Render free tier (~30s pior caso).
+// Keep-alive cron reduz probabilidade, mas o primeiro user pós-spin-down
+// precisa de folga. Timeout mais baixo quebra GETs legítimos nesse cenário.
+export const API_TIMEOUT_MS = 45000;
+
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1",
-  timeout: 15000,
+  timeout: API_TIMEOUT_MS,
   headers: { "Content-Type": "application/json" },
   // fetch adapter garante intercept por MSW (setupServer/fetch) em testes jsdom.
   // Em browser real axios escolhe XHR — zero diff funcional.
@@ -64,6 +69,23 @@ export class ApiError extends Error {
  */
 interface RetryableConfig extends AxiosRequestConfig {
   _retried?: boolean;
+  _networkRetried?: boolean;
+}
+
+// Sprint 71: single retry em erros de rede/timeout, GET-only, pra blindar
+// cold start e flaps de conexão. Idempotência garante correção; writes ficam
+// de fora pra evitar duplicata silenciosa.
+/** @internal exportado pra teste unitário. */
+export function shouldRetryOnNetworkError(
+  error: AxiosError,
+  config: RetryableConfig | undefined,
+): boolean {
+  if (!config) return false;
+  if (config._networkRetried) return false;
+  if (error.response) return false;
+  const method = (config.method ?? "get").toLowerCase();
+  if (method !== "get") return false;
+  return error.code === "ECONNABORTED" || error.code === "ERR_NETWORK";
 }
 
 let isRefreshing = false;
@@ -105,6 +127,11 @@ api.interceptors.response.use(
   ) => {
     const original = error.config as RetryableConfig | undefined;
     const status = error.response?.status;
+
+    if (shouldRetryOnNetworkError(error, original) && original) {
+      original._networkRetried = true;
+      return api.request(original);
+    }
 
     // 401 fora de window (SSR) ou request já retentada → falha direto.
     const canRetry =

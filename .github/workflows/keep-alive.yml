@@ -1,0 +1,34 @@
+name: Keep-Alive API
+
+# Render free tier spin-down após 15min idle. Cron de 10min mantém o dyno
+# quente pra usuários reais não pegarem cold start ~30s. Minutos consumidos:
+# ~360/mês (6/h * 24 * 30 * 5s run) — folga confortável no free 2000/mês.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    name: Ping /health
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping API health endpoint
+        run: |
+          set -eu
+          URL="https://cesta-gsvc.onrender.com/health"
+          echo "Pinging $URL"
+          # 60s connect+read para aguentar cold start (~30s) + slack.
+          # --fail falha em 4xx/5xx; --retry re-tenta na primeira falha de rede.
+          curl --fail --show-error --silent \
+               --max-time 60 \
+               --retry 2 --retry-delay 10 --retry-connrefused \
+               "$URL" > /tmp/health.json
+          echo "Response:"
+          cat /tmp/health.json

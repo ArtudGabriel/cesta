@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { ColdStartHint } from "@/components/cold-start-hint";
 import { CategoryChipSkeleton } from "@/features/catalog/components/category-chip-skeleton";
 import { DietaryFilters, type DietaryFlag } from "@/features/catalog/components/dietary-filters";
 import { HomeEmptyState } from "@/features/catalog/components/home-empty-state";
@@ -233,6 +234,13 @@ export default function HomePage() {
       ) : (
         <div className="mb-3" />
       )}
+
+      <ColdStartHint
+        active={
+          products.isPending || categories.isPending || supermarkets.isPending
+        }
+        className="mb-3"
+      />
 
       {/* Filters: supermarkets badges */}
       {supermarkets.data && (

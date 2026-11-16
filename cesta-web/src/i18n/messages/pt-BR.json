@@ -6,7 +6,8 @@
         "body": "Houve um problema inesperado. Tente recarregar.",
         "retry": "Recarregar"
       }
-    }
+    },
+    "coldStart": "Estamos acordando o servidor. Isso pode levar até 30 segundos na primeira vez."
   },
   "auth": {
     "methodEmail": "E-mail",
@@ -344,6 +345,43 @@
         "info": "Baseado em calorias, gorduras saturadas, açúcares, sal, fibra e proteínas (por 100g/ml)"
       },
       "unavailable": "Sem nota disponível"
+    },
+    "priceHistory": {
+      "title": "Histórico de preços",
+      "errorLoading": "Erro ao carregar o histórico.",
+      "insufficient": "Histórico insuficiente ainda."
+    }
+  },
+  "reviews": {
+    "emptySummary": "Ainda sem avaliações. Seja o primeiro a avaliar.",
+    "loginPrefix": "Entre",
+    "loginSuffix": " para deixar sua avaliação.",
+    "formEditTitle": "Editar minha avaliação",
+    "formNewTitle": "Deixe sua avaliação",
+    "myReviewLabel": "Sua avaliação",
+    "allHeader": "Todas as avaliações",
+    "emptyList": "Ainda sem avaliações.",
+    "sort": {
+      "recent": "Recentes",
+      "helpful": "Mais úteis",
+      "ratingDesc": "Melhor nota",
+      "ratingAsc": "Pior nota"
+    },
+    "summaryCount": "{count, plural, =1 {# avaliação} other {# avaliações}}",
+    "form": {
+      "ratingLabel": "Sua nota",
+      "commentLabel": "Comentário (opcional)",
+      "commentPlaceholder": "O que você achou?",
+      "submit": "Publicar",
+      "cancel": "Cancelar"
+    },
+    "card": {
+      "anonymous": "Usuário",
+      "editAria": "Editar",
+      "deleteAria": "Excluir",
+      "confirmDelete": "Excluir esta avaliação?",
+      "helpful": "Útil",
+      "report": "Denunciar"
     }
   },
   "expenses": {
@@ -404,6 +442,35 @@
       "unknownPrice": "?",
       "promotionEnding": "Promoção terminando",
       "backInStock": "Voltou ao estoque"
+    },
+    "create": {
+      "cta": "Criar alerta",
+      "title": "Novo alerta",
+      "closeAria": "Fechar",
+      "typeLabel": "Tipo de alerta",
+      "targetLabel": "Preço alvo (€)",
+      "targetPlaceholder": "1,50",
+      "marketLabel": "Supermercado (opcional)",
+      "anyMarket": "Qualquer",
+      "submit": "Criar alerta",
+      "types": {
+        "promotion": {
+          "label": "Em promoção",
+          "hint": "Quando entrar em oferta"
+        },
+        "targetPrice": {
+          "label": "Preço alvo",
+          "hint": "Quando cair abaixo de X €"
+        },
+        "backInStock": {
+          "label": "Voltou ao estoque",
+          "hint": "Quando estiver disponível"
+        },
+        "promotionEnding": {
+          "label": "Promoção terminando",
+          "hint": "Quando estiver prestes a acabar"
+        }
+      }
     }
   },
   "consent": {
