@@ -42,6 +42,7 @@ export function ReviewCard({
             className="truncate text-sm font-medium text-ink"
             data-sentry-mask
           >
+
             {review.authorName ?? t("anonymous")}
           </p>
           <div className="mt-1 flex items-center gap-2">
