@@ -74,6 +74,7 @@
       "resend": "Reenviar enlace",
       "resendSent": "Enlace reenviado. Revisa tu bandeja.",
       "dismiss": "Cerrar",
+      "closeAria": "Cerrar aviso de confirmación de email",
       "throttled": "Espera un momento antes de reenviar."
     }
   },
