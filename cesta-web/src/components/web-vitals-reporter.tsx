@@ -3,7 +3,8 @@
 import { useReportWebVitals } from "next/web-vitals";
 import { usePathname } from "next/navigation";
 
-const ENDPOINT = `${process.env.NEXT_PUBLIC_API_URL ?? ""}/api/v1/telemetry/vitals`;
+// NEXT_PUBLIC_API_URL já inclui `/api/v1` (ver .env.example e src/lib/api.ts).
+const ENDPOINT = `${process.env.NEXT_PUBLIC_API_URL ?? ""}/telemetry/vitals`;
 const TRACKED = new Set(["LCP", "INP", "CLS", "FCP", "TTFB", "FID"]);
 
 export function WebVitalsReporter() {
