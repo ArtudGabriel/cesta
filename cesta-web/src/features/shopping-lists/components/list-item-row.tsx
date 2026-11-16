@@ -1,6 +1,7 @@
 "use client";
 
 import { Minus, Plus, Trash2 } from "lucide-react";
+import Image from "next/image";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -33,7 +34,13 @@ export function ListItemRow({ listId, item }: ListItemRowProps) {
 
   return (
     <div className="flex items-center gap-3 rounded-card bg-white p-3 shadow-card">
-      <div className="h-12 w-12 flex-shrink-0 rounded-btn bg-surface" />
+      <Image
+        src={item.product.imageUrl ?? "/placeholder.webp"}
+        alt={item.product.name}
+        width={48}
+        height={48}
+        className="h-12 w-12 flex-shrink-0 rounded-btn bg-surface object-contain"
+      />
       <div className="min-w-0 flex-1">
         <p className="line-clamp-2 text-sm font-medium text-ink">
           {item.product.name}
