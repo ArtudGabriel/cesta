@@ -7,7 +7,23 @@
         "retry": "Recarregar"
       }
     },
-    "coldStart": "Estamos acordando o servidor. Isso pode levar até 30 segundos na primeira vez."
+    "coldStart": "Estamos acordando o servidor. Isso pode levar até 30 segundos na primeira vez.",
+    "loginGate": {
+      "title": {
+        "default": "Entre para continuar",
+        "review": "Entre para avaliar",
+        "favorite": "Entre para favoritar",
+        "alert": "Entre para criar alertas"
+      },
+      "body": {
+        "default": "Você precisa de uma conta para essa ação.",
+        "review": "Compartilhe sua opinião e ajude outras pessoas.",
+        "favorite": "Guarde seus produtos e volte quando quiser.",
+        "alert": "Receba aviso quando um produto baixar de preço."
+      },
+      "later": "Agora não",
+      "login": "Entrar"
+    }
   },
   "auth": {
     "methodEmail": "E-mail",
@@ -100,7 +116,8 @@
     "compare": "Comparar",
     "account": "Conta",
     "ariaLabel": "Navegação principal",
-    "back": "Voltar"
+    "back": "Voltar",
+    "login": "Entrar"
   },
   "compare": {
     "sortAbsolute": "Preço total",

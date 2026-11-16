@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth.store";
 import { useNutriPreferences } from "@/features/profile/hooks/use-nutri-preferences";
 import { useSortUnitPreference } from "@/features/profile/hooks/use-sort-unit-preference";
 import { useCompare } from "../hooks/use-compare";
@@ -33,6 +34,9 @@ export function CompareClient({ initialIds, initialData }: CompareClientProps) {
   const onlyHealthy = nutri.healthyOnly;
   const setOnlyHealthy = nutri.setHealthyOnly;
   const t = useTranslations("compare");
+  const tNav = useTranslations("nav");
+  const user = useAuthStore((s) => s.user);
+  const isHydrated = useAuthStore((s) => s.isHydrated);
 
   const [ids, setIds] = useState<string[]>(initialIds);
 
@@ -87,6 +91,13 @@ export function CompareClient({ initialIds, initialData }: CompareClientProps) {
         <span className="text-xs text-muted">
           {ids.length}/{MAX}
         </span>
+        {isHydrated && !user && (
+          <Button asChild size="sm" variant="secondary">
+            <Link href={`/login?returnUrl=${encodeURIComponent(`/comparar${ids.length > 0 ? `?products=${ids.join(",")}` : ""}`)}`}>
+              {tNav("login")}
+            </Link>
+          </Button>
+        )}
       </header>
 
       <section className="px-4 pt-2">

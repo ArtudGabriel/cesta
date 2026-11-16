@@ -1,9 +1,9 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { LoginGate } from "@/components/login-gate";
 import { useAuthStore } from "@/stores/auth.store";
 import {
   useCreateReview,
@@ -32,6 +32,7 @@ export function ReviewsSection({ productId }: ReviewsSectionProps) {
   const user = useAuthStore((s) => s.user);
   const [sortBy, setSortBy] = useState<ReviewSort>("recent");
   const [editing, setEditing] = useState(false);
+  const [gateOpen, setGateOpen] = useState(false);
   const t = useTranslations("reviews");
 
   const summary = useReviewSummary(productId);
@@ -52,12 +53,16 @@ export function ReviewsSection({ productId }: ReviewsSectionProps) {
       )}
 
       {!isAuthenticated ? (
-        <div className="rounded-card border border-border bg-surface p-4 text-center text-sm text-muted">
-          <Link href="/login" className="font-medium text-cesta-green">
+        <button
+          type="button"
+          onClick={() => setGateOpen(true)}
+          className="w-full rounded-card border border-border bg-surface p-4 text-center text-sm text-muted hover:bg-neutral-100 cursor-pointer"
+        >
+          <span className="font-medium text-cesta-green">
             {t("loginPrefix")}
-          </Link>
+          </span>
           {t("loginSuffix")}
-        </div>
+        </button>
       ) : editing || !myReview ? (
         <div className="rounded-card bg-white p-4 shadow-card">
           <h4 className="mb-3 font-display font-bold text-ink">
@@ -136,6 +141,12 @@ export function ReviewsSection({ productId }: ReviewsSectionProps) {
       ) : (
         <p className="py-6 text-center text-sm text-muted">{t("emptyList")}</p>
       )}
+
+      <LoginGate
+        open={gateOpen}
+        onClose={() => setGateOpen(false)}
+        action="review"
+      />
     </section>
   );
 }

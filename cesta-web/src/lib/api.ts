@@ -134,9 +134,15 @@ api.interceptors.response.use(
     }
 
     // 401 fora de window (SSR) ou request já retentada → falha direto.
+    // Sprint 72: user anônimo (sem access token em storage) não deve
+    // disparar refresh — rotas catálogo são públicas; 401 em rota protegida
+    // acessada por anon = decisão do produto (modal LoginGate), não refresh.
+    const hasPriorSession =
+      typeof window !== "undefined" && getAccessToken() !== null;
     const canRetry =
       status === 401 &&
       typeof window !== "undefined" &&
+      hasPriorSession &&
       original &&
       !original._retried &&
       // Não retry em chamadas de auth (login/refresh/logout) pra evitar loops.
