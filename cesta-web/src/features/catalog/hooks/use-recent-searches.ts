@@ -65,10 +65,42 @@ export function useRecentSearches(): UseRecentSearchesReturn {
   const isHydrated = useAuthStore((s) => s.isHydrated);
   const logged = isHydrated && Boolean(user);
 
+  useFirstLoginSync({ enabled: logged });
+
   const backend = useBackendRecents({ enabled: logged });
   const local = useLocalRecents({ enabled: !logged });
 
   return logged ? backend : local;
+}
+
+/**
+ * Sprint 81: no primeiro login (localStorage anônimo não-vazio + user logged),
+ * envia queries pro backend, limpa storage, refetch da query. Idempotente:
+ * storage clear faz segundo run no-op. Fire-and-forget em erro (backend
+ * problema não bloqueia uso do app, próxima sessão tenta de novo).
+ */
+function useFirstLoginSync({ enabled }: { enabled: boolean }): void {
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    if (!enabled) return;
+    const pending = readStorage();
+    if (pending.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await searchHistoryService.sync(pending);
+        if (cancelled) return;
+        writeStorage([]);
+        await qc.invalidateQueries({ queryKey: QUERY_KEY });
+      } catch (err) {
+        console.warn("[cesta] recent-searches sync failed, will retry next session", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, qc]);
 }
 
 function useLocalRecents({ enabled }: { enabled: boolean }): UseRecentSearchesReturn {

@@ -47,6 +47,43 @@ export class SearchHistoryService {
   async clearAll(userId: string): Promise<void> {
     await this.repo.deleteAll(userId);
   }
+
+  /**
+   * Sprint 81: sincroniza queries acumuladas em localStorage anônimo pro
+   * histórico do usuário logado no primeiro login. Dedup case-insensitive,
+   * reusa MRU touch pra existentes, cria faltantes em ordem (primeira = MRU),
+   * depois aplica cap CAP. Idempotente: chamar com queries já persistidas
+   * só faz MRU touch.
+   */
+  async sync(userId: string, queries: string[]): Promise<SearchHistoryItem[]> {
+    const normalized = dedupPreserveFirst(queries.map((q) => q.trim()).filter(Boolean));
+    // Ordem no cliente: mais recente primeiro. Reverter pra inserir do mais
+    // antigo pro mais novo mantém MRU correto após touch/create.
+    for (const q of [...normalized].reverse()) {
+      const existing = await this.repo.findByQuery(userId, q);
+      if (existing) {
+        await this.repo.touch(existing.id);
+      } else {
+        await this.repo.create(userId, q);
+      }
+    }
+    if (normalized.length > 0) {
+      await this.repo.deleteOldestBeyondCap(userId, CAP);
+    }
+    return this.list(userId);
+  }
+}
+
+function dedupPreserveFirst(items: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of items) {
+    const key = item.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
 }
 
 function toItem(row: SearchHistoryRow): SearchHistoryItem {

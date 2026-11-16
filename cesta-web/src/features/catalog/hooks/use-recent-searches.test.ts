@@ -219,6 +219,66 @@ describe("useRecentSearches — backend path (logado)", () => {
     await waitFor(() => expect(result.current.recents).toEqual([]));
   });
 
+  it("first-login sync (Sprint 81): storage não-vazio → POST /sync + clear storage + refetch", async () => {
+    window.localStorage.setItem(
+      "cesta:recent-searches",
+      JSON.stringify(["pasta", "leche"]),
+    );
+
+    let syncedQueries: string[] = [];
+    let backendHistory = [
+      { id: "h1", query: "aceite", createdAt: "2026-01-01T00:00:00.000Z" },
+    ];
+    server.use(
+      http.get(`${API}/search-history`, () =>
+        HttpResponse.json({
+          data: { history: backendHistory.slice() },
+          meta: { timestamp: new Date().toISOString() },
+        }),
+      ),
+      http.post(`${API}/search-history/sync`, async ({ request }) => {
+        const body = (await request.json()) as { queries: string[] };
+        syncedQueries = body.queries;
+        backendHistory = [
+          ...body.queries.map((q, i) => ({
+            id: `h-sync-${i}`,
+            query: q,
+            createdAt: new Date().toISOString(),
+          })),
+          ...backendHistory,
+        ];
+        return HttpResponse.json({
+          data: { history: backendHistory.slice() },
+          meta: { timestamp: new Date().toISOString() },
+        });
+      }),
+    );
+
+    renderHookWithProviders(() => useRecentSearches());
+
+    await waitFor(() => expect(syncedQueries).toEqual(["pasta", "leche"]));
+    await waitFor(() =>
+      expect(window.localStorage.getItem("cesta:recent-searches")).toBe("[]"),
+    );
+  });
+
+  it("first-login sync no-op quando storage vazio", async () => {
+    let syncCalled = false;
+    server.use(
+      http.post(`${API}/search-history/sync`, () => {
+        syncCalled = true;
+        return HttpResponse.json({
+          data: { history: [] },
+          meta: { timestamp: new Date().toISOString() },
+        });
+      }),
+    );
+
+    const { result } = renderHookWithProviders(() => useRecentSearches());
+    await waitFor(() => expect(result.current.recents.length).toBe(1));
+    expect(syncCalled).toBe(false);
+  });
+
   it("clear → DELETE /search-history + lista vazia pos-invalidate", async () => {
     let cleared = false;
     let hasItems = true;

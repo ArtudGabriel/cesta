@@ -84,4 +84,51 @@ describe('SearchHistoryService', () => {
 
     expect(repo.deleteAll).toHaveBeenCalledWith('u1');
   });
+
+  describe('sync (Sprint 81)', () => {
+    it('cria faltantes e touch existentes, dedup case-insensitive', async () => {
+      repo.findByQuery.mockImplementation((_u, q) =>
+        Promise.resolve(q === 'leche' ? fakeRow({ id: 'sh-leche', query: 'leche' }) : null),
+      );
+      repo.create.mockResolvedValue(fakeRow({ id: 'sh-new', query: 'aceite' }));
+      repo.touch.mockResolvedValue(fakeRow({ id: 'sh-leche', query: 'leche' }));
+      repo.deleteOldestBeyondCap.mockResolvedValue(undefined);
+      repo.listRecent.mockResolvedValue([
+        fakeRow({ id: 'sh-new', query: 'aceite' }),
+        fakeRow({ id: 'sh-leche', query: 'leche' }),
+      ]);
+
+      const result = await service.sync('u1', ['aceite', 'ACEITE', 'leche']);
+
+      expect(repo.create).toHaveBeenCalledTimes(1);
+      expect(repo.create).toHaveBeenCalledWith('u1', 'aceite');
+      expect(repo.touch).toHaveBeenCalledWith('sh-leche');
+      expect(repo.deleteOldestBeyondCap).toHaveBeenCalledWith('u1', 10);
+      expect(result.map((i) => i.query)).toEqual(['aceite', 'leche']);
+    });
+
+    it('array vazio não chama repo nem cap', async () => {
+      repo.listRecent.mockResolvedValue([]);
+
+      const result = await service.sync('u1', []);
+
+      expect(repo.create).not.toHaveBeenCalled();
+      expect(repo.touch).not.toHaveBeenCalled();
+      expect(repo.deleteOldestBeyondCap).not.toHaveBeenCalled();
+      expect(result).toEqual([]);
+    });
+
+    it('insere do mais antigo pro mais novo (reverse) pra MRU correto', async () => {
+      // Cliente envia ["aceite", "leche"] onde aceite é o mais recente.
+      // Service reverte, insere leche primeiro depois aceite, deixando aceite no topo MRU.
+      repo.findByQuery.mockResolvedValue(null);
+      repo.create.mockResolvedValue(fakeRow());
+      repo.deleteOldestBeyondCap.mockResolvedValue(undefined);
+      repo.listRecent.mockResolvedValue([]);
+
+      await service.sync('u1', ['aceite', 'leche']);
+
+      expect(repo.create.mock.calls.map((c) => c[1])).toEqual(['leche', 'aceite']);
+    });
+  });
 });
