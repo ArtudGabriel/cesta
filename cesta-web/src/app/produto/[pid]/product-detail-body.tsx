@@ -37,6 +37,13 @@ export function ProductDetailBody({ product }: { product: Product }) {
         <h1 className="line-clamp-1 flex-1 font-display text-lg font-bold text-ink">
           {product.name}
         </h1>
+        {!user && (
+          <Button asChild size="sm" variant="secondary">
+            <Link href={`/login?returnUrl=${encodeURIComponent(`/produto/${product.id}`)}`}>
+              {tNav("login")}
+            </Link>
+          </Button>
+        )}
         <FavoriteToggle
           productId={product.id}
           returnUrl={`/produto/${product.id}`}

@@ -1,6 +1,7 @@
 "use client";
 
 import { Bell, Loader2, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,15 +15,11 @@ interface CreateAlertButtonProps {
   supermarkets?: Supermarket[];
 }
 
-const TYPES: Array<{ value: AlertType; label: string; hint: string }> = [
-  { value: "promotion", label: "En promoción", hint: "Cuando entre en oferta" },
-  { value: "target_price", label: "Precio objetivo", hint: "Cuando baje de X €" },
-  { value: "back_in_stock", label: "Vuelve a stock", hint: "Cuando esté disponible" },
-  {
-    value: "promotion_ending",
-    label: "Promoción terminando",
-    hint: "Cuando esté por acabar",
-  },
+const TYPE_KEYS: Array<{ value: AlertType; key: string }> = [
+  { value: "promotion", key: "promotion" },
+  { value: "target_price", key: "targetPrice" },
+  { value: "back_in_stock", key: "backInStock" },
+  { value: "promotion_ending", key: "promotionEnding" },
 ];
 
 export function CreateAlertButton({
@@ -34,6 +31,7 @@ export function CreateAlertButton({
   const [targetPrice, setTargetPrice] = useState("");
   const [supermarketId, setSupermarketId] = useState<string>("");
   const create = useCreateAlert();
+  const t = useTranslations("alerts.create");
 
   async function submit() {
     await create.mutateAsync({
@@ -56,7 +54,7 @@ export function CreateAlertButton({
         className="w-full"
       >
         <Bell className="h-4 w-4" />
-        Crear alerta
+        {t("cta")}
       </Button>
 
       {open && (
@@ -64,10 +62,11 @@ export function CreateAlertButton({
           <div className="w-full rounded-t-card bg-white sm:max-w-md sm:rounded-card">
             <header className="flex items-center justify-between border-b border-border p-4">
               <h3 className="font-display text-lg font-bold text-ink">
-                Nueva alerta
+                {t("title")}
               </h3>
               <button
                 onClick={() => setOpen(false)}
+                aria-label={t("closeAria")}
                 className="cursor-pointer rounded-btn p-1 hover:bg-surface"
               >
                 <X className="h-5 w-5 text-ink" />
@@ -76,21 +75,25 @@ export function CreateAlertButton({
 
             <div className="space-y-3 p-4">
               <div>
-                <Label>Tipo de alerta</Label>
+                <Label>{t("typeLabel")}</Label>
                 <div className="mt-2 space-y-2">
-                  {TYPES.map((t) => (
+                  {TYPE_KEYS.map((opt) => (
                     <button
-                      key={t.value}
+                      key={opt.value}
                       type="button"
-                      onClick={() => setType(t.value)}
+                      onClick={() => setType(opt.value)}
                       className={`w-full rounded-btn border p-3 text-left cursor-pointer ${
-                        type === t.value
+                        type === opt.value
                           ? "border-cesta-green bg-cesta-green/5"
                           : "border-border bg-white"
                       }`}
                     >
-                      <p className="text-sm font-medium text-ink">{t.label}</p>
-                      <p className="text-xs text-muted">{t.hint}</p>
+                      <p className="text-sm font-medium text-ink">
+                        {t(`types.${opt.key}.label`)}
+                      </p>
+                      <p className="text-xs text-muted">
+                        {t(`types.${opt.key}.hint`)}
+                      </p>
                     </button>
                   ))}
                 </div>
@@ -98,7 +101,7 @@ export function CreateAlertButton({
 
               {type === "target_price" && (
                 <div>
-                  <Label htmlFor="target">Precio objetivo (€)</Label>
+                  <Label htmlFor="target">{t("targetLabel")}</Label>
                   <Input
                     id="target"
                     type="number"
@@ -106,21 +109,21 @@ export function CreateAlertButton({
                     min="0.01"
                     value={targetPrice}
                     onChange={(e) => setTargetPrice(e.target.value)}
-                    placeholder="1.50"
+                    placeholder={t("targetPlaceholder")}
                   />
                 </div>
               )}
 
               {supermarkets && supermarkets.length > 0 && (
                 <div>
-                  <Label htmlFor="market">Supermercado (opcional)</Label>
+                  <Label htmlFor="market">{t("marketLabel")}</Label>
                   <select
                     id="market"
                     value={supermarketId}
                     onChange={(e) => setSupermarketId(e.target.value)}
                     className="flex h-12 w-full rounded-btn border border-border bg-white px-4 text-base text-ink focus:border-cesta-green focus:outline-none focus:ring-2 focus:ring-cesta-green/20"
                   >
-                    <option value="">Cualquiera</option>
+                    <option value="">{t("anyMarket")}</option>
                     {supermarkets.map((sm) => (
                       <option key={sm.id} value={sm.id}>
                         {sm.name}
@@ -141,7 +144,7 @@ export function CreateAlertButton({
                 {create.isPending && (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 )}
-                Crear alerta
+                {t("submit")}
               </Button>
             </div>
           </div>
