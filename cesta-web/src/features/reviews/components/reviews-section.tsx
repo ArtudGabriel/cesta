@@ -2,8 +2,8 @@
 
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/auth.store";
 import {
   useCreateReview,
@@ -21,17 +21,18 @@ interface ReviewsSectionProps {
   productId: string;
 }
 
-const SORT_OPTIONS: Array<{ value: ReviewSort; label: string }> = [
-  { value: "recent", label: "Recientes" },
-  { value: "helpful", label: "Más útiles" },
-  { value: "rating_desc", label: "Mejor puntuación" },
-  { value: "rating_asc", label: "Peor puntuación" },
+const SORT_KEYS: Array<{ value: ReviewSort; key: string }> = [
+  { value: "recent", key: "recent" },
+  { value: "helpful", key: "helpful" },
+  { value: "rating_desc", key: "ratingDesc" },
+  { value: "rating_asc", key: "ratingAsc" },
 ];
 
 export function ReviewsSection({ productId }: ReviewsSectionProps) {
   const user = useAuthStore((s) => s.user);
   const [sortBy, setSortBy] = useState<ReviewSort>("recent");
   const [editing, setEditing] = useState(false);
+  const t = useTranslations("reviews");
 
   const summary = useReviewSummary(productId);
   const reviews = useProductReviews(productId, sortBy);
@@ -47,23 +48,20 @@ export function ReviewsSection({ productId }: ReviewsSectionProps) {
       {summary.data && summary.data.total > 0 ? (
         <ReviewSummary summary={summary.data} />
       ) : (
-        <p className="text-sm text-muted">
-          Aún no hay opiniones. Sé el primero en opinar.
-        </p>
+        <p className="text-sm text-muted">{t("emptySummary")}</p>
       )}
 
-      {/* Minha review ou formulário */}
       {!isAuthenticated ? (
         <div className="rounded-card border border-border bg-surface p-4 text-center text-sm text-muted">
           <Link href="/login" className="font-medium text-cesta-green">
-            Inicia sesión
-          </Link>{" "}
-          para dejar tu opinión.
+            {t("loginPrefix")}
+          </Link>
+          {t("loginSuffix")}
         </div>
       ) : editing || !myReview ? (
         <div className="rounded-card bg-white p-4 shadow-card">
           <h4 className="mb-3 font-display font-bold text-ink">
-            {myReview ? "Editar mi opinión" : "Deja tu opinión"}
+            {myReview ? t("formEditTitle") : t("formNewTitle")}
           </h4>
           <ReviewForm
             initial={myReview ?? undefined}
@@ -91,7 +89,7 @@ export function ReviewsSection({ productId }: ReviewsSectionProps) {
       ) : (
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-            Tu opinión
+            {t("myReviewLabel")}
           </p>
           <ReviewCard
             review={myReview}
@@ -102,17 +100,16 @@ export function ReviewsSection({ productId }: ReviewsSectionProps) {
         </div>
       )}
 
-      {/* Sort + lista */}
       <div className="flex items-center justify-between">
-        <h4 className="font-display font-bold text-ink">Todas las opiniones</h4>
+        <h4 className="font-display font-bold text-ink">{t("allHeader")}</h4>
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as ReviewSort)}
           className="rounded-btn border border-border bg-white px-2 py-1 text-xs"
         >
-          {SORT_OPTIONS.map((o) => (
+          {SORT_KEYS.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {t(`sort.${o.key}`)}
             </option>
           ))}
         </select>
@@ -137,9 +134,7 @@ export function ReviewsSection({ productId }: ReviewsSectionProps) {
             ))}
         </ul>
       ) : (
-        <p className="py-6 text-center text-sm text-muted">
-          Aún sin opiniones.
-        </p>
+        <p className="py-6 text-center text-sm text-muted">{t("emptyList")}</p>
       )}
     </section>
   );
