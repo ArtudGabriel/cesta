@@ -1,5 +1,6 @@
 import {
   isAllowedOrigin,
+  isRejectedPreflight,
   parseCorsWhitelist,
   VERCEL_PREVIEW_REGEX,
 } from './cors-origin';
@@ -65,6 +66,45 @@ describe('isAllowedOrigin', () => {
       VERCEL_PREVIEW_REGEX.test(
         'http://cesta-web-git-abc-gabriels-projects-f5aa3b24.vercel.app',
       ),
+    ).toBe(false);
+  });
+});
+
+describe('isRejectedPreflight', () => {
+  const whitelist = ['https://cesta-web.vercel.app', 'http://localhost:3000'];
+
+  it('rejects OPTIONS from unknown origin', () => {
+    expect(
+      isRejectedPreflight('OPTIONS', 'https://evil.example.com', whitelist),
+    ).toBe(true);
+  });
+
+  it('allows OPTIONS from whitelisted origin', () => {
+    expect(
+      isRejectedPreflight('OPTIONS', 'https://cesta-web.vercel.app', whitelist),
+    ).toBe(false);
+  });
+
+  it('allows OPTIONS from Vercel preview', () => {
+    expect(
+      isRejectedPreflight(
+        'OPTIONS',
+        'https://cesta-web-git-feat-sprint-82-gabriels-projects-f5aa3b24.vercel.app',
+        whitelist,
+      ),
+    ).toBe(false);
+  });
+
+  it('allows OPTIONS without origin (curl/S2S)', () => {
+    expect(isRejectedPreflight('OPTIONS', undefined, whitelist)).toBe(false);
+  });
+
+  it('never rejects non-OPTIONS methods (delegated to cors package)', () => {
+    expect(
+      isRejectedPreflight('GET', 'https://evil.example.com', whitelist),
+    ).toBe(false);
+    expect(
+      isRejectedPreflight('POST', 'https://evil.example.com', whitelist),
     ).toBe(false);
   });
 });

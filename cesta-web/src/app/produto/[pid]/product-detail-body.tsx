@@ -12,7 +12,7 @@ import { NutritionTable } from "@/features/catalog/components/nutrition-table";
 import { PriceComparisonGrid } from "@/features/catalog/components/price-comparison-grid";
 import { PriceHistoryChart } from "@/features/catalog/components/price-history-chart";
 import { useSupermarkets } from "@/features/catalog/hooks/use-catalog";
-import { useLocale } from "@/features/catalog/hooks/use-locale";
+import { useLocale } from "@/hooks/use-locale";
 import { formatUnitPrice } from "@/features/catalog/utils/format-unit-price";
 import { FavoriteToggle } from "@/features/favorites/components/favorite-toggle";
 import { ReviewsSection } from "@/features/reviews/components/reviews-section";

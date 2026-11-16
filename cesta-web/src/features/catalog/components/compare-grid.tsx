@@ -8,7 +8,7 @@ import { cn, formatPrice } from "@/lib/utils";
 import { formatUnitPrice } from "../utils/format-unit-price";
 import { isHealthyGrade, nutriSortValue } from "./nutri-filters";
 import { computeWinnerSets, type Nutrient } from "../utils/nutrition-winner";
-import { useLocale } from "../hooks/use-locale";
+import { useLocale } from "@/hooks/use-locale";
 import { DietaryBadges } from "./dietary-badges";
 import { DietaryWarning } from "./dietary-warning";
 import { NutriScoreBadge } from "./nutri-score-badge";

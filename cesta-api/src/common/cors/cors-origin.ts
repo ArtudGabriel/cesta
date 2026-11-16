@@ -18,3 +18,15 @@ export function parseCorsWhitelist(raw: string | undefined): string[] {
     .filter((o) => o.length > 0);
   return Array.from(new Set(trimmed));
 }
+
+// Sprint 82: QA Sprint 80 observou OPTIONS → 404 pra origin fora do whitelist.
+// Causa: pacote `cors` em callback(null,false) só suprime ACAO e chama next();
+// Nest routing não tem handler de OPTIONS → 404. Semântica correta: 403 + Vary.
+// Mantemos helper isolado pra permitir spec unitária.
+export function isRejectedPreflight(
+  method: string,
+  origin: string | undefined,
+  whitelist: readonly string[],
+): boolean {
+  return method === 'OPTIONS' && !isAllowedOrigin(origin, whitelist);
+}

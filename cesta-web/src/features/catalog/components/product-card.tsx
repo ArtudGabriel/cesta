@@ -6,7 +6,7 @@ import { Tag } from "lucide-react";
 import { cn, formatPrice } from "@/lib/utils";
 import { FavoriteToggle } from "@/features/favorites/components/favorite-toggle";
 import { formatUnitPrice } from "../utils/format-unit-price";
-import { useLocale } from "../hooks/use-locale";
+import { useLocale } from "@/hooks/use-locale";
 import { HighlightedText } from "./highlighted-text";
 import { NutriScoreBadge } from "./nutri-score-badge";
 import type { Product } from "../types/catalog.types";

@@ -14,7 +14,7 @@ import {
 import { useAuthStore } from "@/stores/auth.store";
 import { cn, formatPrice } from "@/lib/utils";
 import { formatUnitPrice } from "@/features/catalog/utils/format-unit-price";
-import { useLocale } from "@/features/catalog/hooks/use-locale";
+import { useLocale } from "@/hooks/use-locale";
 import { DietaryFilters, type DietaryFlag } from "@/features/catalog/components/dietary-filters";
 import {
   NutriFilters,

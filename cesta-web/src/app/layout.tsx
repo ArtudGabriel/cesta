@@ -77,11 +77,13 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
-  // Sprint 66 nit avaliado + descartado: lang dinâmico no root exige
-  // `cookies()` top-level, o que quebra o prerender do `/_not-found` (mesmo
-  // issue da Sprint 52.5 que isolou i18n dentro de Suspense). Mantemos lang
-  // "es" static + hydration client atualiza document.documentElement.lang
-  // via NextIntlClientProvider — trade-off aceito desde 52.5.
+  // Sprint 82 AJUSTE #2: tentamos `<html lang={locale}>` via getLocale() SSR
+  // mas Next 16 Cache Components rejeita (root fica dinamico → quebra prerender
+  // de 23 rotas filhas, e `dynamic = "force-dynamic"` eh incompativel com
+  // cacheComponents). Rollback: lang="es" static + hydration cliente atualiza
+  // via NextIntlClientProvider. Backlog: proxima sprint migrar pra
+  // app/[locale]/layout.tsx (segmento dinamico, padrao oficial next-intl) pra
+  // recuperar SSR lang sem perder prerender. Sprint 52.5/66 trade-off persiste.
   return (
     <html lang="es" className="h-full antialiased">
       <head>
