@@ -1,7 +1,7 @@
 # Security Policy — Cesta
 
 > Política de segurança para o projeto [Cesta](./README.md) (`cesta-api` + `cesta-web`).
-> Última atualização: 2026-11-16 (Sprint 79).
+> Fonte da verdade da última atualização: `git log -1 --format=%cs SECURITY.md`.
 
 ---
 
@@ -9,11 +9,10 @@
 
 Reporte vulnerabilidades em privado — **não abra issue pública**.
 
-- **Email:** `security@cesta.app` *(placeholder — substituir pela caixa real antes de publicar)*
-- **Fallback:** [GitHub Security Advisory privado](https://github.com/ArtudGabriel/cesta/security/advisories/new) (preferido quando disponível — cria draft advisory criptografado, não indexa até publicação)
-- **PGP:** não publicado ainda. Para payloads sensíveis use o GitHub Advisory (criptografado em trânsito + repouso).
+- **Canal único:** [GitHub Security Advisory privado](https://github.com/ArtudGabriel/cesta/security/advisories/new). Cria draft criptografado, visível apenas aos maintainers do repo, não indexa até publicação.
+- **PGP:** desnecessário — GitHub Advisory já criptografa em trânsito + repouso.
 
-Inclua no reporte:
+Inclua no advisory:
 1. Descrição do problema + impacto estimado (confidentiality / integrity / availability).
 2. Passo-a-passo pra reproduzir (request/response, credenciais de teste, artefatos mínimos).
 3. Versão / commit SHA afetado (`main` ou branch específica).
@@ -84,8 +83,8 @@ Vulnerabilidades envolvendo exposure de PII sobem para **Critical** automaticame
 
 ## Processo de disclosure
 
-1. Reporter envia relatório privado (email ou GitHub Advisory).
-2. Maintainer triagia dentro do SLA e confirma recebimento.
+1. Reporter abre GitHub Security Advisory privado.
+2. Maintainer triagia dentro do SLA e confirma recebimento no próprio advisory.
 3. Fix desenvolvido em branch privada; patch validado localmente + CI.
 4. Fix merge em `main`; deploy produção.
 5. Advisory público publicado (CVE quando aplicável) creditando reporter se consentido.
@@ -102,9 +101,9 @@ Vulnerabilidades envolvendo exposure de PII sobem para **Critical** automaticame
 
 ---
 
-## Appendix A — Baseline audit (Sprint 79, 2026-11-16)
+## Appendix A — Baseline audit (Sprint 79)
 
-Snapshot do primeiro gate pós-SECURITY.md:
+Snapshot do primeiro gate pós-SECURITY.md. Data do snapshot: `git log -1 --format=%cs SECURITY.md` (commit inicial do arquivo).
 
 ### `cesta-api`
 
