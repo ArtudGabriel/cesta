@@ -8,6 +8,7 @@ import { BottomNav } from "@/components/bottom-nav";
 import { InstallPrompt } from "@/components/install-prompt";
 import { LayoutSkeleton } from "@/components/layout-skeleton";
 import { SentryBoundary } from "@/components/sentry-boundary";
+import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { EmailVerificationBanner } from "@/features/auth/components/email-verification-banner";
 import { CookieBanner } from "@/features/consent/components/cookie-banner";
 import { QueryProvider } from "@/providers/query-provider";
@@ -114,6 +115,8 @@ async function LocalizedShell({ children }: { children: React.ReactNode }) {
           <CookieBanner />
         </QueryProvider>
         <InstallPrompt />
+        {/* Sprint 76 (P5): Core Web Vitals → POST /telemetry/vitals em prod. */}
+        <WebVitalsReporter />
         <Toaster position="top-center" richColors />
       </SentryBoundary>
     </NextIntlClientProvider>

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as compression from 'compression';
 import * as cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { join } from 'path';
@@ -18,6 +19,10 @@ async function bootstrap(): Promise<void> {
   const config = app.get(ConfigService);
 
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+  // Sprint 76 (P5): gzip de responses JSON — ~70% redução em payloads de
+  // catálogo (listas de produtos). Vercel adiciona Brotli automaticamente
+  // no frontend; Render pode adicionar br na edge sobre o gzip do app.
+  app.use(compression());
   app.use(cookieParser());
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
   app.setGlobalPrefix('api/v1', { exclude: ['uploads/(.*)', 'health'] });

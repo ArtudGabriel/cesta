@@ -1,5 +1,3 @@
-import { Loader2 } from "lucide-react";
-
 export default function Loading() {
   return (
     <main className="flex-1 pb-16">
@@ -16,9 +14,8 @@ export default function Loading() {
         <div className="h-16 w-full animate-pulse rounded-card bg-neutral-200" />
         <div className="h-16 w-full animate-pulse rounded-card bg-neutral-200" />
         <div className="h-16 w-full animate-pulse rounded-card bg-neutral-200" />
-      </div>
-      <div className="flex min-h-[15vh] items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-cesta-green" />
+        <div className="h-16 w-full animate-pulse rounded-card bg-neutral-200" />
+        <div className="h-16 w-full animate-pulse rounded-card bg-neutral-200" />
       </div>
     </main>
   );

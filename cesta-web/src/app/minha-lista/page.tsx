@@ -70,9 +70,11 @@ export default function MyListsPage() {
 
       <div className="px-4">
         {isLoading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-cesta-green" />
-          </div>
+          <ul className="space-y-3" aria-hidden>
+            {[0, 1, 2].map((i) => (
+              <li key={i} className="h-20 animate-pulse rounded-card bg-surface" />
+            ))}
+          </ul>
         ) : !lists || lists.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-16 text-center">
             <ShoppingBag className="h-12 w-12 text-muted" />
