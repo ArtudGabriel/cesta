@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { StarRating } from "./star-rating";
 import type { ReviewSummary as Summary } from "../types/review.types";
 
@@ -8,6 +9,7 @@ interface ReviewSummaryProps {
 }
 
 export function ReviewSummary({ summary }: ReviewSummaryProps) {
+  const t = useTranslations("reviews");
   const rows: Array<[1 | 2 | 3 | 4 | 5, number]> = [
     [5, summary.distribution[5]],
     [4, summary.distribution[4]],
@@ -25,7 +27,7 @@ export function ReviewSummary({ summary }: ReviewSummaryProps) {
           </p>
           <StarRating value={summary.average} readOnly size="sm" />
           <p className="mt-1 text-xs text-muted">
-            {summary.total} {summary.total === 1 ? "opinión" : "opiniones"}
+            {t("summaryCount", { count: summary.total })}
           </p>
         </div>
 

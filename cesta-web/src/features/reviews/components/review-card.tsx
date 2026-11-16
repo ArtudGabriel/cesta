@@ -1,7 +1,9 @@
 "use client";
 
 import { Flag, Pencil, ThumbsUp, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { useLocale } from "@/features/catalog/hooks/use-locale";
 import { cn } from "@/lib/utils";
 import {
   useDeleteReview,
@@ -28,18 +30,21 @@ export function ReviewCard({
   const report = useReportReview();
   const deleteReview = useDeleteReview(productId);
   const isOwner = currentUserId === review.authorId;
+  const t = useTranslations("reviews.card");
+  const locale = useLocale();
+  const dateLocale = locale === "pt-BR" ? "pt-BR" : "es-ES";
 
   return (
     <article className="rounded-card bg-white p-4 shadow-card">
       <header className="flex items-center justify-between">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-ink">
-            {review.authorName ?? "Usuario"}
+            {review.authorName ?? t("anonymous")}
           </p>
           <div className="mt-1 flex items-center gap-2">
             <StarRating value={review.rating} readOnly size="sm" />
             <span className="text-xs text-muted">
-              {new Date(review.createdAt).toLocaleDateString("es-ES")}
+              {new Date(review.createdAt).toLocaleDateString(dateLocale)}
             </span>
           </div>
         </div>
@@ -49,7 +54,7 @@ export function ReviewCard({
             <Button
               size="icon"
               variant="ghost"
-              aria-label="Editar"
+              aria-label={t("editAria")}
               onClick={onEdit}
             >
               <Pencil className="h-4 w-4" />
@@ -57,9 +62,9 @@ export function ReviewCard({
             <Button
               size="icon"
               variant="ghost"
-              aria-label="Eliminar"
+              aria-label={t("deleteAria")}
               onClick={() => {
-                if (confirm("¿Eliminar esta avaliação?")) {
+                if (confirm(t("confirmDelete"))) {
                   deleteReview.mutate(review.id);
                 }
               }}
@@ -89,7 +94,7 @@ export function ReviewCard({
           )}
         >
           <ThumbsUp className="h-3 w-3" />
-          Útil · {review.helpfulCount}
+          {t("helpful")} · {review.helpfulCount}
         </button>
 
         {!isOwner && currentUserId && (
@@ -99,7 +104,7 @@ export function ReviewCard({
             className="inline-flex items-center gap-1 text-muted hover:text-coral cursor-pointer"
           >
             <Flag className="h-3 w-3" />
-            Reportar
+            {t("report")}
           </button>
         )}
       </footer>

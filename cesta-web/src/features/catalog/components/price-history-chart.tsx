@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import {
   CartesianGrid,
@@ -11,6 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useLocale } from "@/features/catalog/hooks/use-locale";
 import { cn, formatPrice } from "@/lib/utils";
 import { usePriceHistory } from "../hooks/use-price-history";
 import type { PriceHistorySeries } from "../services/price-history.service";
@@ -41,14 +43,20 @@ export function PriceHistoryChart({
     supermarketId,
     days: range,
   });
+  const t = useTranslations("product.priceHistory");
+  const locale = useLocale();
+  const dateLocale = locale === "pt-BR" ? "pt-BR" : "es-ES";
 
-  const { rows, series } = useMemo(() => buildRows(data ?? []), [data]);
+  const { rows, series } = useMemo(
+    () => buildRows(data ?? [], dateLocale),
+    [data, dateLocale],
+  );
 
   return (
     <div className={cn("rounded-card bg-white p-4 shadow-card", className)}>
       <header className="mb-3 flex items-center justify-between gap-3">
         <h3 className="font-display text-sm font-bold text-ink">
-          Histórico de precios
+          {t("title")}
         </h3>
         <div className="flex gap-1 rounded-pill bg-surface p-1">
           {([30, 60, 90] as Range[]).map((r) => (
@@ -75,11 +83,11 @@ export function PriceHistoryChart({
         </div>
       ) : isError ? (
         <p className="py-10 text-center text-sm text-coral">
-          Error al cargar el histórico.
+          {t("errorLoading")}
         </p>
       ) : rows.length < 2 ? (
         <p className="py-10 text-center text-sm text-muted">
-          Sin histórico suficiente todavía.
+          {t("insufficient")}
         </p>
       ) : (
         <div className="h-40 w-full md:h-56">
@@ -142,7 +150,10 @@ interface SeriesMeta {
   color: string;
 }
 
-function buildRows(data: PriceHistorySeries[] | undefined): {
+function buildRows(
+  data: PriceHistorySeries[] | undefined,
+  dateLocale: string,
+): {
   rows: ChartRow[];
   series: SeriesMeta[];
 } {
@@ -162,7 +173,7 @@ function buildRows(data: PriceHistorySeries[] | undefined): {
         byDate.get(key) ??
         ({
           date: key,
-          dateLabel: d.toLocaleDateString("es-ES", {
+          dateLabel: d.toLocaleDateString(dateLocale, {
             day: "numeric",
             month: "short",
           }),

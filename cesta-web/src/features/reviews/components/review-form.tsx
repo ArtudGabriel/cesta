@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field-error";
@@ -23,6 +24,7 @@ export function ReviewForm({
   onSubmit,
   onCancel,
 }: ReviewFormProps) {
+  const t = useTranslations("reviews.form");
   const {
     handleSubmit,
     setValue,
@@ -42,7 +44,7 @@ export function ReviewForm({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div>
-        <Label>Tu puntuación</Label>
+        <Label>{t("ratingLabel")}</Label>
         <StarRating
           value={rating}
           size="lg"
@@ -52,12 +54,12 @@ export function ReviewForm({
       </div>
 
       <div>
-        <Label htmlFor="comment">Comentario (opcional)</Label>
+        <Label htmlFor="comment">{t("commentLabel")}</Label>
         <textarea
           id="comment"
           rows={4}
           maxLength={1000}
-          placeholder="¿Qué te pareció?"
+          placeholder={t("commentPlaceholder")}
           className="flex w-full rounded-btn border border-border bg-white px-4 py-2 text-sm text-ink placeholder:text-muted focus:border-cesta-green focus:outline-none focus:ring-2 focus:ring-cesta-green/20"
           {...register("comment")}
         />
@@ -67,11 +69,11 @@ export function ReviewForm({
       <div className="flex gap-2">
         <Button type="submit" disabled={isSubmitting} className="flex-1">
           {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-          Publicar
+          {t("submit")}
         </Button>
         {onCancel && (
           <Button type="button" variant="ghost" onClick={onCancel}>
-            Cancelar
+            {t("cancel")}
           </Button>
         )}
       </div>
