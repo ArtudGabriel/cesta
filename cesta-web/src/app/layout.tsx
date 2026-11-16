@@ -76,14 +76,14 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
-  // Sprint 66 nit avaliado + descartado: lang dinâmico no root exige
-  // `cookies()` top-level, o que quebra o prerender do `/_not-found` (mesmo
-  // issue da Sprint 52.5 que isolou i18n dentro de Suspense). Mantemos lang
-  // "es" static + hydration client atualiza document.documentElement.lang
-  // via NextIntlClientProvider — trade-off aceito desde 52.5.
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Sprint 82: lang resolvido via next-intl SSR (cookie cesta:locale →
+  // Accept-Language → "es"). Trade-off aceito: root agora é dynamic, /_not-found
+  // deixa de prerender ao build. Benefício: crawlers/leitores de tela recebem
+  // `lang` correto no HTML inicial, sem flash cliente (Sprint 52.5/66 revisadas).
+  const locale = await getLocale();
   return (
-    <html lang="es" className="h-full antialiased">
+    <html lang={locale} className="h-full antialiased">
       <head>
         <link
           rel="stylesheet"
@@ -94,15 +94,20 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-full flex flex-col bg-cream text-ink">
         <Suspense fallback={<LayoutSkeleton />}>
-          <LocalizedShell>{children}</LocalizedShell>
+          <LocalizedShell locale={locale}>{children}</LocalizedShell>
         </Suspense>
       </body>
     </html>
   );
 }
 
-async function LocalizedShell({ children }: { children: React.ReactNode }) {
-  const locale = await getLocale();
+async function LocalizedShell({
+  locale,
+  children,
+}: {
+  locale: string;
+  children: React.ReactNode;
+}) {
   const messages = await getMessages();
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>

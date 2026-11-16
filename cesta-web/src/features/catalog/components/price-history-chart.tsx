@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { useLocale } from "@/features/catalog/hooks/use-locale";
+import { useLocale } from "@/hooks/use-locale";
 import { cn, formatPrice } from "@/lib/utils";
 import { usePriceHistory } from "../hooks/use-price-history";
 import type { PriceHistorySeries } from "../services/price-history.service";

@@ -4,7 +4,7 @@ import { Tag, AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn, formatPrice } from "@/lib/utils";
 import { formatUnitPrice } from "../utils/format-unit-price";
-import { useLocale } from "../hooks/use-locale";
+import { useLocale } from "@/hooks/use-locale";
 import type { PriceByMarket } from "../types/catalog.types";
 
 interface PriceComparisonGridProps {

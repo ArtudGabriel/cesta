@@ -3,7 +3,7 @@
 import { Flag, Pencil, ThumbsUp, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { useLocale } from "@/features/catalog/hooks/use-locale";
+import { useLocale } from "@/hooks/use-locale";
 import { cn } from "@/lib/utils";
 import {
   useDeleteReview,
