@@ -14,6 +14,7 @@ import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AddSearchHistoryDto } from './dtos/add-search-history.dto';
+import { SyncSearchHistoryDto } from './dtos/sync-search-history.dto';
 import { SearchHistoryService } from './search-history.service';
 
 @ApiBearerAuth()
@@ -30,7 +31,7 @@ export class SearchHistoryController {
   }
 
   @Post()
-  @Throttle({ write: { limit: 30, ttl: 60_000 } })
+  @Throttle({ write: { limit: 10, ttl: 60_000 } })
   @ApiOperation({
     summary:
       'Adiciona query. 201 quando nova, 200 quando já existia (MRU touch).',
@@ -45,8 +46,22 @@ export class SearchHistoryController {
     return item;
   }
 
+  @Post('sync')
+  @Throttle({ strict: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({
+    summary:
+      'Sprint 81: sincroniza queries anônimas (localStorage) pro histórico do usuário logado no primeiro login. Dedup+MRU, cap 10 preservado. Idempotente.',
+  })
+  async sync(
+    @CurrentUser('id') userId: string,
+    @Body() dto: SyncSearchHistoryDto,
+  ) {
+    const history = await this.service.sync(userId, dto.queries);
+    return { history };
+  }
+
   @Delete(':query')
-  @Throttle({ write: { limit: 30, ttl: 60_000 } })
+  @Throttle({ write: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Remove uma query (idempotente)' })
   async remove(
@@ -57,7 +72,7 @@ export class SearchHistoryController {
   }
 
   @Delete()
-  @Throttle({ write: { limit: 30, ttl: 60_000 } })
+  @Throttle({ write: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Limpa histórico inteiro' })
   async clear(@CurrentUser('id') userId: string) {

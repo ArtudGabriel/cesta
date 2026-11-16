@@ -138,4 +138,13 @@ export const handlers = [
   }),
   http.delete(`${API}/search-history/:q`, () => new HttpResponse(null, { status: 204 })),
   http.delete(`${API}/search-history`, () => new HttpResponse(null, { status: 204 })),
+  http.post(`${API}/search-history/sync`, async ({ request }) => {
+    const body = (await request.json()) as { queries: string[] };
+    const history = body.queries.map((query, idx) => ({
+      id: `h-sync-${idx}`,
+      query,
+      createdAt: new Date().toISOString(),
+    }));
+    return HttpResponse.json(envelope({ history }));
+  }),
 ];

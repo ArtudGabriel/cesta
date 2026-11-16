@@ -33,4 +33,12 @@ export const searchHistoryService = {
   async clear(): Promise<void> {
     await api.delete("/search-history");
   },
+
+  async sync(queries: string[]): Promise<SearchHistoryItem[]> {
+    const { data } = await api.post<Envelope<{ history: SearchHistoryItem[] }>>(
+      "/search-history/sync",
+      { queries },
+    );
+    return data.data.history;
+  },
 };
