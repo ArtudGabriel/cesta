@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { NextIntlClientProvider } from "next-intl";
-import { getLocale, getMessages, getTranslations } from "next-intl/server";
+import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
+import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import "./globals.css";
+import "../globals.css";
 import { BodyPadding } from "@/components/body-padding";
 import { BottomNav } from "@/components/bottom-nav";
 import { InstallPrompt } from "@/components/install-prompt";
@@ -11,8 +12,13 @@ import { SentryBoundary } from "@/components/sentry-boundary";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { EmailVerificationBanner } from "@/features/auth/components/email-verification-banner";
 import { CookieBanner } from "@/features/consent/components/cookie-banner";
+import { routing } from "@/i18n/routing";
 import { QueryProvider } from "@/providers/query-provider";
 import { Toaster } from "sonner";
+
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({ locale }));
+}
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("meta.title");
@@ -49,7 +55,6 @@ export async function generateMetadata(): Promise<Metadata> {
       ],
       apple: [{ url: "/icons/icon-192.png", sizes: "192x192" }],
     },
-    // Sprint 69: OG + Twitter cards pra preview em WhatsApp/Twitter/LinkedIn.
     openGraph: {
       type: "website",
       locale: "es_ES",
@@ -76,16 +81,25 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
-  // Sprint 82 AJUSTE #2: tentamos `<html lang={locale}>` via getLocale() SSR
-  // mas Next 16 Cache Components rejeita (root fica dinamico → quebra prerender
-  // de 23 rotas filhas, e `dynamic = "force-dynamic"` eh incompativel com
-  // cacheComponents). Rollback: lang="es" static + hydration cliente atualiza
-  // via NextIntlClientProvider. Backlog: proxima sprint migrar pra
-  // app/[locale]/layout.tsx (segmento dinamico, padrao oficial next-intl) pra
-  // recuperar SSR lang sem perder prerender. Sprint 52.5/66 trade-off persiste.
+// Sprint 83: route group [locale] permite <html lang={locale}> dinamico SSR
+// sem quebrar cacheComponents (Next 16). Middleware next-intl resolve locale
+// via cookie > Accept-Language > default, com rewrite invisivel (localePrefix
+// "never"). generateStaticParams habilita prerender por locale.
+export default async function LocaleLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  if (!routing.locales.includes(locale as (typeof routing.locales)[number])) {
+    notFound();
+  }
+  setRequestLocale(locale);
+
   return (
-    <html lang="es" className="h-full antialiased">
+    <html lang={locale} className="h-full antialiased">
       <head>
         <link
           rel="stylesheet"
@@ -96,15 +110,20 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-full flex flex-col bg-cream text-ink">
         <Suspense fallback={<LayoutSkeleton />}>
-          <LocalizedShell>{children}</LocalizedShell>
+          <LocalizedShell locale={locale}>{children}</LocalizedShell>
         </Suspense>
       </body>
     </html>
   );
 }
 
-async function LocalizedShell({ children }: { children: React.ReactNode }) {
-  const locale = await getLocale();
+async function LocalizedShell({
+  locale,
+  children,
+}: {
+  locale: string;
+  children: React.ReactNode;
+}) {
   const messages = await getMessages();
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
@@ -113,11 +132,9 @@ async function LocalizedShell({ children }: { children: React.ReactNode }) {
           <EmailVerificationBanner />
           <BodyPadding>{children}</BodyPadding>
           <BottomNav />
-          {/* Sprint 62 GDPR: banner precisa de QueryProvider (lê useProfile). */}
           <CookieBanner />
         </QueryProvider>
         <InstallPrompt />
-        {/* Sprint 76 (P5): Core Web Vitals → POST /telemetry/vitals em prod. */}
         <WebVitalsReporter />
         <Toaster position="top-center" richColors />
       </SentryBoundary>

@@ -1,23 +1,15 @@
-import { NextResponse, type NextRequest } from "next/server";
+import createMiddleware from "next-intl/middleware";
+import { routing } from "./i18n/routing";
 
-const PUBLIC_PATHS = ["/login", "/register"];
-
-// Decisão de auth no edge é lightweight: olhamos só se a chave existe no storage
-// client-side. Guard real de rota fica na página/hook useMe. Para rotas marcadas
-// como públicas, redirecionamos para home se o user já está logado.
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  // Zustand persiste no localStorage no cliente; cookies seriam necessários para
-  // decisão real no edge. Deixamos o middleware sem bloqueio por ora; a página
-  // valida sessão via /auth/me ao carregar.
-  if (PUBLIC_PATHS.some((p) => pathname === p)) {
-    return NextResponse.next();
-  }
-
-  return NextResponse.next();
-}
+// Sprint 83: substitui middleware customizado por next-intl createMiddleware.
+// Responsabilidade:
+// - Detectar locale (cookie cesta:locale > Accept-Language > default "es")
+// - Reescrever URL bare → /[locale]/... internamente (invisivel pro user)
+// - Sincronizar cookie automaticamente
+// Auth guard permanece client-side (useMe/useAuthStore), decisao Sprint 2.
+export default createMiddleware(routing);
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)"],
+  // Exclui API routes, _next, _vercel, e arquivos estaticos (com extensao).
+  matcher: ["/((?!api|_next|_vercel|.*\\..*).*)"],
 };
