@@ -48,4 +48,21 @@ export const authService = {
     const { data } = await api.get<Envelope<AuthUser>>("/auth/me");
     return data.data;
   },
+
+  async verifyEmail(token: string): Promise<{ status: "verified" }> {
+    const { data } = await api.post<Envelope<{ status: "verified" }>>(
+      "/auth/verify-email",
+      { token },
+    );
+    return data.data;
+  },
+
+  async resendVerification(): Promise<{
+    status: "sent" | "already_verified" | "no_email";
+  }> {
+    const { data } = await api.post<
+      Envelope<{ status: "sent" | "already_verified" | "no_email" }>
+    >("/auth/resend-verification", {});
+    return data.data;
+  },
 };

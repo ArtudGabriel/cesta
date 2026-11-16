@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { RefreshToken } from '@prisma/client';
+import { EmailVerificationToken, RefreshToken } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 
 @Injectable()
@@ -47,6 +47,48 @@ export class AuthRepository {
         userAgent: input.userAgent,
         ipAddress: input.ipAddress,
       },
+    });
+  }
+
+  async createVerificationToken(input: {
+    userId: string;
+    tokenHash: string;
+    expiresAt: Date;
+  }): Promise<void> {
+    await this.prisma.$transaction([
+      this.prisma.emailVerificationToken.updateMany({
+        where: { userId: input.userId, usedAt: null },
+        data: { usedAt: new Date() },
+      }),
+      this.prisma.emailVerificationToken.create({
+        data: {
+          userId: input.userId,
+          tokenHash: input.tokenHash,
+          expiresAt: input.expiresAt,
+        },
+      }),
+    ]);
+  }
+
+  findVerificationTokenByHash(
+    tokenHash: string,
+  ): Promise<EmailVerificationToken | null> {
+    return this.prisma.emailVerificationToken.findUnique({
+      where: { tokenHash },
+    });
+  }
+
+  async markVerificationTokenUsed(id: string): Promise<void> {
+    await this.prisma.emailVerificationToken.update({
+      where: { id },
+      data: { usedAt: new Date() },
+    });
+  }
+
+  async markUserEmailVerified(userId: string, when: Date): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { emailVerifiedAt: when },
     });
   }
 }

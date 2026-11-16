@@ -51,6 +51,12 @@ export class UserResponseDto {
   @ApiProperty({ nullable: true })
   cookiesAcceptedAt: Date | null;
 
+  @ApiProperty({
+    nullable: true,
+    description: 'Timestamp da confirmação de email via link Resend (Sprint 75). null = ainda pendente.',
+  })
+  emailVerifiedAt: Date | null;
+
   @ApiProperty()
   createdAt: Date;
 
@@ -74,6 +80,7 @@ export class UserResponseDto {
       | 'essential'
       | null;
     dto.cookiesAcceptedAt = user.cookiesAcceptedAt;
+    dto.emailVerifiedAt = user.emailVerifiedAt;
     dto.createdAt = user.createdAt;
     return dto;
   }

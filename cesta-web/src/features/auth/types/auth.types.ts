@@ -5,6 +5,7 @@ export interface AuthUser {
   name: string | null;
   locale: "es" | "pt-BR";
   roles: string[];
+  emailVerifiedAt: string | null;
   createdAt: string;
 }
 

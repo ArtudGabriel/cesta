@@ -55,6 +55,26 @@
       "submit": "Crear cuenta",
       "hasAccount": "¿Ya tienes cuenta?",
       "login": "Iniciar sesión"
+    },
+    "verifyEmail": {
+      "title": "Confirmando tu email",
+      "pending": "Verificando el enlace...",
+      "successTitle": "¡Email confirmado!",
+      "successBody": "Tu cuenta ya está activa. Puedes continuar usando Cesta.",
+      "goHome": "Ir al inicio",
+      "missingTokenTitle": "Enlace incompleto",
+      "missingTokenBody": "Abre el enlace completo que recibiste por email.",
+      "failedTitle": "No pudimos confirmar tu email",
+      "tryAgain": "Volver a intentarlo",
+      "openInbox": "Revisar bandeja de entrada"
+    },
+    "emailBanner": {
+      "title": "Confirma tu email",
+      "body": "Enviamos un enlace a tu correo. Confírmalo para desbloquear alertas y listas.",
+      "resend": "Reenviar enlace",
+      "resendSent": "Enlace reenviado. Revisa tu bandeja.",
+      "dismiss": "Cerrar",
+      "throttled": "Espera un momento antes de reenviar."
     }
   },
   "errors": {
@@ -64,7 +84,10 @@
       "userExists": "El correo o teléfono ya está registrado",
       "contactRequired": "Email o teléfono es obligatorio",
       "refreshInvalid": "Sesión expirada, inicia sesión de nuevo",
-      "refreshReplay": "Sesión invalidada por seguridad, inicia sesión de nuevo"
+      "refreshReplay": "Sesión invalidada por seguridad, inicia sesión de nuevo",
+      "verifyInvalid": "El enlace de confirmación no es válido",
+      "verifyUsed": "Este enlace ya fue usado",
+      "verifyExpired": "El enlace de confirmación ha caducado"
     },
     "alerts": {
       "notFound": "Alerta no encontrada",

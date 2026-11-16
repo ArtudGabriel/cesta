@@ -23,6 +23,7 @@ import {
 } from './dtos/auth-response.dto';
 import { LoginDto } from './dtos/login.dto';
 import { RegisterDto } from './dtos/register.dto';
+import { VerifyEmailDto } from './dtos/verify-email.dto';
 
 const REFRESH_COOKIE_NAME = 'refresh_token';
 // Alinhado com REFRESH_TOKEN_TTL_DAYS=7 em auth.service.ts.
@@ -135,5 +136,25 @@ export class AuthController {
   @ApiOperation({ summary: 'Perfil do usuário autenticado' })
   me(@CurrentUser() user: AuthenticatedUser) {
     return this.authService.me(user.id);
+  }
+
+  @Public()
+  @Throttle({ strict: { limit: 10, ttl: 60_000 } })
+  @Post('verify-email')
+  @ApiOperation({
+    summary: 'Confirma email via token Resend. Idempotente — usado → 410.',
+  })
+  @HttpCode(HttpStatus.OK)
+  async verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.authService.verifyEmail(dto.token);
+  }
+
+  @Throttle({ strict: { limit: 1, ttl: 60_000 } })
+  @Post('resend-verification')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Reenvia email de verificação. 1/60s por usuário.' })
+  @HttpCode(HttpStatus.ACCEPTED)
+  async resendVerification(@CurrentUser('id') userId: string) {
+    return this.authService.resendVerification(userId);
   }
 }

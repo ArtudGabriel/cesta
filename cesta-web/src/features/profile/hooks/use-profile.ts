@@ -55,6 +55,7 @@ export function useUpdateProfile() {
         name: profile.name,
         locale: profile.locale,
         roles: profile.roles,
+        emailVerifiedAt: profile.emailVerifiedAt,
         createdAt: profile.createdAt,
       });
       toast.success(t("success.profileUpdated"));

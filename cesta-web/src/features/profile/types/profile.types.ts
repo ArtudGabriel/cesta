@@ -17,6 +17,7 @@ export interface Profile {
   nutriHealthyOnly: boolean;
   cookieConsentLevel: CookieConsentLevel | null;
   cookiesAcceptedAt: string | null;
+  emailVerifiedAt: string | null;
   createdAt: string;
 }
 
