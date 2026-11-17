@@ -139,9 +139,10 @@ Stack free-tier: **Neon** (Postgres) + **Upstash** (Redis) + **Render** (API Nes
 2. Render detecta `cesta-api/render.yaml` automaticamente
 3. Preencher vars **sync: false**: `DATABASE_URL` (Neon), `REDIS_URL` (Upstash), `CORS_ORIGIN` (URL Vercel após step 4)
 4. Vars **generateValue: true** (`JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`) o Render preenche
-5. Deploy. Primeira build leva ~5min (npm ci + prisma migrate deploy + nest build)
-6. Health check em `/health` — Render polling automático, 503 = unhealthy marker
-7. Copiar URL pública (ex `https://cesta-api.onrender.com`)
+5. Opcional: `VERCEL_TEAM_SLUG` se o time Vercel for diferente do default `gabriels-projects-f5aa3b24` (Sprint 87 — regex dinâmica)
+6. Deploy. Primeira build leva ~5min (npm ci + prisma migrate deploy + nest build)
+7. Health check em `/health` (shallow — Render polling) + `/health/deep` (DB+Redis, rate limit 10/min) — Sprint 87
+8. Copiar URL pública (ex `https://cesta-api.onrender.com`)
 
 > **Cold start free tier:** após 15min idle, próxima request leva ~30s. Plano pago (US$ 7/mês) remove spin-down.
 
@@ -158,7 +159,10 @@ Stack free-tier: **Neon** (Postgres) + **Upstash** (Redis) + **Render** (API Nes
 
 ```bash
 curl https://cesta-api.onrender.com/health
-# -> { "status": "ok", "checks": { "db": {...}, "redis": {...} } }
+# -> { "status": "ok", "uptime": ..., "timestamp": "..." }  (shallow liveness)
+
+curl https://cesta-api.onrender.com/health/deep
+# -> { "status": "ok", "checks": { "db": {...}, "redis": {...} } }  (deep, 10/min)
 ```
 
 Portal no navegador: Vercel URL → login → navegar. Primeira request pode levar ~30s (cold start Render). Subsequentes instantâneas.

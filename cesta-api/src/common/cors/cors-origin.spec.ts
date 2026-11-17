@@ -1,9 +1,34 @@
 import {
+  buildVercelPreviewRegex,
   isAllowedOrigin,
   isRejectedPreflight,
   parseCorsWhitelist,
   VERCEL_PREVIEW_REGEX,
 } from './cors-origin';
+
+describe('buildVercelPreviewRegex', () => {
+  it('builds regex for the provided team slug', () => {
+    const regex = buildVercelPreviewRegex('acme-team-1234');
+    expect(regex.test('https://cesta-web-git-main-acme-team-1234.vercel.app')).toBe(true);
+    expect(regex.test('https://cesta-web-git-main-other-team.vercel.app')).toBe(false);
+  });
+
+  it('falls back to default slug on empty input', () => {
+    const regex = buildVercelPreviewRegex('');
+    expect(
+      regex.test(
+        'https://cesta-web-git-main-gabriels-projects-f5aa3b24.vercel.app',
+      ),
+    ).toBe(true);
+  });
+
+  it('escapes regex meta chars in slug', () => {
+    const regex = buildVercelPreviewRegex('team.with+meta');
+    expect(regex.test('https://cesta-web-git-x-team.with+meta.vercel.app')).toBe(true);
+    // confirma literalidade: `.` no slug não casa com outro char.
+    expect(regex.test('https://cesta-web-git-x-teamXwithYmeta.vercel.app')).toBe(false);
+  });
+});
 
 describe('isAllowedOrigin', () => {
   const whitelist = [
@@ -19,7 +44,7 @@ describe('isAllowedOrigin', () => {
     expect(isAllowedOrigin('http://localhost:3000', whitelist)).toBe(true);
   });
 
-  it('allows Vercel preview URLs for the Cesta project', () => {
+  it('allows Vercel preview URLs for the Cesta project (default slug)', () => {
     expect(
       isAllowedOrigin(
         'https://cesta-web-git-feat-sprint-73-gabriels-projects-f5aa3b24.vercel.app',
@@ -32,6 +57,20 @@ describe('isAllowedOrigin', () => {
         whitelist,
       ),
     ).toBe(true);
+  });
+
+  it('allows Vercel preview URLs for a custom team slug', () => {
+    const regex = buildVercelPreviewRegex('acme');
+    expect(
+      isAllowedOrigin('https://cesta-web-git-x-acme.vercel.app', whitelist, regex),
+    ).toBe(true);
+    expect(
+      isAllowedOrigin(
+        'https://cesta-web-git-x-gabriels-projects-f5aa3b24.vercel.app',
+        whitelist,
+        regex,
+      ),
+    ).toBe(false);
   });
 
   it('rejects unknown origins', () => {
@@ -51,7 +90,7 @@ describe('isAllowedOrigin', () => {
     expect(isAllowedOrigin(undefined, whitelist)).toBe(true);
   });
 
-  it('regex only matches the exact preview shape', () => {
+  it('default regex only matches the exact preview shape', () => {
     expect(
       VERCEL_PREVIEW_REGEX.test(
         'https://cesta-web-git-abc-gabriels-projects-f5aa3b24.vercel.app',
@@ -85,12 +124,24 @@ describe('isRejectedPreflight', () => {
     ).toBe(false);
   });
 
-  it('allows OPTIONS from Vercel preview', () => {
+  it('allows OPTIONS from Vercel preview (default slug)', () => {
     expect(
       isRejectedPreflight(
         'OPTIONS',
         'https://cesta-web-git-feat-sprint-82-gabriels-projects-f5aa3b24.vercel.app',
         whitelist,
+      ),
+    ).toBe(false);
+  });
+
+  it('allows OPTIONS from custom team slug preview', () => {
+    const regex = buildVercelPreviewRegex('acme');
+    expect(
+      isRejectedPreflight(
+        'OPTIONS',
+        'https://cesta-web-git-x-acme.vercel.app',
+        whitelist,
+        regex,
       ),
     ).toBe(false);
   });

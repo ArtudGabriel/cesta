@@ -10,6 +10,7 @@ import helmet from 'helmet';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import {
+  buildVercelPreviewRegex,
   isAllowedOrigin,
   isRejectedPreflight,
   parseCorsWhitelist,
@@ -30,10 +31,15 @@ async function bootstrap(): Promise<void> {
   app.use(compression());
   app.use(cookieParser());
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
-  app.setGlobalPrefix('api/v1', { exclude: ['uploads/(.*)', 'health'] });
+  app.setGlobalPrefix('api/v1', {
+    exclude: ['uploads/(.*)', 'health', 'health/deep'],
+  });
   app.enableShutdownHooks();
   const corsWhitelist = parseCorsWhitelist(
     config.get<string>('CORS_ORIGIN', 'http://localhost:3000'),
+  );
+  const vercelPreviewRegex = buildVercelPreviewRegex(
+    config.get<string>('VERCEL_TEAM_SLUG', ''),
   );
   // Sprint 82: QA Sprint 80 viu OPTIONS → 404 pra origem fora do whitelist.
   // Pacote `cors` em callback(null,false) suprime ACAO e chama next(); Nest
@@ -46,6 +52,7 @@ async function bootstrap(): Promise<void> {
         req.method,
         typeof origin === 'string' ? origin : undefined,
         corsWhitelist,
+        vercelPreviewRegex,
       )
     ) {
       res.setHeader('Vary', 'Origin');
@@ -56,7 +63,7 @@ async function bootstrap(): Promise<void> {
   });
   app.enableCors({
     origin: (origin, callback) => {
-      callback(null, isAllowedOrigin(origin, corsWhitelist));
+      callback(null, isAllowedOrigin(origin, corsWhitelist, vercelPreviewRegex));
     },
     credentials: true,
     optionsSuccessStatus: 204,
