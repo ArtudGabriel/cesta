@@ -153,7 +153,8 @@
       "produto": "Produto"
     },
     "og": {
-      "description": "Compare preços de Mercadona, Carrefour, Alcampo, LIDL e Froiz em Madri. Controle gastos, crie alertas e coma melhor."
+      "description": "Compare preços de Mercadona, Carrefour, Alcampo, LIDL e Froiz em Madri. Controle gastos, crie alertas e coma melhor.",
+      "productDescription": "Compare o preço de {name} em Mercadona, Carrefour, Alcampo, DIA, LIDL e Froiz. Comunidade de Madri."
     }
   },
   "nav": {
@@ -226,7 +227,8 @@
     "selectedCount": "{count}/{max} selecionados",
     "emptyTitle": "Você ainda não tem favoritos",
     "emptyBody": "Toque em ♥ em qualquer produto para guardá-lo aqui e comparar preços depois.",
-    "emptyCta": "Explorar produtos"
+    "emptyCta": "Explorar produtos",
+    "confirmRemove": "Remover esse produto dos seus favoritos?"
   },
   "myList": {
     "title": "Minha Lista",

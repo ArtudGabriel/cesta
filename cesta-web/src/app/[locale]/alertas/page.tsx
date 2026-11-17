@@ -11,9 +11,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   useAlerts,
   useDeleteAlert,
@@ -124,6 +125,7 @@ function AlertCard({ alert }: { alert: Alert }) {
   const toggle = useToggleAlert();
   const remove = useDeleteAlert();
   const t = useTranslations("alerts");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const label = describeType(alert, t);
 
@@ -176,13 +178,25 @@ function AlertCard({ alert }: { alert: Alert }) {
             size="icon"
             variant="ghost"
             aria-label={t("actionDelete")}
-            onClick={() => remove.mutate(alert.id)}
+            onClick={() => setShowDeleteConfirm(true)}
             disabled={remove.isPending}
           >
             <Trash2 className="h-4 w-4 text-coral" />
           </Button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          setShowDeleteConfirm(false);
+          remove.mutate(alert.id);
+        }}
+        title={t("confirmDelete")}
+        destructive
+        isPending={remove.isPending}
+      />
     </div>
   );
 }

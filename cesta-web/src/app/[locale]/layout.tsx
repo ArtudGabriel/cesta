@@ -35,7 +35,7 @@ export async function generateMetadata({
   const t = await getTranslations({ locale, namespace: "meta.title" });
   const tOg = await getTranslations({ locale, namespace: "meta.og" });
   const baseUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://cesta.vercel.app";
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://cesta-web.vercel.app";
   const defaultTitle = `${t("home")} · Cesta`;
   const description = tOg("description");
   const ogImage = {
