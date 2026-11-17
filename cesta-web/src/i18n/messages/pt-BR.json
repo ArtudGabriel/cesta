@@ -687,5 +687,25 @@
         }
       }
     }
+  },
+  "admin": {
+    "title": "Administração",
+    "subtitle": "{total, plural, =0 {Sem contas em período de graça} =1 {# conta em período de graça} other {# contas em período de graça}}",
+    "empty": "Não há contas excluídas pendentes.",
+    "card": {
+      "deletedAt": "Excluído",
+      "graceEndsAt": "Expira",
+      "cancelDelete": "Cancelar exclusão"
+    },
+    "confirm": {
+      "title": "Cancelar a exclusão?",
+      "body": "A conta {email} será reativada.",
+      "confirmLabel": "Reativar"
+    },
+    "toast": {
+      "reactivated": "Conta reativada.",
+      "alreadyActive": "A conta já estava ativa.",
+      "error": "Não foi possível cancelar a exclusão."
+    }
   }
 }

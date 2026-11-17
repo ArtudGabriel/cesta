@@ -687,5 +687,25 @@
         }
       }
     }
+  },
+  "admin": {
+    "title": "Administración",
+    "subtitle": "{total, plural, =0 {Sin cuentas en periodo de gracia} =1 {# cuenta en periodo de gracia} other {# cuentas en periodo de gracia}}",
+    "empty": "No hay cuentas eliminadas pendientes.",
+    "card": {
+      "deletedAt": "Eliminado",
+      "graceEndsAt": "Vence",
+      "cancelDelete": "Cancelar eliminación"
+    },
+    "confirm": {
+      "title": "¿Cancelar la eliminación?",
+      "body": "Se reactivará la cuenta {email}.",
+      "confirmLabel": "Reactivar"
+    },
+    "toast": {
+      "reactivated": "Cuenta reactivada.",
+      "alreadyActive": "La cuenta ya estaba activa.",
+      "error": "No se pudo cancelar la eliminación."
+    }
   }
 }
