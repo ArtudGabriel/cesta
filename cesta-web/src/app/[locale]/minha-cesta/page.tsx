@@ -214,9 +214,11 @@ function BasketItemRow({
   const [replaceOpen, setReplaceOpen] = useState(false);
 
   async function handleReplace(newProductId: string) {
+    // Add first, remove depois — se add falha, item antigo fica intacto;
+    // se remove falha pós-add, user vê duplicata (melhor que perder item).
     const qty = item.quantity;
-    await removeItem.mutateAsync(item.id);
     await addItem.mutateAsync({ productId: newProductId, quantity: qty });
+    await removeItem.mutateAsync(item.id);
   }
 
   return (
