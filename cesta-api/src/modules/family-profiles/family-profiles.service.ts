@@ -59,6 +59,10 @@ export class FamilyProfilesService {
       restrictions: dto.restrictions ?? [],
       blockedCategories: dto.blockedCategories ?? [],
       requiredProductIds: dto.requiredProductIds ?? [],
+      monthlyBudget:
+        dto.monthlyBudget != null
+          ? new Prisma.Decimal(dto.monthlyBudget)
+          : null,
     });
     // Sprint 65 bidirectional sync: restrictions do wizard → user.prefers*.
     // Mirror exato dos 4 dietary strings conhecidos (restrições extra do

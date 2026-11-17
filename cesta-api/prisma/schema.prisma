@@ -381,6 +381,7 @@ model FamilyProfile {
   restrictions       String[] @default([])
   blockedCategories  String[] @default([]) @map("blocked_categories")
   requiredProductIds String[] @default([]) @map("required_product_ids")
+  monthlyBudget      Decimal? @db.Decimal(10, 2) @map("monthly_budget")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 

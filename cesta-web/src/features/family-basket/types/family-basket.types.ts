@@ -27,8 +27,18 @@ export interface FamilyProfile {
   restrictions: string[];
   blockedCategories: string[];
   requiredProductIds: string[];
+  monthlyBudget: number | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface UpsertFamilyProfilePayload {
+  members: FamilyMembers;
+  answers: Record<string, boolean | string>;
+  restrictions?: string[];
+  blockedCategories?: string[];
+  requiredProductIds?: string[];
+  monthlyBudget?: number | null;
 }
 
 export interface BasketItem {

@@ -1,0 +1,432 @@
+openapi: 3.0.3
+info:
+  title: Cesta Familiar API
+  description: >
+    Endpoints de perfil familiar (wizard dietético) e cesta gerada
+    heuristicamente a partir de membros, restrições e preferências.
+    Sprint 98 — SDD-lite spec.
+  version: "1.0.0"
+servers:
+  - url: https://api.cesta.app
+    description: Production
+  - url: http://localhost:3000
+    description: Local dev
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Family Profiles
+    description: Perfil familiar + questionário dietético
+  - name: Family Baskets
+    description: Cesta gerada + items + regeneração
+
+paths:
+  /family-profiles/questions:
+    get:
+      tags: [Family Profiles]
+      operationId: listDietaryQuestions
+      summary: Perguntas do questionário dietético (PT + ES)
+      security: []
+      responses:
+        "200":
+          description: Lista de perguntas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DietaryQuestion"
+
+  /family-profiles/me:
+    get:
+      tags: [Family Profiles]
+      operationId: getMyFamilyProfile
+      summary: Meu perfil familiar
+      responses:
+        "200":
+          description: Perfil ou null se nunca configurado
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/FamilyProfile"
+                  - type: "null"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      tags: [Family Profiles]
+      operationId: upsertMyFamilyProfile
+      summary: Cria ou atualiza meu perfil familiar
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertFamilyProfile"
+      responses:
+        "200":
+          description: Perfil salvo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyProfile"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /family-profiles/sync-dietary:
+    post:
+      tags: [Family Profiles]
+      operationId: syncDietaryFromUser
+      summary: Aplica prefs dietéticas do User → FamilyProfile.restrictions (merge union)
+      responses:
+        "200":
+          description: Perfil atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyProfile"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404":
+          description: Sem FamilyProfile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /family-baskets/generate:
+    post:
+      tags: [Family Baskets]
+      operationId: generateFamilyBasket
+      summary: Enfileira geração assíncrona de cesta (rate-limit 1/24h)
+      responses:
+        "202":
+          description: Job aceito
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BasketJobAccepted"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404":
+          description: Sem FamilyProfile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /family-baskets/{basketId}/regenerate:
+    post:
+      tags: [Family Baskets]
+      operationId: regenerateFamilyBasket
+      summary: Regenera cesta preservando items locked + required (rate-limit 1/24h)
+      parameters:
+        - $ref: "#/components/parameters/BasketId"
+      responses:
+        "202":
+          description: Job aceito
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BasketJobAccepted"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /family-baskets/latest:
+    get:
+      tags: [Family Baskets]
+      operationId: getLatestFamilyBasket
+      summary: Cesta mais recente do usuário (pending | ready | failed)
+      responses:
+        "200":
+          description: Cesta ou null
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/FamilyBasket"
+                  - type: "null"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /family-baskets/{basketId}:
+    get:
+      tags: [Family Baskets]
+      operationId: getFamilyBasket
+      summary: Detalhe da cesta
+      parameters:
+        - $ref: "#/components/parameters/BasketId"
+      responses:
+        "200":
+          description: Cesta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyBasket"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /family-baskets/{basketId}/items:
+    post:
+      tags: [Family Baskets]
+      operationId: addFamilyBasketItem
+      summary: Adiciona ou atualiza item na cesta
+      parameters:
+        - $ref: "#/components/parameters/BasketId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddBasketItem"
+      responses:
+        "200":
+          description: Cesta atualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyBasket"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /family-baskets/{basketId}/items/{itemId}:
+    patch:
+      tags: [Family Baskets]
+      operationId: updateFamilyBasketItem
+      summary: Lock/unlock/update quantidade de item
+      parameters:
+        - $ref: "#/components/parameters/BasketId"
+        - $ref: "#/components/parameters/ItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBasketItem"
+      responses:
+        "200":
+          description: Cesta atualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyBasket"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [Family Baskets]
+      operationId: removeFamilyBasketItem
+      summary: Remove item da cesta
+      parameters:
+        - $ref: "#/components/parameters/BasketId"
+        - $ref: "#/components/parameters/ItemId"
+      responses:
+        "200":
+          description: Cesta atualizada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FamilyBasket"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    BasketId:
+      name: basketId
+      in: path
+      required: true
+      schema: { type: string, minLength: 1 }
+    ItemId:
+      name: itemId
+      in: path
+      required: true
+      schema: { type: string, minLength: 1 }
+
+  responses:
+    BadRequest:
+      description: Validação falhou
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Sem token ou token inválido
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Recurso não encontrado
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    TooManyRequests:
+      description: Rate limit 1/24h excedido
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      required: [errorCode, message, statusCode]
+      properties:
+        errorCode: { type: string, example: "FAMILY_PROFILE.NOT_FOUND" }
+        message: { type: string }
+        statusCode: { type: integer, example: 404 }
+
+    FamilyMembers:
+      type: object
+      properties:
+        babies:   { type: integer, minimum: 0 }
+        kids:     { type: integer, minimum: 0 }
+        children: { type: integer, minimum: 0 }
+        teens:    { type: integer, minimum: 0 }
+        adults:   { type: integer, minimum: 0 }
+        seniors:  { type: integer, minimum: 0 }
+      additionalProperties: false
+
+    DietaryAnswers:
+      type: object
+      description: Respostas booleanas ou string curta por questionId
+      additionalProperties:
+        oneOf:
+          - type: boolean
+          - type: string
+
+    DietaryQuestion:
+      type: object
+      required: [id, questionEs, questionPt, type]
+      properties:
+        id:         { type: string }
+        questionEs: { type: string }
+        questionPt: { type: string }
+        type:       { type: string, enum: [boolean, choice] }
+        options:
+          type: array
+          items: { type: string }
+          nullable: true
+
+    UpsertFamilyProfile:
+      type: object
+      required: [members, answers]
+      properties:
+        members: { $ref: "#/components/schemas/FamilyMembers" }
+        answers: { $ref: "#/components/schemas/DietaryAnswers" }
+        restrictions:
+          type: array
+          items: { type: string }
+        blockedCategories:
+          type: array
+          items: { type: string }
+        requiredProductIds:
+          type: array
+          items: { type: string }
+        monthlyBudget:
+          type: number
+          format: float
+          minimum: 0
+          description: Orçamento mensal estimado em EUR (opcional, usado pelo generator)
+
+    FamilyProfile:
+      type: object
+      required:
+        [id, userId, members, answers, restrictions, blockedCategories,
+         requiredProductIds, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        members: { $ref: "#/components/schemas/FamilyMembers" }
+        answers: { $ref: "#/components/schemas/DietaryAnswers" }
+        restrictions:
+          type: array
+          items: { type: string }
+        blockedCategories:
+          type: array
+          items: { type: string }
+        requiredProductIds:
+          type: array
+          items: { type: string }
+        monthlyBudget:
+          type: number
+          nullable: true
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    BasketJobAccepted:
+      type: object
+      required: [jobId, status, basketId]
+      properties:
+        jobId:    { type: string }
+        status:   { type: string, enum: [queued] }
+        basketId: { type: string }
+
+    AddBasketItem:
+      type: object
+      required: [productId]
+      properties:
+        productId: { type: string, minLength: 1 }
+        quantity:
+          type: number
+          minimum: 0.001
+          default: 1
+
+    UpdateBasketItem:
+      type: object
+      properties:
+        quantity:
+          type: number
+          minimum: 0.001
+        isRequired: { type: boolean }
+        isLocked:   { type: boolean }
+
+    FamilyBasketItem:
+      type: object
+      required:
+        [id, productId, quantity, unitPrice, subtotal,
+         isRequired, isLocked, position, product]
+      properties:
+        id:         { type: string }
+        productId:  { type: string }
+        quantity:   { type: number }
+        unitPrice:  { type: number }
+        subtotal:   { type: number }
+        isRequired: { type: boolean }
+        isLocked:   { type: boolean }
+        position:   { type: integer }
+        product:    { $ref: "#/components/schemas/Product" }
+
+    Product:
+      type: object
+      required: [id, nameEs, slug]
+      properties:
+        id:     { type: string }
+        slug:   { type: string }
+        nameEs: { type: string }
+        namePt: { type: string, nullable: true }
+        imageUrl: { type: string, nullable: true }
+        categoryId: { type: string, nullable: true }
+
+    FamilyBasket:
+      type: object
+      required:
+        [id, status, estimatedCost, generatedAt, updatedAt, items]
+      properties:
+        id: { type: string }
+        status:
+          type: string
+          enum: [pending, ready, failed]
+        errorMessage:
+          type: string
+          nullable: true
+        estimatedCost: { type: number, minimum: 0 }
+        generatedAt:   { type: string, format: date-time }
+        updatedAt:     { type: string, format: date-time }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/FamilyBasketItem" }

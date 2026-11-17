@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsInt,
+  IsNumber,
   IsObject,
   IsOptional,
   IsString,
@@ -79,6 +80,13 @@ export class UpsertFamilyProfileDto {
   @IsArray()
   @IsString({ each: true })
   requiredProductIds?: string[];
+
+  @ApiPropertyOptional({ minimum: 0, description: 'Orçamento mensal estimado em EUR' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  monthlyBudget?: number;
 }
 
 export class FamilyProfileResponseDto {
@@ -88,6 +96,7 @@ export class FamilyProfileResponseDto {
   @ApiProperty({ type: [String] }) restrictions: string[];
   @ApiProperty({ type: [String] }) blockedCategories: string[];
   @ApiProperty({ type: [String] }) requiredProductIds: string[];
+  @ApiPropertyOptional({ nullable: true }) monthlyBudget: number | null;
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
 
@@ -99,6 +108,8 @@ export class FamilyProfileResponseDto {
     dto.restrictions = profile.restrictions;
     dto.blockedCategories = profile.blockedCategories;
     dto.requiredProductIds = profile.requiredProductIds;
+    dto.monthlyBudget =
+      profile.monthlyBudget == null ? null : Number(profile.monthlyBudget);
     dto.createdAt = profile.createdAt;
     dto.updatedAt = profile.updatedAt;
     return dto;
