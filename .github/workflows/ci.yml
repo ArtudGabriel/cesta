@@ -100,9 +100,42 @@ jobs:
           cache: 'npm'
           cache-dependency-path: cesta-web/package-lock.json
       - run: npm ci
-      # Sprint 79: npm audit high gate — prod deps only (--omit=dev shrinks blast radius).
-      - name: npm audit (prod deps, high+)
-        run: npm audit --omit=dev --audit-level=high
+      # Sprint 79: npm audit gate — prod deps only (--omit=dev shrinks blast radius).
+      # Sprint 94 follow-up: picomatch ReDoS (GHSA-fc5q-39xc-vjpf) atinge
+      # <=4.0.7, sem patch upstream. Impacto é build-time apenas (transitivo
+      # de @sentry/nextjs → @rollup/plugin-commonjs), não runtime. Filtra só
+      # essa advisory; outros high+ continuam bloqueando.
+      - name: npm audit (prod deps, high+ excluding picomatch build-time)
+        run: |
+          set +e
+          out=$(npm audit --omit=dev --audit-level=high --json)
+          set -e
+          echo "$out" | node -e "
+            let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{
+              const j=JSON.parse(d);
+              const vulns=j.vulnerabilities||{};
+              const allowCve=new Set([1247710]); // GHSA-fc5q-39xc-vjpf picomatch
+              const allowedPkg=new Set();
+              // Fixpoint: pkg is allowed if every via entry is allowlisted CVE or references allowed pkg.
+              for(let iter=0;iter<10;iter++){
+                let changed=false;
+                for(const [name,v] of Object.entries(vulns)){
+                  if(allowedPkg.has(name))continue;
+                  const via=v.via||[];
+                  if(via.length===0)continue;
+                  const ok=via.every(x=>typeof x==='object'?allowCve.has(x.source):allowedPkg.has(x));
+                  if(ok){allowedPkg.add(name);changed=true;}
+                }
+                if(!changed)break;
+              }
+              let fail=0;
+              for(const [name,v] of Object.entries(vulns)){
+                if(!['high','critical'].includes(v.severity))continue;
+                if(allowedPkg.has(name)){console.log('IGNORED (allowlisted):',name);continue;}
+                fail++;console.error('UNALLOWED HIGH+:',name,'via',(v.via||[]).map(x=>x.source||x));
+              }
+              process.exit(fail>0?1:0);
+            });"
       - run: npm run lint --if-present
         continue-on-error: true
       - run: npm run test:coverage
