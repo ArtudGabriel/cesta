@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, HttpStatus, Injectable } from '@nestjs/common';
+import { AppException } from '../../common/exceptions/app-exception';
 import { ProductFiltersDto } from './dtos/product-filters.dto';
 import { ProductResponseDto } from './dtos/product-response.dto';
 import { SuggestResponseDto, SuggestionDto } from './dtos/suggest-query.dto';
@@ -25,7 +26,13 @@ export class ProductsService {
 
   async findById(id: string): Promise<ProductResponseDto> {
     const product = await this.repo.findById(id);
-    if (!product) throw new NotFoundException(`Produto "${id}" não encontrado`);
+    if (!product) {
+      throw new AppException(
+        'PRODUCTS.NOT_FOUND',
+        `Produto "${id}" não encontrado`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
     return ProductResponseDto.fromEntity(product);
   }
 

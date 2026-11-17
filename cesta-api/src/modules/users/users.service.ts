@@ -4,7 +4,6 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  NotFoundException,
 } from '@nestjs/common';
 import { Prisma, User } from '@prisma/client';
 import { Queue } from 'bullmq';
@@ -49,7 +48,13 @@ export class UsersService {
 
   async findById(id: string): Promise<User> {
     const user = await this.usersRepository.findById(id);
-    if (!user) throw new NotFoundException(`User "${id}" not found`);
+    if (!user) {
+      throw new AppException(
+        'USERS.NOT_FOUND',
+        `User "${id}" not found`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
     return user;
   }
 
@@ -175,7 +180,11 @@ export class UsersService {
   async exportMyData(userId: string): Promise<Record<string, unknown>> {
     const row = await this.usersRepository.exportUserData(userId);
     if (!row) {
-      throw new NotFoundException(`User "${userId}" not found`);
+      throw new AppException(
+        'USERS.NOT_FOUND',
+        `User "${userId}" not found`,
+        HttpStatus.NOT_FOUND,
+      );
     }
     const {
       passwordHash: _passwordHash,
