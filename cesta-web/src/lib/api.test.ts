@@ -1,10 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import {
   AxiosError,
   AxiosHeaders,
   type InternalAxiosRequestConfig,
 } from "axios";
-import { shouldRetryOnNetworkError } from "./api";
+import { refreshAccessToken, shouldRetryOnNetworkError } from "./api";
 
 function makeConfig(
   partial: Partial<InternalAxiosRequestConfig> & { _networkRetried?: boolean },
@@ -119,5 +119,64 @@ describe("shouldRetryOnNetworkError", () => {
     expect(
       shouldRetryOnNetworkError(makeError({ code: "ECONNABORTED" }), undefined),
     ).toBe(false);
+  });
+});
+
+describe("refreshAccessToken (Sprint 87 singleflight)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("N chamadas paralelas resultam em 1 fetch", async () => {
+    const fetchSpy = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ data: { tokens: { accessToken: "new-access" } } }),
+    }));
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const [a, b, c] = await Promise.all([
+      refreshAccessToken(),
+      refreshAccessToken(),
+      refreshAccessToken(),
+    ]);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(a).toBe("new-access");
+    expect(b).toBe("new-access");
+    expect(c).toBe("new-access");
+  });
+
+  it("falha compartilhada: todas chamadas recebem null quando refresh 401", async () => {
+    const fetchSpy = vi.fn(async () => ({
+      ok: false,
+      json: async () => ({}),
+    }));
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const results = await Promise.all([
+      refreshAccessToken(),
+      refreshAccessToken(),
+    ]);
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(results).toEqual([null, null]);
+  });
+
+  it("promise é liberada após conclusão: segundo ciclo dispara novo fetch", async () => {
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: { tokens: { accessToken: "t1" } } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: { tokens: { accessToken: "t2" } } }),
+      });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    expect(await refreshAccessToken()).toBe("t1");
+    expect(await refreshAccessToken()).toBe("t2");
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 });

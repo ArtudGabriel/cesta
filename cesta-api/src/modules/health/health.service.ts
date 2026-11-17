@@ -19,6 +19,12 @@ export interface HealthReport {
   };
 }
 
+export interface ShallowReport {
+  status: 'ok';
+  uptime: number;
+  timestamp: string;
+}
+
 const CHECK_TIMEOUT_MS = 1000;
 
 @Injectable()
@@ -75,6 +81,17 @@ export class HealthService implements OnModuleDestroy {
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
       checks: { db, redis },
+    };
+  }
+
+  // Sprint 87: shallow liveness — sem I/O, só confirma process up. Render
+  // keep-alive cron + healthCheckPath apontam aqui; readiness real fica no
+  // /health/deep (rate-limited).
+  shallow(): ShallowReport {
+    return {
+      status: 'ok',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
     };
   }
 }

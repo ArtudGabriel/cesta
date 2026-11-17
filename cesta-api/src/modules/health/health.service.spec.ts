@@ -60,3 +60,37 @@ describe('HealthService.report', () => {
     expect(report.checks.db.status).toBe('ok');
   });
 });
+
+describe('HealthService.shallow (Sprint 87)', () => {
+  let service: HealthService;
+  let repoMock: { pingDb: jest.Mock };
+  let redisMock: { ping: jest.Mock; quit: jest.Mock; on: jest.Mock };
+
+  beforeEach(async () => {
+    repoMock = { pingDb: jest.fn() };
+    redisMock = {
+      ping: jest.fn(),
+      quit: jest.fn().mockResolvedValue(undefined),
+      on: jest.fn(),
+    };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        HealthService,
+        { provide: HealthRepository, useValue: repoMock },
+        { provide: REDIS_HEALTH_CLIENT, useValue: redisMock },
+      ],
+    }).compile();
+
+    service = module.get(HealthService);
+  });
+
+  it('retorna ok sem tocar em DB nem Redis', () => {
+    const report = service.shallow();
+    expect(report.status).toBe('ok');
+    expect(typeof report.uptime).toBe('number');
+    expect(typeof report.timestamp).toBe('string');
+    expect(repoMock.pingDb).not.toHaveBeenCalled();
+    expect(redisMock.ping).not.toHaveBeenCalled();
+  });
+});

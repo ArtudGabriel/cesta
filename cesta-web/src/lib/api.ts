@@ -97,15 +97,14 @@ export function shouldRetryOnNetworkError(
   );
 }
 
-let isRefreshing = false;
-let pendingQueue: Array<(token: string | null) => void> = [];
+// Sprint 87: singleflight via Promise compartilhada. N requests paralelas
+// pegam o mesmo `refreshPromise` em vôo → 1 único POST /auth/refresh. Resolve
+// race condition entre o check `isRefreshing` + a atribuição (flag padrão
+// permite dupla entrada em runtimes com microtasks interleaved). Promise é
+// atômica por semântica de JS.
+let refreshPromise: Promise<string | null> | null = null;
 
-function flushQueue(token: string | null) {
-  pendingQueue.forEach((cb) => cb(token));
-  pendingQueue = [];
-}
-
-async function refreshAccessToken(): Promise<string | null> {
+async function performRefresh(): Promise<string | null> {
   try {
     // Chamada crua (sem axios interceptor pra evitar loop infinito em 401).
     const res = await fetch(`${api.defaults.baseURL ?? ""}/auth/refresh`, {
@@ -124,6 +123,15 @@ async function refreshAccessToken(): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/** @internal exportado pra teste unitário. */
+export function refreshAccessToken(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = performRefresh().finally(() => {
+    refreshPromise = null;
+  });
+  return refreshPromise;
 }
 
 api.interceptors.response.use(
@@ -172,41 +180,19 @@ api.interceptors.response.use(
       !(original.url?.includes("/auth/register") ?? false);
 
     if (canRetry) {
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          pendingQueue.push((token) => {
-            if (!token) {
-              reject(buildApiError(error));
-              return;
-            }
-            original._retried = true;
-            original.headers = {
-              ...original.headers,
-              Authorization: `Bearer ${token}`,
-            };
-            resolve(api.request(original));
-          });
-        });
+      // Singleflight: todas as 401 paralelas aguardam o mesmo refresh in-flight.
+      // Falha única = todas falham; sucesso único = todas retomam com novo token.
+      const newToken = await refreshAccessToken();
+      if (!newToken) {
+        setAccessToken(null);
+        return Promise.reject(buildApiError(error));
       }
-
-      isRefreshing = true;
-      try {
-        const newToken = await refreshAccessToken();
-        if (!newToken) {
-          flushQueue(null);
-          setAccessToken(null);
-          return Promise.reject(buildApiError(error));
-        }
-        flushQueue(newToken);
-        original._retried = true;
-        original.headers = {
-          ...original.headers,
-          Authorization: `Bearer ${newToken}`,
-        };
-        return api.request(original);
-      } finally {
-        isRefreshing = false;
-      }
+      original._retried = true;
+      original.headers = {
+        ...original.headers,
+        Authorization: `Bearer ${newToken}`,
+      };
+      return api.request(original);
     }
 
     return Promise.reject(buildApiError(error));

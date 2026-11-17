@@ -65,6 +65,11 @@ export class EnvironmentVariables {
 
   @IsString()
   EMAIL_VERIFY_BASE_URL: string = 'http://localhost:3000';
+
+  // Sprint 87: team slug Vercel usado pra montar regex de preview URL (CORS).
+  // Default mantém compat; mudar só se o time no Vercel for renomeado.
+  @IsString()
+  VERCEL_TEAM_SLUG: string = 'gabriels-projects-f5aa3b24';
 }
 
 export function validateEnv(raw: Record<string, unknown>) {
