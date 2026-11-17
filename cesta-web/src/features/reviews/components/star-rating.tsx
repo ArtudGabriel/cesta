@@ -1,6 +1,7 @@
 "use client";
 
 import { Star } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 interface StarRatingProps {
@@ -22,8 +23,9 @@ export function StarRating({
 }: StarRatingProps) {
   const isInteractive = Boolean(onChange) && !readOnly;
   const stars = [1, 2, 3, 4, 5];
+  const tAria = useTranslations("common.aria");
   return (
-    <div className={cn("inline-flex items-center gap-1", className)} role={isInteractive ? "radiogroup" : "img"} aria-label={`Rating ${value} of 5`}>
+    <div className={cn("inline-flex items-center gap-1", className)} role={isInteractive ? "radiogroup" : "img"} aria-label={tAria("rating", { value })}>
       {stars.map((n) => {
         const filled = n <= Math.round(value);
         const Icon = Star;
@@ -43,7 +45,7 @@ export function StarRating({
             key={n}
             type="button"
             onClick={() => onChange?.(n)}
-            aria-label={`${n} ${n === 1 ? "estrella" : "estrellas"}`}
+            aria-label={tAria("starCount", { count: n })}
             className="cursor-pointer rounded-btn p-1 hover:bg-surface"
           >
             <Icon

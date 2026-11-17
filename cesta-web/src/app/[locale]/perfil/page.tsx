@@ -62,6 +62,7 @@ export default function PerfilPage() {
   const update = useUpdateProfile();
   const logout = useLogout();
   const t = useTranslations("profile");
+  const tAria = useTranslations("common.aria");
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
 
@@ -165,7 +166,7 @@ export default function PerfilPage() {
                 <button
                   type="button"
                   onClick={startEditName}
-                  aria-label="Editar nombre"
+                  aria-label={tAria("editName")}
                   className="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted hover:bg-surface cursor-pointer"
                 >
                   <Pencil className="h-4 w-4" />

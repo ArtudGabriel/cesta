@@ -48,3 +48,9 @@ tmp/
 
 # Memory + local claude settings (per-dev)
 .claude/local/
+
+# Local orchestration / scratch (per-dev)
+.claude/
+.maestri/
+.neon
+nul
