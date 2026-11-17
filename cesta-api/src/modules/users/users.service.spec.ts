@@ -198,28 +198,76 @@ describe('UsersService.updateProfile', () => {
     );
   });
 
-  it('exportMyData retorna shape completo sem passwordHash (Sprint 63 GDPR Art. 20)', async () => {
+  it('exportMyData retorna ZIP válido com 6 CSVs + filename + sem passwordHash leakando (Sprint 91 GDPR Art. 20)', async () => {
     repoMock.exportUserData.mockResolvedValue({
-      ...fakeUser(),
-      favorites: [{ id: 'f1', productId: 'p1' }],
+      ...fakeUser({ email: 'maria@test.com' }),
+      favorites: [
+        { id: 'f1', productId: 'p1', createdAt: new Date('2026-05-01'), product: { id: 'p1', name: 'Aceite', brand: 'Marca' } },
+      ],
+      shoppingLists: [
+        {
+          id: 'l1', name: 'Semana', createdAt: new Date('2026-05-01'), updatedAt: new Date('2026-05-02'),
+          items: [
+            { productId: 'p1', product: { id: 'p1', name: 'Aceite' }, quantity: 2, position: 0 },
+          ],
+        },
+      ],
+      reviews: [
+        { id: 'rv1', productId: 'p1', product: { id: 'p1', name: 'Aceite' }, rating: 5, comment: 'Bueno, "muy" bueno', createdAt: new Date('2026-05-03') },
+      ],
+      alerts: [
+        { id: 'a1', productId: 'p1', product: { id: 'p1', name: 'Aceite' }, type: 'target_price', targetPrice: 3.99, isActive: true, createdAt: new Date('2026-05-04') },
+      ],
+      receipts: [
+        {
+          id: 'rc1', supermarketSlug: 'mercadona', purchaseDate: new Date('2026-05-05'), total: 42.5, status: 'ready', createdAt: new Date('2026-05-05'),
+          items: [
+            { normalizedName: 'Aceite', rawText: 'ACEITE OLIVA', quantity: 1, unitPrice: 3.99, total: 3.99 },
+          ],
+        },
+      ],
+      familyProfile: null,
+      familyBaskets: [],
+      searchHistory: [],
+    });
+
+    const result = await service.exportMyData('u1');
+
+    expect(repoMock.exportUserData).toHaveBeenCalledWith('u1');
+    expect(Buffer.isBuffer(result.zip)).toBe(true);
+    expect(result.zip.length).toBeGreaterThan(0);
+    expect(result.filename).toMatch(/^cesta-datos-u1-.*\.zip$/);
+    expect(result.files).toEqual(
+      expect.arrayContaining(['perfil.csv', 'favoritos.csv', 'listas.csv', 'alertas.csv', 'reviews.csv', 'expenses.csv']),
+    );
+    // passwordHash nunca pode aparecer no zip binário
+    expect(result.zip.toString('utf8')).not.toContain('hash-should-not-leak');
+  });
+
+  it('exportMyData CSVs têm UTF-8 BOM + dados escapados (Sprint 91)', async () => {
+    const JSZip = require('jszip');
+    repoMock.exportUserData.mockResolvedValue({
+      ...fakeUser({ email: 'test@test.com' }),
+      favorites: [],
       shoppingLists: [],
-      reviews: [],
+      reviews: [
+        { id: 'rv1', productId: 'p1', product: { id: 'p1', name: 'Aceite' }, rating: 5, comment: 'tiene, coma', createdAt: new Date('2026-05-03') },
+      ],
       alerts: [],
       receipts: [],
       familyProfile: null,
       familyBaskets: [],
-      searchHistory: [{ id: 'h1', query: 'aceite' }],
+      searchHistory: [],
     });
-    const result = await service.exportMyData('u1');
 
-    expect(repoMock.exportUserData).toHaveBeenCalledWith('u1');
-    expect(result).toHaveProperty('exportedAt');
-    expect(result.user).toBeDefined();
-    const user = result.user as Record<string, unknown>;
-    expect(user).not.toHaveProperty('passwordHash');
-    expect(user).not.toHaveProperty('deletedAt');
-    expect(user.favorites).toHaveLength(1);
-    expect(user.searchHistory).toHaveLength(1);
+    const { zip } = await service.exportMyData('u1');
+    const archive = await JSZip.loadAsync(zip);
+    const perfil = await archive.file('perfil.csv').async('string');
+    const reviews = await archive.file('reviews.csv').async('string');
+
+    expect(perfil.charCodeAt(0)).toBe(0xfeff); // BOM
+    expect(perfil).toContain('test@test.com');
+    expect(reviews).toContain('"tiene, coma"'); // CSV escape
   });
 
   it('exportMyData user inexistente → NotFoundException', async () => {
