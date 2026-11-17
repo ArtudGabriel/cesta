@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { fetchProductSSR } from "@/features/catalog/services/product.server";
+import { safeJsonLd } from "@/lib/json-ld";
 import { ProductDetailBody } from "./product-detail-body";
 
 const CUID_PATTERN = /^c[a-z0-9]{24,}$/;
@@ -54,7 +55,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(productJsonLd) }}
       />
       <ProductDetailBody product={product} />
     </>
