@@ -26,7 +26,7 @@ export class FamilyBasketsController {
 
   @Post('generate')
   @HttpCode(HttpStatus.ACCEPTED)
-  @Throttle({ familyBasket: { limit: 1, ttl: 86_400_000 } })
+  @Throttle({ default: { limit: 1, ttl: 86_400_000 } })
   @ApiOperation({ summary: 'Gera cesta familiar a partir do perfil (async) — 1/24h' })
   generate(@CurrentUser('id') userId: string) {
     return this.service.generate(userId);
@@ -34,7 +34,7 @@ export class FamilyBasketsController {
 
   @Post(':id/regenerate')
   @HttpCode(HttpStatus.ACCEPTED)
-  @Throttle({ familyBasket: { limit: 1, ttl: 86_400_000 } })
+  @Throttle({ default: { limit: 1, ttl: 86_400_000 } })
   @ApiOperation({
     summary:
       'Regenera cesta preservando items locked + required (async) — 1/24h',

@@ -39,7 +39,6 @@ import { UsersModule } from './modules/users/users.module';
       { name: 'default', ttl: 60_000, limit: 120 },
       { name: 'strict', ttl: 60_000, limit: 5 },
       { name: 'write', ttl: 60_000, limit: 30 },
-      { name: 'familyBasket', ttl: 86_400_000, limit: 1 },
     ]),
     BullModule.forRootAsync({
       imports: [ConfigModule],
