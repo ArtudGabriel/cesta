@@ -4,10 +4,13 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  Logger,
 } from '@nestjs/common';
 import { Prisma, User } from '@prisma/client';
 import { Queue } from 'bullmq';
+import * as Sentry from '@sentry/node';
 import { AppException } from '../../common/exceptions/app-exception';
+import { buildExportZip, ExportZip } from './users-export.util';
 import {
   DIETARY_KEYS,
   mergeRestrictions,
@@ -35,6 +38,8 @@ export interface CreateUserInput {
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private readonly usersRepository: UsersRepository,
     @InjectQueue(USER_CLEANUP_QUEUE)
@@ -186,10 +191,12 @@ export class UsersService {
   }
 
   /**
-   * Sprint 63 GDPR Art. 20: agrega todas as entidades per-user num payload
-   * de export. Nunca inclui passwordHash nem refreshTokens (privilegiados).
+   * Sprint 91 GDPR Art. 20: ZIP multi-CSV portability (perfil, favoritos,
+   * listas, alertas, reviews, expenses). UTF-8 BOM em cada CSV pra Excel.
+   * Nunca inclui passwordHash nem refreshTokens. Audit UserDataExported via
+   * Sentry breadcrumb + log estruturado.
    */
-  async exportMyData(userId: string): Promise<Record<string, unknown>> {
+  async exportMyData(userId: string): Promise<ExportZip> {
     const row = await this.usersRepository.exportUserData(userId);
     if (!row) {
       throw new AppException(
@@ -203,10 +210,20 @@ export class UsersService {
       deletedAt: _deletedAt,
       ...user
     } = row;
-    return {
-      exportedAt: new Date().toISOString(),
-      user,
-    };
+
+    const result = await buildExportZip(user as unknown as Record<string, unknown>);
+
+    Sentry.addBreadcrumb({
+      category: 'audit',
+      level: 'info',
+      message: 'UserDataExported',
+      data: { userId, bytes: result.zip.length, files: result.files.length },
+    });
+    this.logger.log(
+      `[audit] UserDataExported userId=${userId} bytes=${result.zip.length} files=${result.files.length}`,
+    );
+
+    return result;
   }
 
   /**

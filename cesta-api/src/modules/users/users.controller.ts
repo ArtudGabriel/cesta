@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Res,
+  StreamableFile,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
@@ -56,22 +57,23 @@ export class UsersController {
   }
 
   @Get('me/export')
-  @Throttle({ write: { limit: 30, ttl: 60_000 } })
+  @Throttle({ strict: { limit: 1, ttl: 3_600_000 } })
   @ApiOperation({
     summary:
-      'GDPR Art. 20 — baixa JSON com todos os dados pessoais do usuário autenticado (Sprint 63).',
+      'GDPR Art. 20 — baixa ZIP multi-CSV (perfil, favoritos, listas, alertas, reviews, expenses) do usuário autenticado. Rate limit 1/hora (Sprint 91).',
   })
   async exportMe(
     @CurrentUser('id') userId: string,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<Record<string, unknown>> {
-    const data = await this.users.exportMyData(userId);
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  ): Promise<StreamableFile> {
+    const { zip, filename } = await this.users.exportMyData(userId);
+    res.setHeader('Content-Type', 'application/zip');
     res.setHeader(
       'Content-Disposition',
-      `attachment; filename="cesta-datos-${userId}-${timestamp}.json"`,
+      `attachment; filename="${filename}"`,
     );
-    return data;
+    res.setHeader('Content-Length', String(zip.length));
+    return new StreamableFile(zip);
   }
 
   @Delete('me')

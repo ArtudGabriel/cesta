@@ -377,6 +377,19 @@
       "deleteConfirmButton": "Eliminar permanentemente",
       "deleteCancel": "Cancelar",
       "deleteSuccess": "Cuenta eliminada"
+    },
+    "export": {
+      "title": "Privacidad",
+      "description": "Descarga un archivo ZIP con tus datos personales (perfil, favoritos, listas, alertas, reseñas y gastos) en formato CSV. Portabilidad GDPR Art. 20.",
+      "button": "Exportar mis datos",
+      "loading": "Preparando…",
+      "confirmTitle": "¿Exportar tus datos?",
+      "confirmBody": "Generaremos un ZIP con todos tus datos personales en archivos CSV. Puedes solicitarlo una vez por hora.",
+      "confirmCta": "Exportar",
+      "confirmCancel": "Cancelar",
+      "success": "Datos exportados",
+      "errorRateLimit": "Solo puedes exportar una vez por hora. Intenta más tarde.",
+      "errorGeneric": "No pudimos preparar tu exportación. Intenta de nuevo."
     }
   },
   "toast": {
