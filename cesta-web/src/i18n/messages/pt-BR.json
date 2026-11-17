@@ -525,6 +525,18 @@
       "deltaVsPrevious": "{pct}% vs período anterior",
       "byCategory": "Por categoria",
       "bySupermarket": "Por supermercado"
+    },
+    "ocr": {
+      "scanCta": "Escanear nota",
+      "uploadCta": "Subir imagem",
+      "uploading": "Enviando imagem…",
+      "uploaded": "Nota enviada, processando OCR…",
+      "parsing": "Analisando nota…",
+      "parsed": "Nota pronta",
+      "parseFailed": "Não conseguimos ler a nota. Tente outra foto.",
+      "invalidFormat": "Só JPG ou PNG",
+      "maxSize": "Imagem máx {mb}MB",
+      "rateLimited": "Você enviou notas demais. Tente em 1 hora."
     }
   },
   "alerts": {

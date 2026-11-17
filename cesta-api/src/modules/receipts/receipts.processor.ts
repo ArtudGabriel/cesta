@@ -1,8 +1,10 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job, Queue } from 'bullmq';
+import sharp from 'sharp';
 import { createWorker } from 'tesseract.js';
 import { PrismaService } from '../../database/prisma.service';
+import { fuzzyMatchProduct } from './fuzzy-match';
 import { parseReceipt } from './receipt-parser';
 import { ReceiptsRepository } from './receipts.repository';
 import type { PriceCorrectionJob } from './price-correction.processor';
@@ -54,23 +56,36 @@ export class ReceiptsProcessor extends WorkerHost {
         ocrRawText: text,
       });
 
-      // Matching por normalizedName contra catálogo
+      // Matching: exato por normalizedName, fallback Levenshtein >= 0.7
       const items = await Promise.all(
         parsed.items.map(async (item) => {
-          const product = await this.prisma.product.findFirst({
+          let productId: string | null = null;
+
+          const exact = await this.prisma.product.findFirst({
             where: {
               normalizedName: item.normalizedName,
               deletedAt: null,
             },
             select: { id: true },
           });
+
+          if (exact) {
+            productId = exact.id;
+          } else {
+            const candidates = await this.prisma.product.findMany({
+              where: { deletedAt: null },
+              select: { id: true, normalizedName: true },
+            });
+            productId = fuzzyMatchProduct(item.normalizedName, candidates, 0.7);
+          }
+
           return {
             rawText: item.rawText,
             normalizedName: item.normalizedName,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             total: item.total,
-            productId: product?.id ?? null,
+            productId,
             categoryHint: item.categoryHint,
           };
         }),
@@ -106,9 +121,17 @@ export class ReceiptsProcessor extends WorkerHost {
   }
 
   private async runOcr(imagePath: string): Promise<string> {
+    // Pre-process: grayscale + contrast normalization melhora OCR em
+    // tickets amassados/foto com flash.
+    const preprocessed = await sharp(imagePath)
+      .rotate()
+      .grayscale()
+      .normalize()
+      .toBuffer();
+
     const worker = await createWorker('spa');
     try {
-      const result = await worker.recognize(imagePath);
+      const result = await worker.recognize(preprocessed);
       return result.data.text ?? '';
     } finally {
       await worker.terminate();
