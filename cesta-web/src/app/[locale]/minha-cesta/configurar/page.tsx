@@ -2,9 +2,10 @@
 
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -146,11 +147,15 @@ export default function ConfigurarCestaPage() {
       monthlyBudget: parsedBudget,
     };
     const parsed = WizardSchema.safeParse(payload);
-    if (!parsed.success) return;
+    if (!parsed.success) {
+      const first = parsed.error.issues[0];
+      toast.error(first?.message ?? "Dados inválidos");
+      return;
+    }
 
     await upsert.mutateAsync(payload);
+    // useGenerateBasket.onSuccess já redireciona pra /minha-cesta.
     await generate.mutateAsync();
-    router.push("/minha-cesta");
   }
 
   if (!isHydrated || !user) {

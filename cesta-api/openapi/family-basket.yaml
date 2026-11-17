@@ -301,16 +301,25 @@ components:
 
     DietaryQuestion:
       type: object
-      required: [id, questionEs, questionPt, type]
+      required: [id, key, labelEs, labelPt, type, order]
       properties:
-        id:         { type: string }
-        questionEs: { type: string }
-        questionPt: { type: string }
-        type:       { type: string, enum: [boolean, choice] }
+        id:      { type: string }
+        key:     { type: string }
+        labelEs: { type: string }
+        labelPt: { type: string }
+        type:    { type: string, enum: [boolean, choice] }
         options:
           type: array
-          items: { type: string }
           nullable: true
+          items:
+            type: object
+            required: [value, labelEs, labelPt]
+            properties:
+              value:   { type: string }
+              labelEs: { type: string }
+              labelPt: { type: string }
+        category: { type: string, nullable: true }
+        order:    { type: integer }
 
     UpsertFamilyProfile:
       type: object
@@ -336,11 +345,10 @@ components:
     FamilyProfile:
       type: object
       required:
-        [id, userId, members, answers, restrictions, blockedCategories,
+        [id, members, answers, restrictions, blockedCategories,
          requiredProductIds, createdAt, updatedAt]
       properties:
         id: { type: string }
-        userId: { type: string }
         members: { $ref: "#/components/schemas/FamilyMembers" }
         answers: { $ref: "#/components/schemas/DietaryAnswers" }
         restrictions:
@@ -403,14 +411,17 @@ components:
 
     Product:
       type: object
-      required: [id, nameEs, slug]
+      required: [id, name, packageSize, packageUnit]
       properties:
-        id:     { type: string }
-        slug:   { type: string }
-        nameEs: { type: string }
-        namePt: { type: string, nullable: true }
-        imageUrl: { type: string, nullable: true }
+        id:         { type: string }
+        name:       { type: string }
+        brand:      { type: string, nullable: true }
+        imageUrl:   { type: string, nullable: true }
         categoryId: { type: string, nullable: true }
+        packageSize: { type: number }
+        packageUnit:
+          type: string
+          enum: [LITER, MILLILITER, KILOGRAM, GRAM, UNIT]
 
     FamilyBasket:
       type: object

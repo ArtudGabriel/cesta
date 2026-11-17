@@ -45,11 +45,19 @@ export function BestMarketList({ items }: BestMarketListProps) {
   if (totals.length === 0) return null;
 
   return (
-    <section className="px-4 py-4" data-sentry-unmask>
-      <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted">
+    // Sprint 98 GDPR: totals por mercado agregam o gasto estimado da família —
+    // PII financeiro Art. 9 GDPR. Section masked; chrome (título, subtítulo,
+    // nome do supermercado público) unmasked.
+    <section className="px-4 py-4" data-sentry-mask>
+      <h2
+        className="mb-1 text-sm font-semibold uppercase tracking-wide text-muted"
+        data-sentry-unmask
+      >
         {t("bestMarketTitle")}
       </h2>
-      <p className="mb-3 text-xs text-muted">{t("bestMarketSubtitle")}</p>
+      <p className="mb-3 text-xs text-muted" data-sentry-unmask>
+        {t("bestMarketSubtitle")}
+      </p>
       <ul className="space-y-2">
         {totals.map((m, idx) => (
           <li
@@ -57,7 +65,10 @@ export function BestMarketList({ items }: BestMarketListProps) {
             className="flex items-center justify-between rounded-card bg-white p-3 shadow-card"
           >
             <div className="min-w-0 flex-1">
-              <p className="line-clamp-1 text-sm font-medium text-ink">
+              <p
+                className="line-clamp-1 text-sm font-medium text-ink"
+                data-sentry-unmask
+              >
                 {m.name}
               </p>
               <p className="text-xs text-muted">
