@@ -66,6 +66,18 @@ export class UsersService {
     return this.usersRepository.findByPhone(phone);
   }
 
+  async findByEmailIncludingDeleted(email: string): Promise<User | null> {
+    return this.usersRepository.findByEmailIncludingDeleted(email);
+  }
+
+  async findByPhoneIncludingDeleted(phone: string): Promise<User | null> {
+    return this.usersRepository.findByPhoneIncludingDeleted(phone);
+  }
+
+  async reactivateUser(userId: string): Promise<User> {
+    return this.usersRepository.reactivate(userId);
+  }
+
   async createUser(input: CreateUserInput): Promise<User> {
     if (!input.email && !input.phone) {
       throw new AppException(

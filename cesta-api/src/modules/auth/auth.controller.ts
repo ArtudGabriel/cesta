@@ -22,6 +22,7 @@ import {
   AuthWireResponse,
 } from './dtos/auth-response.dto';
 import { LoginDto } from './dtos/login.dto';
+import { ReactivateAccountDto } from './dtos/reactivate-account.dto';
 import { RegisterDto } from './dtos/register.dto';
 import { VerifyEmailDto } from './dtos/verify-email.dto';
 
@@ -156,5 +157,26 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async resendVerification(@CurrentUser('id') userId: string) {
     return this.authService.resendVerification(userId);
+  }
+
+  @Public()
+  @Throttle({ strict: { limit: 5, ttl: 60_000 } })
+  @Post('reactivate-account')
+  @ApiOperation({
+    summary:
+      'Reativa conta soft-deleted dentro do grace period GDPR 30d (Sprint 90).',
+  })
+  @HttpCode(HttpStatus.OK)
+  async reactivateAccount(
+    @Body() dto: ReactivateAccountDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthWireResponse> {
+    const result = await this.authService.reactivateAccount(
+      dto,
+      requestContext(req),
+    );
+    setRefreshCookie(res, result.tokens.refreshToken);
+    return toWire(result);
   }
 }

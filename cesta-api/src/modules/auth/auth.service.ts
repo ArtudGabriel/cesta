@@ -11,12 +11,15 @@ import { UserResponseDto } from '../users/dtos/user-response.dto';
 import { AuthRepository } from './auth.repository';
 import { AuthResponseDto, AuthTokensDto } from './dtos/auth-response.dto';
 import { LoginDto } from './dtos/login.dto';
+import { ReactivateAccountDto } from './dtos/reactivate-account.dto';
 import { RegisterDto } from './dtos/register.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 
 const BCRYPT_ROUNDS = 12;
 const REFRESH_TOKEN_TTL_DAYS = 7;
 const VERIFY_TOKEN_TTL_HOURS = 24;
+// Sprint 90: janela de reativação espelha delay do worker user-cleanup (30d).
+const REACTIVATE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
@@ -166,22 +169,102 @@ export class AuthService {
       );
     }
 
+    // Sprint 90: lookup incluindo soft-deleted — se credenciais baterem num
+    // user dentro do grace period 30d, devolve 409 ACCOUNT_SOFT_DELETED com
+    // deletedAt + graceEndsAt pra frontend oferecer reativação ao invés de
+    // esconder o estado como "credenciais inválidas".
     const user = dto.email
-      ? await this.usersService.findByEmail(dto.email)
-      : await this.usersService.findByPhone(dto.phone!);
+      ? await this.usersService.findByEmailIncludingDeleted(dto.email)
+      : await this.usersService.findByPhoneIncludingDeleted(dto.phone!);
 
     const invalid = new AppException(
       'AUTH.INVALID_CREDENTIALS',
       'Credenciais inválidas',
       HttpStatus.UNAUTHORIZED,
     );
-    if (!user || user.deletedAt) throw invalid;
+    if (!user) throw invalid;
 
     const ok = await bcrypt.compare(dto.password, user.passwordHash);
     if (!ok) throw invalid;
 
+    if (user.deletedAt) {
+      const graceEndsAt = new Date(
+        user.deletedAt.getTime() + REACTIVATE_WINDOW_MS,
+      );
+      if (graceEndsAt.getTime() <= Date.now()) {
+        // Janela expirou — comportamento clássico de credencial inválida.
+        throw invalid;
+      }
+      throw new AppException(
+        'AUTH.ACCOUNT_SOFT_DELETED',
+        'Conta agendada para exclusão. Reative antes do fim do prazo.',
+        HttpStatus.CONFLICT,
+        {
+          deletedAt: user.deletedAt.toISOString(),
+          graceEndsAt: graceEndsAt.toISOString(),
+        },
+      );
+    }
+
     const tokens = await this.issueTokens(user, ctx);
     return { user: UserResponseDto.fromEntity(user), tokens };
+  }
+
+  /**
+   * Sprint 90 GDPR grace period: reativa conta soft-deleted dentro de 30d.
+   * Valida credenciais antes de qualquer sinal sobre estado da conta pra
+   * evitar oracle de existência. Após reativação, limpa deletedAt +
+   * hardDeleteScheduledAt e emite tokens normais.
+   */
+  async reactivateAccount(
+    dto: ReactivateAccountDto,
+    ctx: AuthRequestContext = {},
+  ): Promise<AuthResponseDto> {
+    if (!dto.email && !dto.phone) {
+      throw new AppException(
+        'AUTH.CONTACT_REQUIRED',
+        'Email ou telefone é obrigatório',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const invalid = new AppException(
+      'AUTH.INVALID_CREDENTIALS',
+      'Credenciais inválidas',
+      HttpStatus.UNAUTHORIZED,
+    );
+
+    const user = dto.email
+      ? await this.usersService.findByEmailIncludingDeleted(dto.email)
+      : await this.usersService.findByPhoneIncludingDeleted(dto.phone!);
+    if (!user) throw invalid;
+
+    const ok = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!ok) throw invalid;
+
+    if (!user.deletedAt) {
+      throw new AppException(
+        'AUTH.ACCOUNT_ALREADY_ACTIVE',
+        'Conta já está ativa',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const elapsed = Date.now() - user.deletedAt.getTime();
+    if (elapsed >= REACTIVATE_WINDOW_MS) {
+      throw new AppException(
+        'AUTH.REACTIVATE_WINDOW_EXPIRED',
+        'Prazo de reativação expirado',
+        HttpStatus.GONE,
+      );
+    }
+
+    const reactivated = await this.usersService.reactivateUser(user.id);
+    this.logger.log(
+      `UserReactivated: user ${user.id} elapsed=${elapsed}ms (grace 30d).`,
+    );
+    const tokens = await this.issueTokens(reactivated, ctx);
+    return { user: UserResponseDto.fromEntity(reactivated), tokens };
   }
 
   async refresh(

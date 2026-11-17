@@ -2,6 +2,7 @@ import { HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { EmailVerificationToken, User } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 import { createHash } from 'crypto';
 import { AppException } from '../../common/exceptions/app-exception';
 import { EmailService } from '../email/email.service';
@@ -69,6 +70,9 @@ function buildService() {
     findById: jest.fn(),
     findByEmail: jest.fn(),
     findByPhone: jest.fn(),
+    findByEmailIncludingDeleted: jest.fn(),
+    findByPhoneIncludingDeleted: jest.fn(),
+    reactivateUser: jest.fn(),
     createUser: jest.fn(),
   } as unknown as jest.Mocked<UsersService>;
 
@@ -215,6 +219,133 @@ describe('AuthService.resendVerification', () => {
     await expect(svc.resendVerification('u1')).resolves.toEqual({
       status: 'sent',
     });
+  });
+});
+
+describe('AuthService.login (soft-delete grace)', () => {
+  it('CONFLICT ACCOUNT_SOFT_DELETED com meta dentro do grace period', async () => {
+    const { svc, usersService } = buildService();
+    const passwordHash = await bcrypt.hash('secret123', 4);
+    const deletedAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000); // 2d atrás
+    usersService.findByEmailIncludingDeleted.mockResolvedValue(
+      buildUser({ passwordHash, deletedAt }),
+    );
+
+    const err = await svc
+      .login({ email: 'maria@example.com', password: 'secret123' })
+      .catch((e) => e);
+
+    expect(err).toBeInstanceOf(AppException);
+    expect(err.errorCode).toBe('AUTH.ACCOUNT_SOFT_DELETED');
+    expect((err as AppException).getStatus()).toBe(HttpStatus.CONFLICT);
+    const meta = (err as AppException).meta as {
+      deletedAt: string;
+      graceEndsAt: string;
+    };
+    expect(meta.deletedAt).toBe(deletedAt.toISOString());
+    const expected = new Date(
+      deletedAt.getTime() + 30 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    expect(meta.graceEndsAt).toBe(expected);
+  });
+
+  it('INVALID_CREDENTIALS quando grace period expirou', async () => {
+    const { svc, usersService } = buildService();
+    const passwordHash = await bcrypt.hash('secret123', 4);
+    const deletedAt = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
+    usersService.findByEmailIncludingDeleted.mockResolvedValue(
+      buildUser({ passwordHash, deletedAt }),
+    );
+
+    const err = await svc
+      .login({ email: 'maria@example.com', password: 'secret123' })
+      .catch((e) => e);
+
+    expect(err.errorCode).toBe('AUTH.INVALID_CREDENTIALS');
+    expect((err as AppException).getStatus()).toBe(HttpStatus.UNAUTHORIZED);
+  });
+});
+
+describe('AuthService.reactivateAccount', () => {
+  it('reativa + emite tokens quando credenciais válidas dentro de 30d', async () => {
+    const { svc, usersService, repo } = buildService();
+    const passwordHash = await bcrypt.hash('secret123', 4);
+    const deletedAt = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
+    const softDeleted = buildUser({ passwordHash, deletedAt });
+    const revived = buildUser({ passwordHash, deletedAt: null });
+    usersService.findByEmailIncludingDeleted.mockResolvedValue(softDeleted);
+    usersService.reactivateUser.mockResolvedValue(revived);
+    repo.createRefreshToken.mockResolvedValue(undefined);
+
+    const result = await svc.reactivateAccount({
+      email: 'maria@example.com',
+      password: 'secret123',
+    });
+
+    expect(usersService.reactivateUser).toHaveBeenCalledWith('u1');
+    expect(result.user.id).toBe('u1');
+    expect(result.tokens.accessToken).toBe('jwt');
+    expect(result.tokens.refreshToken).toBe('jwt');
+  });
+
+  it('GONE REACTIVATE_WINDOW_EXPIRED quando passou do grace', async () => {
+    const { svc, usersService } = buildService();
+    const passwordHash = await bcrypt.hash('secret123', 4);
+    usersService.findByEmailIncludingDeleted.mockResolvedValue(
+      buildUser({
+        passwordHash,
+        deletedAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000),
+      }),
+    );
+
+    const err = await svc
+      .reactivateAccount({
+        email: 'maria@example.com',
+        password: 'secret123',
+      })
+      .catch((e) => e);
+
+    expect(err.errorCode).toBe('AUTH.REACTIVATE_WINDOW_EXPIRED');
+    expect((err as AppException).getStatus()).toBe(HttpStatus.GONE);
+  });
+
+  it('BAD_REQUEST ACCOUNT_ALREADY_ACTIVE quando user não está soft-deleted', async () => {
+    const { svc, usersService } = buildService();
+    const passwordHash = await bcrypt.hash('secret123', 4);
+    usersService.findByEmailIncludingDeleted.mockResolvedValue(
+      buildUser({ passwordHash, deletedAt: null }),
+    );
+
+    const err = await svc
+      .reactivateAccount({
+        email: 'maria@example.com',
+        password: 'secret123',
+      })
+      .catch((e) => e);
+
+    expect(err.errorCode).toBe('AUTH.ACCOUNT_ALREADY_ACTIVE');
+    expect((err as AppException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+  });
+
+  it('INVALID_CREDENTIALS quando senha errada (não vaza existência da conta)', async () => {
+    const { svc, usersService } = buildService();
+    const passwordHash = await bcrypt.hash('secret123', 4);
+    usersService.findByEmailIncludingDeleted.mockResolvedValue(
+      buildUser({
+        passwordHash,
+        deletedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      }),
+    );
+
+    const err = await svc
+      .reactivateAccount({
+        email: 'maria@example.com',
+        password: 'wrong',
+      })
+      .catch((e) => e);
+
+    expect(err.errorCode).toBe('AUTH.INVALID_CREDENTIALS');
+    expect((err as AppException).getStatus()).toBe(HttpStatus.UNAUTHORIZED);
   });
 });
 

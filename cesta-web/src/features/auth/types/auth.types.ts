@@ -32,3 +32,14 @@ export interface LoginPayload {
   phone?: string;
   password: string;
 }
+
+export interface ReactivatePayload {
+  email?: string;
+  phone?: string;
+  password: string;
+}
+
+export interface SoftDeletedMeta {
+  deletedAt: string;
+  graceEndsAt: string;
+}

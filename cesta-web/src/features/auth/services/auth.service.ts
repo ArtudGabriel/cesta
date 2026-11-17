@@ -3,6 +3,7 @@ import type {
   AuthResponse,
   AuthUser,
   LoginPayload,
+  ReactivatePayload,
   RegisterPayload,
 } from "../types/auth.types";
 
@@ -63,6 +64,14 @@ export const authService = {
     const { data } = await api.post<
       Envelope<{ status: "sent" | "already_verified" | "no_email" }>
     >("/auth/resend-verification", {});
+    return data.data;
+  },
+
+  async reactivateAccount(payload: ReactivatePayload): Promise<AuthResponse> {
+    const { data } = await api.post<Envelope<AuthResponse>>(
+      "/auth/reactivate-account",
+      payload,
+    );
     return data.data;
   },
 };

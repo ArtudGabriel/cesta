@@ -49,6 +49,33 @@ export class UsersRepository {
   }
 
   /**
+   * Sprint 90: lookup incluindo soft-deleted — login/reactivate precisam
+   * detectar conta no grace period 30d pra retornar 409 ACCOUNT_SOFT_DELETED
+   * ao invés de credenciais inválidas.
+   */
+  async findByEmailIncludingDeleted(email: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+  }
+
+  async findByPhoneIncludingDeleted(phone: string): Promise<User | null> {
+    return this.prisma.user.findUnique({ where: { phone } });
+  }
+
+  /**
+   * Sprint 90 GDPR reactivate: limpa deletedAt + hardDeleteScheduledAt dentro
+   * da janela de 30d. Worker user-cleanup já aborta quando user.deletedAt=null
+   * (ver user-cleanup.processor.ts), então não precisa remover o job BullMQ.
+   */
+  async reactivate(id: string): Promise<User> {
+    return this.prisma.user.update({
+      where: { id },
+      data: { deletedAt: null, hardDeleteScheduledAt: null },
+    });
+  }
+
+  /**
    * Sprint 64: hard-delete GDPR Art.17 pós grace period. Cascade FK apaga
    * as 11 relações User em uma transação implícita Prisma.
    */

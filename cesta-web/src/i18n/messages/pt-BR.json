@@ -95,6 +95,17 @@
       "dismiss": "Fechar",
       "closeAria": "Fechar aviso de confirmação de e-mail",
       "throttled": "Aguarde um momento pra reenviar."
+    },
+    "reactivate": {
+      "bannerTitle": "Conta agendada para exclusão",
+      "bannerCountdown": "Faltam {days} {days, plural, =1 {dia} other {dias}} e {hours} {hours, plural, =1 {hora} other {horas}} pra reativar.",
+      "bannerExpired": "O prazo pra reativar sua conta acabou.",
+      "reactivateCta": "Reativar conta",
+      "dismiss": "Agora não",
+      "modalTitle": "Reativar sua conta?",
+      "modalDescription": "Você recupera todos os seus dados (listas, favoritos, alertas) e volta a entrar.",
+      "modalConfirm": "Sim, reativar",
+      "modalCancel": "Cancelar"
     }
   },
   "errors": {
@@ -107,7 +118,10 @@
       "refreshReplay": "Sessão invalidada por segurança, faça login novamente",
       "verifyInvalid": "O link de confirmação não é válido",
       "verifyUsed": "Este link já foi usado",
-      "verifyExpired": "O link de confirmação expirou"
+      "verifyExpired": "O link de confirmação expirou",
+      "accountSoftDeleted": "Sua conta está agendada para exclusão. Reative antes do fim do prazo.",
+      "accountAlreadyActive": "A conta já está ativa",
+      "reactivateWindowExpired": "O prazo pra reativar sua conta expirou"
     },
     "alerts": {
       "notFound": "Alerta não encontrado",
@@ -369,6 +383,7 @@
     "success": {
       "welcome": "Bem-vindo",
       "accountCreated": "Conta criada",
+      "accountReactivated": "Conta reativada. Bem-vindo de volta!",
       "profileUpdated": "Perfil atualizado"
     },
     "error": {

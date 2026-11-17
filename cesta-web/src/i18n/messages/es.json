@@ -95,6 +95,17 @@
       "dismiss": "Cerrar",
       "closeAria": "Cerrar aviso de confirmación de email",
       "throttled": "Espera un momento antes de reenviar."
+    },
+    "reactivate": {
+      "bannerTitle": "Cuenta programada para eliminación",
+      "bannerCountdown": "Quedan {days} {days, plural, =1 {día} other {días}} y {hours} {hours, plural, =1 {hora} other {horas}} para reactivarla.",
+      "bannerExpired": "El plazo para reactivar tu cuenta ha terminado.",
+      "reactivateCta": "Reactivar cuenta",
+      "dismiss": "Ahora no",
+      "modalTitle": "¿Reactivar tu cuenta?",
+      "modalDescription": "Recuperarás todos tus datos (listas, favoritos, alertas) y volverás a iniciar sesión.",
+      "modalConfirm": "Sí, reactivar",
+      "modalCancel": "Cancelar"
     }
   },
   "errors": {
@@ -107,7 +118,10 @@
       "refreshReplay": "Sesión invalidada por seguridad, inicia sesión de nuevo",
       "verifyInvalid": "El enlace de confirmación no es válido",
       "verifyUsed": "Este enlace ya fue usado",
-      "verifyExpired": "El enlace de confirmación ha caducado"
+      "verifyExpired": "El enlace de confirmación ha caducado",
+      "accountSoftDeleted": "Tu cuenta está programada para eliminación. Reactívala antes del fin del plazo.",
+      "accountAlreadyActive": "La cuenta ya está activa",
+      "reactivateWindowExpired": "El plazo para reactivar tu cuenta ha expirado"
     },
     "alerts": {
       "notFound": "Alerta no encontrada",
@@ -369,6 +383,7 @@
     "success": {
       "welcome": "Bienvenido",
       "accountCreated": "Cuenta creada",
+      "accountReactivated": "Cuenta reactivada. ¡Bienvenido de vuelta!",
       "profileUpdated": "Perfil actualizado"
     },
     "error": {

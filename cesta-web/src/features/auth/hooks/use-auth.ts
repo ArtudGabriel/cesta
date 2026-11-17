@@ -7,8 +7,13 @@ import { useTranslations } from "next-intl";
 import { authService } from "../services/auth.service";
 import { useAuthStore } from "@/stores/auth.store";
 import { PROFILE_KEY } from "@/features/profile/hooks/use-profile";
+import { ApiError } from "@/lib/api";
 import { translateError } from "@/lib/translate-error";
-import type { LoginPayload, RegisterPayload } from "../types/auth.types";
+import type {
+  LoginPayload,
+  ReactivatePayload,
+  RegisterPayload,
+} from "../types/auth.types";
 
 export const AUTH_QUERY_KEY = ["auth", "me"] as const;
 
@@ -54,6 +59,37 @@ export function useLogin() {
       qc.setQueryData(AUTH_QUERY_KEY, user);
       qc.removeQueries({ queryKey: PROFILE_KEY });
       toast.success(t("success.welcome"));
+      router.push(safeReturnUrl(searchParams.get("returnUrl")));
+    },
+    onError: (err: Error) => {
+      // Sprint 90: ACCOUNT_SOFT_DELETED não vira toast — login form lê
+      // error.meta pra renderizar banner de reativação. Toast silenciaria
+      // o CTA e confundiria user que acabou de digitar credencial correta.
+      if (err instanceof ApiError && err.errorCode === "AUTH.ACCOUNT_SOFT_DELETED") {
+        return;
+      }
+      toast.error(translateError(err, tErr));
+    },
+  });
+}
+
+export function useReactivateAccount() {
+  const setSession = useAuthStore((s) => s.setSession);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const qc = useQueryClient();
+  const t = useTranslations("toast");
+  const tErr = useTranslations("errors");
+
+  return useMutation({
+    mutationFn: (payload: ReactivatePayload) =>
+      authService.reactivateAccount(payload),
+    onSuccess: ({ user, tokens }) => {
+      setSession(user, tokens);
+      syncLocaleCookie(user.locale);
+      qc.setQueryData(AUTH_QUERY_KEY, user);
+      qc.removeQueries({ queryKey: PROFILE_KEY });
+      toast.success(t("success.accountReactivated"));
       router.push(safeReturnUrl(searchParams.get("returnUrl")));
     },
     onError: (err: Error) => {
