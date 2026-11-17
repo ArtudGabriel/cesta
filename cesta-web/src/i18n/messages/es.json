@@ -8,6 +8,7 @@
       }
     },
     "coldStart": "Estamos despertando el servidor. Esto puede tardar hasta 30 segundos la primera vez.",
+    "installAppCta": "Instalar app",
     "loginGate": {
       "title": {
         "default": "Inicia sesión para continuar",
@@ -208,7 +209,19 @@
     "title": "Mis favoritos",
     "filteredCount": "{visible} de {total}",
     "emptyFilteredTitle": "No tienes favoritos que cumplan tus restricciones",
-    "emptyFilteredCta": "Quitar filtros"
+    "emptyFilteredCta": "Quitar filtros",
+    "compare": "Comparar",
+    "compareWithCount": "Comparar ({count})",
+    "cancel": "Cancelar",
+    "selectAria": "Seleccionar",
+    "deselectAria": "Deseleccionar",
+    "productFallback": "Producto",
+    "atMarket": "en {market}",
+    "noPriceAvailable": "Sin precio disponible",
+    "selectedCount": "{count}/{max} seleccionados",
+    "emptyTitle": "Aún no tienes favoritos",
+    "emptyBody": "Toca ♥ en cualquier producto para guardarlo aquí y comparar sus precios después.",
+    "emptyCta": "Explorar productos"
   },
   "myList": {
     "title": "Mi Lista",

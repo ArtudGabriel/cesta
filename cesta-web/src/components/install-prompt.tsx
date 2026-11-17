@@ -16,6 +16,7 @@ export function InstallPrompt() {
   const [standalone, setStandalone] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const tAria = useTranslations("common.aria");
+  const tCommon = useTranslations("common");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -66,7 +67,7 @@ export function InstallPrompt() {
         aria-label={tAria("installApp")}
       >
         <Download className="h-4 w-4" />
-        Instalar app
+        {tCommon("installAppCta")}
       </button>
       <button
         type="button"
