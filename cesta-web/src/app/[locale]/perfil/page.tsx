@@ -235,7 +235,7 @@ export default function PerfilPage() {
               >
                 <Icon className="h-5 w-5 text-muted" />
                 <span className="flex-1">{t(`shortcuts.${key}`)}</span>
-                <ChevronRight className="h-4 w-4 text-neutral-400" />
+                <ChevronRight className="h-4 w-4 text-muted" />
               </Link>
             </li>
           ))}

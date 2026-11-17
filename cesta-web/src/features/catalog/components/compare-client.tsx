@@ -86,7 +86,7 @@ export function CompareClient({ initialIds, initialData }: CompareClientProps) {
           </Link>
         </Button>
         <h1 className="flex-1 font-display text-lg font-bold text-ink">
-          Comparar
+          {t("title")}
         </h1>
         <span className="text-xs text-muted">
           {ids.length}/{MAX}

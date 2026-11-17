@@ -201,7 +201,7 @@ export default function FavoritosPage() {
             onClick={() => setSelectMode(true)}
           >
             <Scale className="h-4 w-4" />
-            Comparar
+            {t("compare")}
           </Button>
         )}
         {selectMode && (
@@ -211,7 +211,7 @@ export default function FavoritosPage() {
             size="sm"
             onClick={cancelSelect}
           >
-            Cancelar
+            {t("cancel")}
           </Button>
         )}
       </header>
@@ -266,7 +266,7 @@ export default function FavoritosPage() {
                     <button
                       type="button"
                       onClick={() => toggleSelect(fav.productId)}
-                      aria-label={isSelected ? "Deseleccionar" : "Seleccionar"}
+                      aria-label={isSelected ? t("deselectAria") : t("selectAria")}
                       aria-pressed={isSelected}
                       className={cn(
                         "inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full border-2 cursor-pointer",
@@ -306,7 +306,7 @@ export default function FavoritosPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-ink">
-                        {fav.product?.name ?? "Produto"}
+                        {fav.product?.name ?? t("productFallback")}
                       </p>
                       {fav.product?.brand && (
                         <p className="truncate text-xs text-muted">
@@ -319,7 +319,7 @@ export default function FavoritosPage() {
                             <p className="mt-1 text-sm font-semibold text-cesta-green">
                               {formatUnitPrice(fav.cheapestPrice.unitPrice, locale)}
                               <span className="ml-1 text-xs font-normal text-muted">
-                                en {fav.cheapestPrice.supermarketName}
+                                {t("atMarket", { market: fav.cheapestPrice.supermarketName })}
                               </span>
                             </p>
                             <p className="text-xs text-muted">
@@ -331,7 +331,7 @@ export default function FavoritosPage() {
                             <p className="mt-1 text-sm font-semibold text-cesta-green">
                               {formatPrice(fav.cheapestPrice.price)}{" "}
                               <span className="text-xs font-normal text-muted">
-                                en {fav.cheapestPrice.supermarketName}
+                                {t("atMarket", { market: fav.cheapestPrice.supermarketName })}
                               </span>
                             </p>
                             {fav.cheapestPrice.unitPrice && (
@@ -343,7 +343,7 @@ export default function FavoritosPage() {
                         )
                       ) : (
                         <p className="mt-1 text-xs text-muted">
-                          Sin precio disponible
+                          {t("noPriceAvailable")}
                         </p>
                       )}
                     </div>
@@ -370,7 +370,7 @@ export default function FavoritosPage() {
         <div className="fixed inset-x-0 bottom-0 z-20 border-t border-neutral-200 bg-white p-4 shadow-lg">
           <div className="mx-auto flex max-w-md items-center gap-3">
             <span className="text-sm text-muted">
-              {selected.length}/{COMPARE_MAX} seleccionados
+              {t("selectedCount", { count: selected.length, max: COMPARE_MAX })}
             </span>
             <Button
               type="button"
@@ -379,7 +379,7 @@ export default function FavoritosPage() {
               disabled={selected.length < 2}
             >
               <Scale className="h-4 w-4" />
-              Comparar {selected.length > 0 && `(${selected.length})`}
+              {selected.length > 0 ? t("compareWithCount", { count: selected.length }) : t("compare")}
             </Button>
           </div>
         </div>
@@ -389,20 +389,20 @@ export default function FavoritosPage() {
 }
 
 function EmptyState() {
+  const t = useTranslations("favorites");
   return (
     <div className="flex flex-col items-center gap-3 rounded-card bg-white px-6 py-10 text-center shadow-sm">
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface">
         <Heart className="h-8 w-8 text-muted" />
       </div>
       <p className="font-display text-base font-bold text-ink">
-        Aún no tienes favoritos
+        {t("emptyTitle")}
       </p>
       <p className="max-w-xs text-sm text-muted">
-        Toca ♥ en cualquier producto para guardarlo aquí y comparar sus precios
-        después.
+        {t("emptyBody")}
       </p>
       <Button asChild size="sm">
-        <Link href="/">Explorar productos</Link>
+        <Link href="/">{t("emptyCta")}</Link>
       </Button>
     </div>
   );
