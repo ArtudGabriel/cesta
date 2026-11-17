@@ -84,6 +84,32 @@ export class UsersRepository {
   }
 
   /**
+   * Sprint 94: candidatos pro cron grace-reminder. Users soft-deleted (filtra
+   * no SQL pra evitar scan global) + têm email (phone-only skip). O stage
+   * exato (7d/1d) e idempotent guard ficam no processor pra manter query
+   * simples e cacheável.
+   */
+  async findSoftDeletedForGraceReminder(): Promise<User[]> {
+    return this.prisma.user.findMany({
+      where: {
+        deletedAt: { not: null },
+        email: { not: null },
+      },
+    });
+  }
+
+  /**
+   * Sprint 94: marca timestamp do último reminder enviado. Usado como
+   * dedupe entre execuções do cron no mesmo dia.
+   */
+  async markGraceReminderSent(id: string, at: Date): Promise<void> {
+    await this.prisma.user.update({
+      where: { id },
+      data: { graceReminderSentAt: at },
+    });
+  }
+
+  /**
    * Sprint 63 GDPR Art. 20 (data portability). Agrega todas as entidades
    * per-user num único payload de export. Cross-feature por natureza; DSR
    * fica contido no users module (não espalha repos em services).

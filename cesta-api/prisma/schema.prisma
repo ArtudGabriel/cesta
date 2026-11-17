@@ -49,6 +49,11 @@ model User {
   // Email verification (Sprint 75). null = ainda não confirmado via link Resend.
   emailVerifiedAt DateTime? @map("email_verified_at")
 
+  // Sprint 94 grace-period email reminders. Timestamp do último reminder
+  // enviado (7d ou 1d antes do hard-delete). Guard idempotente: cron diário
+  // só dispara se daysRemaining == 7 ou == 1 E último envio foi há >23h.
+  graceReminderSentAt DateTime? @map("grace_reminder_sent_at")
+
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")

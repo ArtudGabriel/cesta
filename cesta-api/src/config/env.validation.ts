@@ -4,6 +4,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  Max,
   Min,
   MinLength,
   validateSync,
@@ -83,6 +84,15 @@ export class EnvironmentVariables {
   // Default mantém compat; mudar só se o time no Vercel for renomeado.
   @IsString()
   VERCEL_TEAM_SLUG: string = 'gabriels-projects-f5aa3b24';
+
+  // Sprint 94: hora UTC do cron grace-reminder. Default 9h UTC (10h Madrid
+  // horário padrão, 11h horário verão). Permite deslocar em ambientes de
+  // staging sem redeploy. Valor 0-23.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(23)
+  CRON_GRACE_REMINDER_HOUR?: number = 9;
 }
 
 export function validateEnv(raw: Record<string, unknown>) {
