@@ -6,6 +6,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { validateEnv } from './config/env.validation';
 import { PrismaModule } from './database/prisma.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { AlertsModule } from './modules/alerts/alerts.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
@@ -56,6 +57,7 @@ import { UsersModule } from './modules/users/users.module';
     PrismaModule,
     UsersModule,
     AuthModule,
+    AdminModule,
     SupermarketsModule,
     CategoriesModule,
     ProductsModule,
