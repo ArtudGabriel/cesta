@@ -3,6 +3,7 @@ import {
   ExecutionContext,
   Injectable,
   NestInterceptor,
+  StreamableFile,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { randomUUID } from 'crypto';
@@ -55,6 +56,13 @@ export class TransformInterceptor<T>
 
     return next.handle().pipe(
       map((value) => {
+        // Sprint 91 fix: StreamableFile (binary downloads, e.g. ZIP export)
+        // precisa passar direto sem envelope — JSON wrap serializa o stream
+        // como objeto e quebra Content-Type/Content-Disposition já setados.
+        if (value instanceof StreamableFile) {
+          return value as unknown as ResponseEnvelope<T | T[]>;
+        }
+
         if (isPaginated<unknown>(value)) {
           const { items, total, page, limit } = value;
           return {
