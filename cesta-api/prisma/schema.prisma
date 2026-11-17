@@ -54,6 +54,13 @@ model User {
   // só dispara se daysRemaining == 7 ou == 1 E último envio foi há >23h.
   graceReminderSentAt DateTime? @map("grace_reminder_sent_at")
 
+  // Sprint 99 2FA TOTP. Secret cifrado em repouso com AES-256-GCM
+  // (TWO_FACTOR_ENC_KEY env). Backup codes bcrypt-hashed (single-use).
+  // Secret só é persistido após /verify confirmar o enroll pendente (Redis).
+  twoFactorEnabled     Boolean  @default(false) @map("two_factor_enabled")
+  twoFactorSecret      String?  @map("two_factor_secret")
+  twoFactorBackupCodes String[] @default([]) @map("two_factor_backup_codes")
+
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
   deletedAt    DateTime? @map("deleted_at")

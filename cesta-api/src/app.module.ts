@@ -9,6 +9,7 @@ import { PrismaModule } from './database/prisma.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AlertsModule } from './modules/alerts/alerts.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { TwoFactorModule } from './modules/auth/two-factor/two-factor.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
 import { CatalogSyncModule } from './modules/catalog-sync/catalog-sync.module';
@@ -57,6 +58,7 @@ import { UsersModule } from './modules/users/users.module';
     PrismaModule,
     UsersModule,
     AuthModule,
+    TwoFactorModule,
     AdminModule,
     SupermarketsModule,
     CategoriesModule,

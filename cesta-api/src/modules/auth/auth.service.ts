@@ -1,9 +1,11 @@
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { forwardRef, HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomBytes, createHash } from 'crypto';
 import { AppException } from '../../common/exceptions/app-exception';
+import { TwoFactorService } from './two-factor/two-factor.service';
+import { TwoFactorChallengeResponseDto } from './two-factor/dtos/responses.dto';
 import { EmailService } from '../email/email.service';
 import { UsersService } from '../users/users.service';
 import { UserResponseDto } from '../users/dtos/user-response.dto';
@@ -43,6 +45,8 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly repo: AuthRepository,
     private readonly emailService: EmailService,
+    @Inject(forwardRef(() => TwoFactorService))
+    private readonly twoFactorService: TwoFactorService,
   ) {}
 
   async register(
@@ -159,7 +163,7 @@ export class AuthService {
   async login(
     dto: LoginDto,
     ctx: AuthRequestContext = {},
-  ): Promise<AuthResponseDto> {
+  ): Promise<AuthResponseDto | TwoFactorChallengeResponseDto> {
     if (!dto.email && !dto.phone) {
       throw new AppException(
         'AUTH.CONTACT_REQUIRED',
@@ -203,6 +207,12 @@ export class AuthService {
           graceEndsAt: graceEndsAt.toISOString(),
         },
       );
+    }
+
+    // Sprint 99: 2FA habilitado → emite partialToken (scope 2fa_pending)
+    // e exige 2ª fase via POST /auth/2fa/challenge. Nenhum JWT/cookie aqui.
+    if (user.twoFactorEnabled) {
+      return this.twoFactorService.issuePartialToken(user.id);
     }
 
     const tokens = await this.issueTokens(user, ctx);

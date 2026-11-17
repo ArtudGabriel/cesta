@@ -3,8 +3,12 @@ import type {
   AuthResponse,
   AuthUser,
   LoginPayload,
+  LoginResponse,
   ReactivatePayload,
   RegisterPayload,
+  TwoFactorDisableResponse,
+  TwoFactorEnrollResponse,
+  TwoFactorVerifyResponse,
 } from "../types/auth.types";
 
 interface Envelope<T> {
@@ -25,10 +29,59 @@ export const authService = {
     return data.data;
   },
 
-  async login(payload: LoginPayload): Promise<AuthResponse> {
-    const { data } = await api.post<Envelope<AuthResponse>>(
+  async login(payload: LoginPayload): Promise<LoginResponse> {
+    const { data } = await api.post<Envelope<LoginResponse>>(
       "/auth/login",
       payload,
+    );
+    return data.data;
+  },
+
+  async twoFactorEnroll(): Promise<TwoFactorEnrollResponse> {
+    const { data } = await api.post<Envelope<TwoFactorEnrollResponse>>(
+      "/auth/2fa/enroll",
+      {},
+    );
+    return data.data;
+  },
+
+  async twoFactorVerify(code: string): Promise<TwoFactorVerifyResponse> {
+    const { data } = await api.post<Envelope<TwoFactorVerifyResponse>>(
+      "/auth/2fa/verify",
+      { code },
+    );
+    return data.data;
+  },
+
+  async twoFactorChallenge(
+    partialToken: string,
+    code: string,
+  ): Promise<AuthResponse> {
+    const { data } = await api.post<Envelope<AuthResponse>>(
+      "/auth/2fa/challenge",
+      { partialToken, code },
+    );
+    return data.data;
+  },
+
+  async twoFactorRecovery(
+    partialToken: string,
+    backupCode: string,
+  ): Promise<AuthResponse> {
+    const { data } = await api.post<Envelope<AuthResponse>>(
+      "/auth/2fa/recovery",
+      { partialToken, backupCode },
+    );
+    return data.data;
+  },
+
+  async twoFactorDisable(
+    password: string,
+    code: string,
+  ): Promise<TwoFactorDisableResponse> {
+    const { data } = await api.post<Envelope<TwoFactorDisableResponse>>(
+      "/auth/2fa/disable",
+      { password, code },
     );
     return data.data;
   },

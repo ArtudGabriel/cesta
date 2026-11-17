@@ -14,6 +14,9 @@ import type {
   ReactivatePayload,
   RegisterPayload,
 } from "../types/auth.types";
+import { isTwoFactorChallenge } from "../types/auth.types";
+
+const TWO_FACTOR_PARTIAL_KEY = "cesta:2fa:partialToken";
 
 export const AUTH_QUERY_KEY = ["auth", "me"] as const;
 
@@ -53,10 +56,22 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: (payload: LoginPayload) => authService.login(payload),
-    onSuccess: ({ user, tokens }) => {
-      setSession(user, tokens);
-      syncLocaleCookie(user.locale);
-      qc.setQueryData(AUTH_QUERY_KEY, user);
+    onSuccess: (result) => {
+      // Sprint 99: 2FA habilitado → persiste partialToken em sessionStorage
+      // + navega pra tela de challenge. Nenhum dado de sessão emitido aqui.
+      if (isTwoFactorChallenge(result)) {
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem(TWO_FACTOR_PARTIAL_KEY, result.partialToken);
+        }
+        const rawReturn = searchParams.get("returnUrl");
+        const returnTo = safeReturnUrl(rawReturn);
+        const q = returnTo !== "/" ? `?returnUrl=${encodeURIComponent(returnTo)}` : "";
+        router.push(`/2fa-challenge${q}`);
+        return;
+      }
+      setSession(result.user, result.tokens);
+      syncLocaleCookie(result.user.locale);
+      qc.setQueryData(AUTH_QUERY_KEY, result.user);
       qc.removeQueries({ queryKey: PROFILE_KEY });
       toast.success(t("success.welcome"));
       router.push(safeReturnUrl(searchParams.get("returnUrl")));
@@ -68,6 +83,43 @@ export function useLogin() {
       if (err instanceof ApiError && err.errorCode === "AUTH.ACCOUNT_SOFT_DELETED") {
         return;
       }
+      toast.error(translateError(err, tErr));
+    },
+  });
+}
+
+export function useTwoFactorChallenge() {
+  const setSession = useAuthStore((s) => s.setSession);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const qc = useQueryClient();
+  const t = useTranslations("toast");
+  const tErr = useTranslations("errors");
+
+  return useMutation({
+    mutationFn: async (input: { code?: string; backupCode?: string }) => {
+      const partial =
+        typeof window === "undefined"
+          ? ""
+          : sessionStorage.getItem(TWO_FACTOR_PARTIAL_KEY) ?? "";
+      if (!partial) throw new Error("missing partialToken");
+      if (input.code) return authService.twoFactorChallenge(partial, input.code);
+      if (input.backupCode)
+        return authService.twoFactorRecovery(partial, input.backupCode);
+      throw new Error("code or backupCode required");
+    },
+    onSuccess: ({ user, tokens }) => {
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem(TWO_FACTOR_PARTIAL_KEY);
+      }
+      setSession(user, tokens);
+      syncLocaleCookie(user.locale);
+      qc.setQueryData(AUTH_QUERY_KEY, user);
+      qc.removeQueries({ queryKey: PROFILE_KEY });
+      toast.success(t("success.welcome"));
+      router.push(safeReturnUrl(searchParams.get("returnUrl")));
+    },
+    onError: (err: Error) => {
       toast.error(translateError(err, tErr));
     },
   });

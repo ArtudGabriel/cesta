@@ -93,6 +93,13 @@ export class EnvironmentVariables {
   @Min(0)
   @Max(23)
   CRON_GRACE_REMINDER_HOUR?: number = 9;
+
+  // Sprint 99: chave pra cifrar User.twoFactorSecret em repouso (AES-256-GCM).
+  // Normalizada via SHA-256 em runtime pra 32 bytes. Perder a chave = perder
+  // todos os 2FAs ativos. ADR 0002 documenta rotação.
+  @IsString()
+  @MinLength(16)
+  TWO_FACTOR_ENC_KEY: string;
 }
 
 export function validateEnv(raw: Record<string, unknown>) {

@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { useLogout } from "@/features/auth/hooks/use-auth";
 import { DisplayPreferencesSection } from "@/features/profile/components/display-preferences-section";
 import { DsrSection } from "@/features/profile/components/dsr-section";
+import { TwoFactorSection } from "@/features/profile/components/two-factor-section";
 import {
   useProfile,
   useUpdateProfile,
@@ -217,6 +218,9 @@ export default function PerfilPage() {
 
       {/* Preferências de visualização (Sprint 44) */}
       <DisplayPreferencesSection profile={profile} />
+
+      {/* Seguridad — 2FA TOTP (Sprint 99) */}
+      <TwoFactorSection />
 
       {/* Mis datos — GDPR DSR (Sprint 63) */}
       <DsrSection />
