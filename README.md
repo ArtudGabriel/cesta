@@ -7,15 +7,20 @@ App mobile-first (PWA) de comparação de preços de supermercados para a Comuni
 
 **Idiomas:** Español · Português (Brasil)
 
+**Live:** [cesta-web.vercel.app](https://cesta-web.vercel.app) · API: [cesta-gsvc.onrender.com](https://cesta-gsvc.onrender.com/health)
+
 ---
 
 ## Documentação
 
+- [`CHANGELOG.md`](./CHANGELOG.md) — Highlights por sprint (S1–S99), breaking changes, env rotation history
 - [`cesta.md`](./cesta.md) — Documento de produto (features, regras, roadmap)
 - [`cesta-identidade-visual.md`](./cesta-identidade-visual.md) — Design system
 - [`claude-geral-consolidado.md`](./claude-geral-consolidado.md) — Padrões de desenvolvimento
 - [`CLAUDE.md`](./CLAUDE.md) — Contexto do projeto para o assistente
 - [`SECURITY.md`](./SECURITY.md) — Política de segurança, reporting, SLA, GDPR
+- [`docs/adr/`](./docs/adr/) — Architecture Decision Records
+- [`docs/sprint-100-launch-audit.md`](./docs/sprint-100-launch-audit.md) — Production readiness audit (Sprint 100)
 
 ---
 
@@ -59,11 +64,29 @@ npm run dev                # http://localhost:3000
 
 ## Stack
 
-- **Backend:** NestJS + Prisma + PostgreSQL 16 + BullMQ + Redis
-- **Frontend:** Next.js 15 (App Router) + Tailwind + shadcn/ui + React Query + Zustand
-- **Validação:** class-validator (back) + Zod (front)
-- **Auth:** JWT access 15min + refresh 7d
+- **Backend:** NestJS 11 + Prisma 5 + PostgreSQL 16 + BullMQ + Redis
+- **Frontend:** Next.js 16 (App Router) + React 19 + Tailwind CSS 4 + shadcn/ui + React Query + Zustand
+- **Validação:** class-validator (back) + Zod (front) + OpenAPI-gerado DTOs (shared)
+- **Auth:** JWT access 15min + refresh 7d (httpOnly cookie) + 2FA TOTP opcional
+- **i18n:** next-intl (ES + PT-BR)
+- **Observability:** Sentry (errors + perf + Session Replay) + Web Vitals + custom spans BullMQ/OCR/catalog-sync
 - **Containers:** Docker + docker-compose
+
+### Roadmap (Layer 1 → 9 — concluído)
+
+| Layer | Escopo | Status |
+|---|---|---|
+| 1 | Infra base (scaffold api + web + Docker) | Completo (S0) |
+| 2 | Auth (email/telefone + JWT + refresh) | Completo (S1) |
+| 3 | `supermarkets` + `products` + `product-prices` + seed | Completo (S2) |
+| 4 | `shopping-lists` ("Minha Lista") + comparativo real-time | Completo (S3) |
+| 5 | `reviews` | Completo (S4) |
+| 6 | `family-profiles` + `family-baskets` + worker BullMQ | Completo (S5, refactor S98) |
+| 7 | `catalog-sync` + adapters (Mercadona, Carrefour, Alcampo, DIA, Froiz, LIDL, Aldi) | Completo (S6–S8) |
+| 8 | `receipts` + OCR + `price-correction` | Completo (S7, hardening S97) |
+| 9 | `alerts` + push notifications | Completo (S8, push fase 1 S96) |
+
+Pós-Layer 9: GDPR DSR (S56–S91), Sentry observability (S31/S55/S58/S59), email verification Resend (S75), product images Vercel Blob (S77–S78), 2FA TOTP (S99).
 
 ---
 
@@ -119,7 +142,19 @@ Download report em prod: GH Actions run → Artifacts → `coverage-report`.
 
 ## Deploy
 
-Stack free-tier: **Neon** (Postgres) + **Upstash** (Redis) + **Render** (API NestJS) + **Vercel** (Web Next.js). Sprint 23 preparou tudo — `render.yaml` blueprint + health check + graceful shutdown + env docs.
+Stack free-tier combinado:
+
+| Peça | Serviço | Role | Sprint |
+|---|---|---|---|
+| Web (Next.js) | **Vercel Hobby** | Edge SSR + ISR + preview por PR | Blueprint S23 |
+| API (NestJS) | **Render free** | Backend + BullMQ worker | Blueprint S23 |
+| Postgres | **Neon free** | Serverless Postgres 3GB, zero spin-down | Setup S23 |
+| Redis | **Upstash free** | BullMQ queues + rate-limit | Setup S23 |
+| Email | **Resend free** | Verificação de email + grace-period reminders | S75 |
+| Blob storage | **Vercel Blob** | Imagens de produto + recibos OCR | S77 |
+| Error / APM / Replay | **Sentry free** | Errors + perf + session replay + source maps | S31/S55/S58 |
+
+Sprint 23 preparou tudo — `render.yaml` blueprint + health check + graceful shutdown + env docs.
 
 ### 1. Neon — Postgres
 
