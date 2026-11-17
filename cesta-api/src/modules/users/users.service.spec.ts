@@ -281,6 +281,8 @@ describe('UsersService.updateProfile', () => {
     repoMock.findById.mockResolvedValue(fakeUser());
     repoMock.softDeleteWithRevoke.mockResolvedValue(fakeUser());
     await service.deleteMyAccount('u1');
+    // Sprint 94 follow-up: enqueue é fire-and-forget; aguarda microtask flush.
+    await new Promise((resolve) => setImmediate(resolve));
 
     expect(repoMock.findById).toHaveBeenCalledWith('u1');
     expect(repoMock.softDeleteWithRevoke).toHaveBeenCalledWith('u1');
@@ -303,6 +305,24 @@ describe('UsersService.updateProfile', () => {
     });
     expect(repoMock.softDeleteWithRevoke).not.toHaveBeenCalled();
     expect(queueMock.add).not.toHaveBeenCalled();
+  });
+
+  it('deleteMyAccount não bloqueia HTTP quando queue.add rejeita (Sprint 94 fix)', async () => {
+    repoMock.findById.mockResolvedValue(fakeUser());
+    repoMock.softDeleteWithRevoke.mockResolvedValue(fakeUser());
+    queueMock.add.mockRejectedValue(new Error('Redis timeout'));
+    // Silence logger + Sentry pra não poluir test output.
+    jest.spyOn(service['logger'], 'error').mockImplementation(() => undefined);
+
+    // Deve resolver sem throw — enqueue é detached/fire-and-forget.
+    await expect(service.deleteMyAccount('u1')).resolves.toBeUndefined();
+
+    // Flush microtask pra confirmar que enqueue tentou mas falhou isolado.
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(queueMock.add).toHaveBeenCalledTimes(1);
+    expect(service['logger'].error).toHaveBeenCalledWith(
+      expect.stringContaining('hard-delete enqueue failed userId=u1'),
+    );
   });
 
   it('PATCH prefersVegan=true + user tem FamilyProfile → restrictions ganha "vegan" (Sprint 65)', async () => {
