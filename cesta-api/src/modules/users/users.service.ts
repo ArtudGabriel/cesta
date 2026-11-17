@@ -282,6 +282,14 @@ export class UsersService {
    * Sprint 63 GDPR Art. 17: soft-delete + revoke refresh tokens + zera
    * consent. User que chama DELETE na própria conta já estava autenticado,
    * então o guard garante que só o dono dispara.
+   *
+   * Sprint 94 follow-up: BullMQ enqueue é fire-and-forget pra não bloquear
+   * resposta HTTP. Redis lento/indisponível causava timeout 45s pro frontend
+   * mesmo com soft-delete já persistido. GDPR Art.17 é cumprido no momento
+   * do soft-delete (deletedAt + hardDeleteScheduledAt setados em transação);
+   * o job BullMQ é apenas o trigger de limpeza em 30d. Se enqueue falhar,
+   * hardDeleteScheduledAt no DB permite um scanner de reconciliação futuro
+   * recuperar o cleanup. Falha é logada + Sentry pra alerting.
    */
   async deleteMyAccount(userId: string): Promise<void> {
     const user = await this.usersRepository.findById(userId);
@@ -293,18 +301,31 @@ export class UsersService {
       );
     }
     await this.usersRepository.softDeleteWithRevoke(userId);
-    // Sprint 64 GDPR Art.17: enqueue hard-delete 30d após soft-delete.
-    // Queue delay + job attempts + exponential backoff cobrem flakes transient.
-    await this.userCleanupQueue.add(
-      'hard-delete',
-      { userId },
-      {
-        delay: HARD_DELETE_DELAY_MS,
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 60_000 },
-        removeOnComplete: 100,
-        removeOnFail: 50,
-      },
-    );
+    void this.enqueueHardDeleteDetached(userId);
+  }
+
+  private async enqueueHardDeleteDetached(userId: string): Promise<void> {
+    try {
+      await this.userCleanupQueue.add(
+        'hard-delete',
+        { userId },
+        {
+          delay: HARD_DELETE_DELAY_MS,
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 60_000 },
+          removeOnComplete: 100,
+          removeOnFail: 50,
+        },
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `hard-delete enqueue failed userId=${userId}: ${msg}`,
+      );
+      Sentry.captureException(err, {
+        tags: { feature: 'hard-delete-enqueue' },
+        extra: { userId },
+      });
+    }
   }
 }
