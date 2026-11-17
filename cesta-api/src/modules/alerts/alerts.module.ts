@@ -2,6 +2,10 @@ import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ProductsRepository } from '../products/products.repository';
+import {
+  ALERT_PRICE_CHECK_QUEUE,
+  AlertPriceCheckProcessor,
+} from './alert-price-check.processor';
 import { AlertsController } from './alerts.controller';
 import {
   PRICE_ALERTS_QUEUE,
@@ -12,7 +16,10 @@ import { AlertsService } from './alerts.service';
 
 @Module({
   imports: [
-    BullModule.registerQueue({ name: PRICE_ALERTS_QUEUE }),
+    BullModule.registerQueue(
+      { name: PRICE_ALERTS_QUEUE },
+      { name: ALERT_PRICE_CHECK_QUEUE },
+    ),
     NotificationsModule,
   ],
   controllers: [AlertsController],
@@ -20,6 +27,7 @@ import { AlertsService } from './alerts.service';
     AlertsService,
     AlertsRepository,
     PriceAlertsProcessor,
+    AlertPriceCheckProcessor,
     ProductsRepository,
   ],
   exports: [AlertsRepository],

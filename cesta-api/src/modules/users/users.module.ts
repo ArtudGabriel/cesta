@@ -2,6 +2,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { forwardRef, Module } from '@nestjs/common';
 import { EmailModule } from '../email/email.module';
 import { FamilyProfilesModule } from '../family-profiles/family-profiles.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { GRACE_REMINDER_QUEUE } from './grace-reminder.constants';
 import { GraceReminderProcessor } from './grace-reminder.processor';
 import {
@@ -19,6 +20,7 @@ import { UsersService } from './users.service';
       { name: GRACE_REMINDER_QUEUE },
     ),
     EmailModule,
+    NotificationsModule,
     // Sprint 65 bidirectional sync: forwardRef quebra cycle com FamilyProfilesModule.
     forwardRef(() => FamilyProfilesModule),
   ],

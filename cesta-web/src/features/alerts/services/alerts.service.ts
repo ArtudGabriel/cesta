@@ -40,13 +40,15 @@ export const pushService = {
     endpoint: string;
     keys: { p256dh: string; auth: string };
     userAgent?: string;
-  }): Promise<void> {
-    await api.post("/notifications/subscribe", payload);
+  }): Promise<{ id: string; endpoint: string }> {
+    const { data } = await api.post<Envelope<{ id: string; endpoint: string }>>(
+      "/users/me/push-subscription",
+      payload,
+    );
+    return data.data;
   },
 
-  async unsubscribe(endpoint: string): Promise<void> {
-    await api.delete("/notifications/subscribe", {
-      params: { endpoint },
-    });
+  async unsubscribe(id: string): Promise<void> {
+    await api.delete(`/users/me/push-subscription/${id}`);
   },
 };
