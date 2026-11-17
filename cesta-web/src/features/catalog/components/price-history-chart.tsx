@@ -31,7 +31,11 @@ interface ChartRow {
   [supermarketSlug: string]: string | number | undefined;
 }
 
-const DEFAULT_COLOR = "#1b6b48";
+// Tokens espelham globals.css (--color-cesta-green, --color-surface, --color-muted).
+// Recharts stroke/fill não aceitam className, então refs explícitas pros valores do token.
+const DEFAULT_COLOR = "var(--color-cesta-green)";
+const GRID_COLOR = "var(--color-surface)";
+const AXIS_TEXT_COLOR = "var(--color-muted)";
 
 export function PriceHistoryChart({
   productId,
@@ -93,16 +97,16 @@ export function PriceHistoryChart({
         <div className="h-40 w-full md:h-56">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0edea" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} vertical={false} />
               <XAxis
                 dataKey="dateLabel"
-                tick={{ fill: "#6B6560", fontSize: 11 }}
+                tick={{ fill: AXIS_TEXT_COLOR, fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
                 minTickGap={24}
               />
               <YAxis
-                tick={{ fill: "#6B6560", fontSize: 11 }}
+                tick={{ fill: AXIS_TEXT_COLOR, fontSize: 11 }}
                 tickLine={false}
                 axisLine={false}
                 width={56}

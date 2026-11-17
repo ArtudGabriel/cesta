@@ -64,11 +64,21 @@ export function HomeClient() {
   const setSortByNutri = nutri.setSortEnabled;
   const [suggestOpen, setSuggestOpen] = useState(false);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const closeSuggest = useCallback(() => {
+    setSuggestOpen(false);
+    // Restore focus to input so Escape from dropdown doesn't drop user into body.
+    // rAF waits React commit before focusing — ensures suggestion listbox unmounted.
+    requestAnimationFrame(() => searchInputRef.current?.focus());
+  }, []);
   const t = useTranslations("home");
   const tAria = useTranslations("common.aria");
   const tNav = useTranslations("nav");
 
   useOnClickOutside(searchWrapperRef, () => setSuggestOpen(false), suggestOpen);
+  // Nota: click-outside NÃO restaura focus (user já clicou noutro lugar).
+  // Só Escape / onClose explícito via closeSuggest() devolve focus ao input.
 
   const { data: profile } = useProfile();
 
@@ -228,6 +238,7 @@ export function HomeClient() {
       {/* Search */}
       <div className="relative" ref={searchWrapperRef}>
         <SearchBar
+          inputRef={searchInputRef}
           value={search}
           onChange={(v) => {
             setSearch(v);
@@ -248,7 +259,7 @@ export function HomeClient() {
               setSearch(q);
               setSuggestOpen(false);
             }}
-            onClose={() => setSuggestOpen(false)}
+            onClose={closeSuggest}
           />
         )}
       </div>

@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { FamilyProfile, Prisma } from '@prisma/client';
 import { AppException } from '../../common/exceptions/app-exception';
 import { restrictionsToPrefs } from '../../common/utils/dietary-sync';
@@ -40,7 +40,12 @@ export class FamilyProfilesService {
 
   async getOrThrow(userId: string): Promise<FamilyProfile> {
     const profile = await this.repo.findByUser(userId);
-    if (!profile) throw new NotFoundException('Perfil familiar não encontrado');
+    if (!profile)
+      throw new AppException(
+        'FAMILY_PROFILE.NOT_FOUND',
+        'Perfil familiar não encontrado',
+        HttpStatus.NOT_FOUND,
+      );
     return profile;
   }
 

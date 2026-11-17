@@ -1,4 +1,4 @@
-import { BadRequestException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { AppException } from '../../common/exceptions/app-exception';
 import { ProductFiltersDto } from './dtos/product-filters.dto';
 import { ProductResponseDto } from './dtos/product-response.dto';
@@ -37,8 +37,19 @@ export class ProductsService {
   }
 
   async compare(ids: string[]): Promise<ProductResponseDto[]> {
-    if (!ids.length) throw new BadRequestException('Informe ao menos 1 id');
-    if (ids.length > 20) throw new BadRequestException('Máximo 20 produtos por comparação');
+    if (!ids.length)
+      throw new AppException(
+        'PRODUCTS.COMPARE_EMPTY',
+        'Informe ao menos 1 id',
+        HttpStatus.BAD_REQUEST,
+      );
+    if (ids.length > 20)
+      throw new AppException(
+        'PRODUCTS.COMPARE_LIMIT_EXCEEDED',
+        'Máximo 20 produtos por comparação',
+        HttpStatus.BAD_REQUEST,
+        { limit: 20, received: ids.length },
+      );
     const products = await this.repo.findManyByIds(ids);
     return products.map(ProductResponseDto.fromEntity);
   }

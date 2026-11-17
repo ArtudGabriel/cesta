@@ -1,11 +1,5 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import {
-  BadRequestException,
-  ForbiddenException,
-  HttpStatus,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import * as path from 'path';
 import * as Sentry from '@sentry/node';
@@ -65,7 +59,13 @@ export class ReceiptsService {
 
   async findOne(userId: string, id: string): Promise<ReceiptResponseDto> {
     const receipt = await this.repo.findByIdForUser(id, userId);
-    if (!receipt) throw new NotFoundException(`Nota "${id}" não encontrada`);
+    if (!receipt)
+      throw new AppException(
+        'RECEIPTS.NOT_FOUND',
+        `Nota "${id}" não encontrada`,
+        HttpStatus.NOT_FOUND,
+        { receiptId: id },
+      );
     return ReceiptResponseDto.fromEntity(receipt);
   }
 
@@ -86,7 +86,13 @@ export class ReceiptsService {
     dto: UpdateReceiptItemDto,
   ): Promise<ReceiptResponseDto> {
     const item = await this.repo.findItemForUser(itemId, userId);
-    if (!item) throw new ForbiddenException('Item não acessível');
+    if (!item)
+      throw new AppException(
+        'RECEIPTS.ITEM_FORBIDDEN',
+        'Item não acessível',
+        HttpStatus.FORBIDDEN,
+        { itemId },
+      );
     await this.repo.updateItem(itemId, dto);
     return this.findOne(userId, receiptId);
   }
@@ -98,6 +104,12 @@ export class ReceiptsService {
 
   private async assertOwner(userId: string, id: string): Promise<void> {
     const receipt = await this.repo.findByIdForUser(id, userId);
-    if (!receipt) throw new ForbiddenException('Nota não acessível');
+    if (!receipt)
+      throw new AppException(
+        'RECEIPTS.FORBIDDEN',
+        'Nota não acessível',
+        HttpStatus.FORBIDDEN,
+        { receiptId: id },
+      );
   }
 }

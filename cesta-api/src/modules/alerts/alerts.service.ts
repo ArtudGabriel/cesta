@@ -1,10 +1,4 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  HttpStatus,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AppException } from '../../common/exceptions/app-exception';
 import { ProductsRepository } from '../products/products.repository';
@@ -37,8 +31,11 @@ export class AlertsService {
 
   async create(userId: string, dto: CreateAlertDto): Promise<AlertResponseDto> {
     if (dto.type === 'target_price' && !dto.targetPrice) {
-      throw new BadRequestException(
+      throw new AppException(
+        'ALERTS.TARGET_PRICE_REQUIRED',
         'targetPrice é obrigatório para type=target_price',
+        HttpStatus.BAD_REQUEST,
+        { type: dto.type },
       );
     }
 
@@ -83,6 +80,12 @@ export class AlertsService {
 
   private async assertOwner(userId: string, id: string): Promise<void> {
     const alert = await this.repo.findByIdForUser(id, userId);
-    if (!alert) throw new ForbiddenException('Alerta não acessível');
+    if (!alert)
+      throw new AppException(
+        'ALERTS.FORBIDDEN',
+        'Alerta não acessível',
+        HttpStatus.FORBIDDEN,
+        { alertId: id },
+      );
   }
 }

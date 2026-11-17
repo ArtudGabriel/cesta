@@ -1,12 +1,8 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import * as Sentry from '@sentry/node';
+import { AppException } from '../../common/exceptions/app-exception';
 import { ProductsRepository } from '../products/products.repository';
 import { FamilyProfilesService } from '../family-profiles/family-profiles.service';
 import {
@@ -57,7 +53,13 @@ export class FamilyBasketsService {
     basketId: string,
   ): Promise<GenerateBasketResponseDto> {
     const basket = await this.repo.findByIdForUser(basketId, userId);
-    if (!basket) throw new NotFoundException('Cesta não encontrada');
+    if (!basket)
+      throw new AppException(
+        'FAMILY_BASKET.NOT_FOUND',
+        'Cesta não encontrada',
+        HttpStatus.NOT_FOUND,
+        { basketId },
+      );
 
     await this.repo.updateStatus(basketId, 'pending');
 
@@ -83,7 +85,13 @@ export class FamilyBasketsService {
     basketId: string,
   ): Promise<FamilyBasketResponseDto> {
     const basket = await this.repo.findByIdForUser(basketId, userId);
-    if (!basket) throw new NotFoundException('Cesta não encontrada');
+    if (!basket)
+      throw new AppException(
+        'FAMILY_BASKET.NOT_FOUND',
+        'Cesta não encontrada',
+        HttpStatus.NOT_FOUND,
+        { basketId },
+      );
     return FamilyBasketResponseDto.fromEntity(basket);
   }
 
@@ -100,7 +108,13 @@ export class FamilyBasketsService {
     await this.assertOwner(userId, basketId);
 
     const product = await this.productsRepo.findById(dto.productId);
-    if (!product) throw new NotFoundException('Produto não encontrado');
+    if (!product)
+      throw new AppException(
+        'FAMILY_BASKET.PRODUCT_NOT_FOUND',
+        'Produto não encontrado',
+        HttpStatus.NOT_FOUND,
+        { productId: dto.productId },
+      );
 
     const cheapestPrice =
       product.prices.length > 0
@@ -108,7 +122,12 @@ export class FamilyBasketsService {
         : 0;
 
     if (cheapestPrice <= 0)
-      throw new BadRequestException('Produto sem preço disponível');
+      throw new AppException(
+        'FAMILY_BASKET.PRODUCT_NO_PRICE',
+        'Produto sem preço disponível',
+        HttpStatus.BAD_REQUEST,
+        { productId: dto.productId },
+      );
 
     await this.repo.addOrUpdateItem(basketId, dto.productId, dto.quantity ?? 1, cheapestPrice, {
       isRequired: dto.isRequired,
@@ -141,7 +160,13 @@ export class FamilyBasketsService {
 
   private async assertOwner(userId: string, basketId: string): Promise<void> {
     const basket = await this.repo.findByIdForUser(basketId, userId);
-    if (!basket) throw new ForbiddenException('Cesta não acessível');
+    if (!basket)
+      throw new AppException(
+        'FAMILY_BASKET.FORBIDDEN',
+        'Cesta não acessível',
+        HttpStatus.FORBIDDEN,
+        { basketId },
+      );
   }
 
   private async assertItemOwner(
@@ -149,6 +174,12 @@ export class FamilyBasketsService {
     itemId: string,
   ): Promise<void> {
     const item = await this.repo.findItemForUser(itemId, userId);
-    if (!item) throw new ForbiddenException('Item não acessível');
+    if (!item)
+      throw new AppException(
+        'FAMILY_BASKET.ITEM_FORBIDDEN',
+        'Item não acessível',
+        HttpStatus.FORBIDDEN,
+        { itemId },
+      );
   }
 }
