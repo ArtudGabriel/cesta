@@ -56,6 +56,19 @@ export class ReceiptsProcessor extends WorkerHost {
         ocrRawText: text,
       });
 
+      // Fuzzy fallback carrega candidatos UMA vez — se detectamos o mercado,
+      // restringe ao catálogo daquele supermarket via productPrices (evita
+      // 10k × N items Levenshtein). Sem mercado: fallback catálogo inteiro.
+      const fuzzyCandidates = await this.prisma.product.findMany({
+        where: {
+          deletedAt: null,
+          ...(supermarketId
+            ? { prices: { some: { supermarketId } } }
+            : {}),
+        },
+        select: { id: true, normalizedName: true },
+      });
+
       // Matching: exato por normalizedName, fallback Levenshtein >= 0.7
       const items = await Promise.all(
         parsed.items.map(async (item) => {
@@ -72,11 +85,11 @@ export class ReceiptsProcessor extends WorkerHost {
           if (exact) {
             productId = exact.id;
           } else {
-            const candidates = await this.prisma.product.findMany({
-              where: { deletedAt: null },
-              select: { id: true, normalizedName: true },
-            });
-            productId = fuzzyMatchProduct(item.normalizedName, candidates, 0.7);
+            productId = fuzzyMatchProduct(
+              item.normalizedName,
+              fuzzyCandidates,
+              0.7,
+            );
           }
 
           return {

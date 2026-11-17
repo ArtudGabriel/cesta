@@ -7,8 +7,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useUploadReceipt } from "../hooks/use-expenses";
 
-const MAX_IMAGE_MB = 5;
-const ALLOWED_TYPES = ["image/jpeg", "image/png"];
+const MAX_IMAGE_MB = 10;
+const ALLOWED_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+];
 
 export function ScanButton() {
   const upload = useUploadReceipt();
@@ -41,7 +46,7 @@ export function ScanButton() {
         <input
           ref={cameraRef}
           type="file"
-          accept="image/jpeg,image/png"
+          accept="image/jpeg,image/png,image/webp,image/heic"
           capture="environment"
           onChange={handleFile}
           className="hidden"
@@ -49,7 +54,7 @@ export function ScanButton() {
         <input
           ref={galleryRef}
           type="file"
-          accept="image/jpeg,image/png"
+          accept="image/jpeg,image/png,image/webp,image/heic"
           onChange={handleFile}
           className="hidden"
         />
