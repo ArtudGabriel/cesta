@@ -39,6 +39,15 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  async redirects() {
+    return [
+      {
+        source: "/registro",
+        destination: "/register",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default withSentryConfig(withAnalyzer(withNextIntl(nextConfig)), {
