@@ -2,7 +2,9 @@
 
 import { Flag, Pencil, ThumbsUp, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useLocale } from "@/hooks/use-locale";
 import { cn } from "@/lib/utils";
 import {
@@ -33,6 +35,7 @@ export function ReviewCard({
   const t = useTranslations("reviews.card");
   const locale = useLocale();
   const dateLocale = locale === "pt-BR" ? "pt-BR" : "es-ES";
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   return (
     <article className="rounded-card bg-white p-4 shadow-card">
@@ -67,11 +70,7 @@ export function ReviewCard({
               size="icon"
               variant="ghost"
               aria-label={t("deleteAria")}
-              onClick={() => {
-                if (confirm(t("confirmDelete"))) {
-                  deleteReview.mutate(review.id);
-                }
-              }}
+              onClick={() => setShowDeleteConfirm(true)}
             >
               <Trash2 className="h-4 w-4 text-coral" />
             </Button>
@@ -115,6 +114,18 @@ export function ReviewCard({
           </button>
         )}
       </footer>
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          setShowDeleteConfirm(false);
+          deleteReview.mutate(review.id);
+        }}
+        title={t("confirmDelete")}
+        destructive
+        isPending={deleteReview.isPending}
+      />
     </article>
   );
 }

@@ -37,6 +37,11 @@
       "alerts": "Alertas",
       "myExpenses": "Meus gastos",
       "familyBasket": "Minha cesta familiar"
+    },
+    "confirm": {
+      "cancel": "Cancelar",
+      "confirm": "Confirmar",
+      "delete": "Excluir"
     }
   },
   "auth": {

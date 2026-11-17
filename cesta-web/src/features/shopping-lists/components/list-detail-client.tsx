@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   NutriFilters,
   isHealthyGrade,
@@ -44,6 +45,7 @@ export function ListDetailClient({ initialList }: ListDetailClientProps) {
   const { data: totals } = useListTotals(initialList.id);
   const deleteList = useDeleteList();
   const [showAdd, setShowAdd] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const { value: sortMode, setValue: setSortMode } = useSortUnitPreference();
   const nutri = useNutriPreferences();
   const sortByNutri = nutri.sortEnabled;
@@ -93,13 +95,7 @@ export function ListDetailClient({ initialList }: ListDetailClientProps) {
           size="icon"
           variant="ghost"
           aria-label={t("deleteList")}
-          onClick={() => {
-            if (confirm(t("confirmDelete"))) {
-              deleteList.mutate(list.id, {
-                onSuccess: () => router.push("/minha-lista"),
-              });
-            }
-          }}
+          onClick={() => setShowDeleteConfirm(true)}
         >
           <Trash2 className="h-5 w-5 text-coral" />
         </Button>
@@ -166,6 +162,20 @@ export function ListDetailClient({ initialList }: ListDetailClientProps) {
         listId={list.id}
         open={showAdd}
         onClose={() => setShowAdd(false)}
+      />
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          setShowDeleteConfirm(false);
+          deleteList.mutate(list.id, {
+            onSuccess: () => router.push("/minha-lista"),
+          });
+        }}
+        title={t("confirmDelete")}
+        destructive
+        isPending={deleteList.isPending}
       />
     </main>
   );
