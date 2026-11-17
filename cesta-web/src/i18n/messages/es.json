@@ -121,7 +121,13 @@
       "verifyExpired": "El enlace de confirmación ha caducado",
       "accountSoftDeleted": "Tu cuenta está programada para eliminación. Reactívala antes del fin del plazo.",
       "accountAlreadyActive": "La cuenta ya está activa",
-      "reactivateWindowExpired": "El plazo para reactivar tu cuenta ha expirado"
+      "reactivateWindowExpired": "El plazo para reactivar tu cuenta ha expirado",
+      "2faAlreadyEnabled": "La autenticación en dos pasos ya está activada",
+      "2faNoPendingEnroll": "No hay una activación pendiente. Vuelve a empezar.",
+      "2faInvalidCode": "Código incorrecto. Revisa tu app autenticador.",
+      "2faInvalidCredentials": "Contraseña o código incorrectos",
+      "2faNotEnabled": "La autenticación en dos pasos no está activada",
+      "2faPartialTokenInvalid": "Tu sesión de verificación expiró. Inicia sesión de nuevo."
     },
     "alerts": {
       "notFound": "Alerta no encontrada",
