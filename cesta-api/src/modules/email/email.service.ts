@@ -9,6 +9,17 @@ export interface VerificationEmailPayload {
   verifyUrl: string;
 }
 
+// Sprint 94 GDPR grace-period reminders. `stage` controla variante de texto
+// (7d = aviso, 1d = urgência). reactivateUrl aponta pro /login que detecta
+// conta soft-deleted e mostra banner reativar (Sprint 90).
+export interface GraceReminderEmailPayload {
+  to: string;
+  name?: string | null;
+  locale: 'es' | 'pt-BR';
+  stage: '7d' | '1d';
+  reactivateUrl: string;
+}
+
 const COPY = {
   es: {
     subject: 'Confirma tu email en Cesta',
@@ -28,6 +39,54 @@ const COPY = {
     footer: 'Se não foi você, ignore esta mensagem. O link expira em 24 horas.',
   },
 } as const;
+
+// Sprint 94: copy simétrico ES + PT-BR, 2 variantes (7d/1d) por idioma.
+const GRACE_COPY = {
+  es: {
+    '7d': {
+      subject: 'Tu cuenta Cesta se eliminará en 7 días',
+      hello: (name?: string | null) => (name ? `Hola ${name},` : 'Hola,'),
+      body: 'Tu cuenta está programada para eliminación definitiva en 7 días. Si cambiaste de idea, aún puedes reactivarla con un solo clic.',
+      cta: 'Reactivar mi cuenta',
+      footer:
+        'Después de 30 días desde la solicitud de baja, borraremos todos tus datos de forma permanente (GDPR Art. 17).',
+    },
+    '1d': {
+      subject: 'Último aviso: tu cuenta Cesta se elimina mañana',
+      hello: (name?: string | null) => (name ? `Hola ${name},` : 'Hola,'),
+      body: 'Esta es tu última oportunidad. Mañana borraremos definitivamente tu cuenta y todos los datos asociados. Si quieres conservarla, reactívala ahora.',
+      cta: 'Reactivar mi cuenta ahora',
+      footer:
+        'Tras la eliminación no podremos recuperar favoritos, listas, reseñas ni historial de gastos (GDPR Art. 17).',
+    },
+  },
+  'pt-BR': {
+    '7d': {
+      subject: 'Sua conta Cesta será excluída em 7 dias',
+      hello: (name?: string | null) => (name ? `Olá, ${name},` : 'Olá,'),
+      body: 'Sua conta está programada para exclusão definitiva em 7 dias. Se mudou de ideia, ainda pode reativá-la com um clique.',
+      cta: 'Reativar minha conta',
+      footer:
+        'Após 30 dias da solicitação de exclusão, apagaremos todos os seus dados de forma permanente (LGPD/GDPR Art. 17).',
+    },
+    '1d': {
+      subject: 'Último aviso: sua conta Cesta será excluída amanhã',
+      hello: (name?: string | null) => (name ? `Olá, ${name},` : 'Olá,'),
+      body: 'Esta é sua última chance. Amanhã apagaremos definitivamente sua conta e todos os dados associados. Se quiser mantê-la, reative agora.',
+      cta: 'Reativar minha conta agora',
+      footer:
+        'Após a exclusão, não poderemos recuperar favoritos, listas, reviews nem histórico de gastos (LGPD/GDPR Art. 17).',
+    },
+  },
+} as const;
+
+type GraceCopy = {
+  subject: string;
+  hello: (name?: string | null) => string;
+  body: string;
+  cta: string;
+  footer: string;
+};
 
 // GDPR Sprint 59: email é PII. Nunca logar in-clear — Sentry breadcrumb captura
 // NestJS Logger auto e vaza em Replay/Issues. maskEmail mantém a observabilidade
@@ -97,6 +156,78 @@ export class EmailService {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.error(`Resend exception para ${masked}: ${msg}`);
     }
+  }
+
+  async sendGraceReminder(payload: GraceReminderEmailPayload): Promise<void> {
+    const localeCopy = GRACE_COPY[payload.locale] ?? GRACE_COPY.es;
+    const copy = localeCopy[payload.stage];
+    const html = this.renderGraceHtml(copy, payload);
+    const text = this.renderGraceText(copy, payload);
+    const masked = maskEmail(payload.to);
+
+    if (!this.client) {
+      this.logger.log(
+        `[no-op] grace-reminder-${payload.stage} para ${masked} — link: ${payload.reactivateUrl}`,
+      );
+      return;
+    }
+
+    try {
+      const result = await this.client.emails.send({
+        from: this.from,
+        to: payload.to,
+        subject: copy.subject,
+        html,
+        text,
+      });
+      if (result.error) {
+        this.logger.error(
+          `Resend falhou (grace-${payload.stage}) para ${masked}: ${result.error.message}`,
+        );
+        return;
+      }
+      this.logger.log(
+        `grace-reminder-${payload.stage} enviado para ${masked} (id=${result.data?.id ?? 'n/a'})`,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `Resend exception (grace-${payload.stage}) para ${masked}: ${msg}`,
+      );
+    }
+  }
+
+  private renderGraceHtml(
+    copy: GraceCopy,
+    payload: GraceReminderEmailPayload,
+  ): string {
+    return `<!doctype html>
+<html>
+  <body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f7f7f5;margin:0;padding:24px;color:#1a1a1a">
+    <table role="presentation" width="100%" style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;padding:32px">
+      <tr><td>
+        <h1 style="font-size:20px;margin:0 0 16px">${escapeHtml(copy.subject)}</h1>
+        <p style="margin:0 0 12px">${escapeHtml(copy.hello(payload.name))}</p>
+        <p style="margin:0 0 24px">${escapeHtml(copy.body)}</p>
+        <p style="margin:0 0 24px">
+          <a href="${escapeHtml(payload.reactivateUrl)}"
+             style="display:inline-block;background:#1a1a1a;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">
+            ${escapeHtml(copy.cta)}
+          </a>
+        </p>
+        <p style="margin:0 0 8px;font-size:13px;color:#666">${escapeHtml(copy.footer)}</p>
+        <p style="margin:0;font-size:12px;color:#999;word-break:break-all">${escapeHtml(payload.reactivateUrl)}</p>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+  }
+
+  private renderGraceText(
+    copy: GraceCopy,
+    payload: GraceReminderEmailPayload,
+  ): string {
+    return `${copy.hello(payload.name)}\n\n${copy.body}\n\n${copy.cta}: ${payload.reactivateUrl}\n\n${copy.footer}\n`;
   }
 
   private renderVerificationHtml(
