@@ -1,3 +1,4 @@
+import { safeJsonLd } from "@/lib/json-ld";
 import { HomeClient } from "./home-client";
 
 // Sprint 88: server shell permite emitir JSON-LD WebSite + SearchAction
@@ -26,7 +27,7 @@ export default function HomePage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(websiteJsonLd) }}
       />
       <HomeClient />
     </>

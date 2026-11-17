@@ -36,7 +36,19 @@ export function ConfirmDialog({
 
   useEffect(() => {
     if (!open) return;
+
+    // WAI-ARIA dialog pattern: salvar elemento focado antes da abertura e
+    // restaurar no close pra devolver foco ao trigger. Captura em closure
+    // garante restauração mesmo se DOM reorganizar durante o dialog aberto.
+    const previousActive = document.activeElement as HTMLElement | null;
     cancelRef.current?.focus();
+
+    // Scroll lock no body: previne scroll fantasma atrás do backdrop em
+    // mobile/desktop. Preserva valor anterior em vez de assumir "" default,
+    // caso o host aplique overflow custom (ex: HTML scroll via <html>).
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         onClose();
@@ -56,7 +68,11 @@ export function ConfirmDialog({
       }
     }
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previousOverflow;
+      previousActive?.focus?.();
+    };
   }, [open, onClose]);
 
   if (!open) return null;
