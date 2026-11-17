@@ -63,6 +63,8 @@ export default function HomePage() {
   const [suggestOpen, setSuggestOpen] = useState(false);
   const searchWrapperRef = useRef<HTMLDivElement>(null);
   const t = useTranslations("home");
+  const tAria = useTranslations("common.aria");
+  const tNav = useTranslations("nav");
 
   useOnClickOutside(searchWrapperRef, () => setSuggestOpen(false), suggestOpen);
 
@@ -196,17 +198,17 @@ export default function HomePage() {
               pra bottom-nav. Header mantém só atalhos secundários + ação de sessão. */}
           {isHydrated && user && (
             <>
-              <Button asChild size="icon" variant="secondary" aria-label="Alertas">
+              <Button asChild size="icon" variant="secondary" aria-label={tAria("alerts")}>
                 <Link href="/alertas">
                   <Bell className="h-4 w-4" />
                 </Link>
               </Button>
-              <Button asChild size="icon" variant="secondary" aria-label="Mis gastos">
+              <Button asChild size="icon" variant="secondary" aria-label={tAria("myExpenses")}>
                 <Link href="/gastos">
                   <Receipt className="h-4 w-4" />
                 </Link>
               </Button>
-              <Button asChild size="icon" variant="secondary" aria-label="Mi Cesta familiar">
+              <Button asChild size="icon" variant="secondary" aria-label={tAria("familyBasket")}>
                 <Link href="/minha-cesta">
                   <ShoppingBasket className="h-4 w-4" />
                 </Link>
@@ -215,7 +217,7 @@ export default function HomePage() {
           )}
           {isHydrated && !user && (
             <Button asChild size="sm">
-              <Link href="/login">Entrar</Link>
+              <Link href="/login">{tNav("login")}</Link>
             </Button>
           )}
         </div>

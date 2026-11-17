@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field-error";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,8 @@ export function RegisterForm() {
   const [method, setMethod] = useState<Method>("email");
   const registerMutation = useRegister();
   const t = useTranslations("auth");
+  const locale = useLocale();
+  const defaultLocale: "es" | "pt-BR" = locale === "pt-BR" ? "pt-BR" : "es";
 
   const schema = useMemo(
     () =>
@@ -46,7 +48,7 @@ export function RegisterForm() {
       password: "",
       confirmPassword: "",
       name: "",
-      locale: "es",
+      locale: defaultLocale,
     },
   });
 
@@ -57,7 +59,7 @@ export function RegisterForm() {
         : { phone: data.phone }),
       password: data.password,
       name: data.name || undefined,
-      locale: data.locale ?? "es",
+      locale: data.locale ?? defaultLocale,
     };
     registerMutation.mutate(payload);
   }

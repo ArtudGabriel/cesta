@@ -32,7 +32,10 @@
       "favoriteAdd": "Adicionar aos favoritos",
       "favoriteRemove": "Remover dos favoritos",
       "starCount": "{count, plural, =1 {# estrela} other {# estrelas}}",
-      "rating": "Avaliação {value} de 5"
+      "rating": "Avaliação {value} de 5",
+      "alerts": "Alertas",
+      "myExpenses": "Meus gastos",
+      "familyBasket": "Minha cesta familiar"
     }
   },
   "auth": {
