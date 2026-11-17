@@ -1,7 +1,5 @@
 import { ImageResponse } from "next/og";
 
-// Sprint 88 gate 4 fix: edge runtime deprecado em Next 16 + incompatível com
-// nextConfig.cacheComponents. ImageResponse roda em nodejs (default).
 export const alt = "Cesta — comparación de precios";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
@@ -23,11 +21,14 @@ const MUTED = "#6B6560";
 const CORAL = "#E8513A";
 
 /**
- * Fetch resilient especificamente pra OG image handler. Diferente de
- * fetchProductSSR que lança em prod quando API_URL ausente, aqui aceitamos
- * NEXT_PUBLIC_API_URL como fallback — handler nunca retorna 500 por env var
- * faltando (Sprint 88 gate 4 bug: /opengraph-image 500 em todos produtos).
+ * Sprint 88 gate 4 round 2: Satori exige `display: flex` explícito em TODO
+ * `<div>` que renderiza múltiplos children (ou children + text misturados).
+ * Omissão causa 500 com mensagem "Expected <div> to have explicit display:
+ * flex" (Vercel runtime log 11:54Z). Padrão aplicado em todos os divs abaixo,
+ * incluindo containers de um único child, pra evitar regressão silenciosa
+ * quando a árvore for refatorada.
  */
+
 async function fetchProductForOg(pid: string): Promise<ProductForOg | null> {
   const base = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL;
   if (!base) return null;
@@ -51,36 +52,52 @@ async function fetchProductForOg(pid: string): Promise<ProductForOg | null> {
 }
 
 function brandFallback() {
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: CESTA_GREEN,
-          color: CREAM,
-        }}
-      >
-        <div style={{ fontSize: 120, fontWeight: 800, letterSpacing: -2 }}>
-          Cesta
+  try {
+    return new ImageResponse(
+      (
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: CESTA_GREEN,
+            color: CREAM,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              fontSize: 120,
+              fontWeight: 800,
+              letterSpacing: -2,
+            }}
+          >
+            Cesta
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: 32,
+              marginTop: 16,
+              opacity: 0.85,
+            }}
+          >
+            Comparador de precios · Madrid
+          </div>
         </div>
-        <div style={{ fontSize: 32, marginTop: 16, opacity: 0.85 }}>
-          Comparador de precios · Madrid
-        </div>
-      </div>
-    ),
-    size,
-  );
+      ),
+      size,
+    );
+  } catch {
+    // Último recurso: resposta mínima válida pra crawler não receber 500.
+    return new Response("", { status: 204 });
+  }
 }
 
 export default async function ProductOpenGraphImage({ params }: Props) {
-  // Outer try/catch envolve tudo — qualquer falha (Satori render, fetch,
-  // JSON parse, env missing) cai no brand card. Nunca 500 pra consumidor OG
-  // (crawlers Twitter/FB/Discord), que já é problema reportado no gate 4.
   try {
     const { pid } = await params;
     const product = await fetchProductForOg(pid);
@@ -123,6 +140,7 @@ export default async function ProductOpenGraphImage({ params }: Props) {
             {product.brand && (
               <div
                 style={{
+                  display: "flex",
                   fontSize: 32,
                   color: MUTED,
                   marginBottom: 12,
@@ -135,10 +153,10 @@ export default async function ProductOpenGraphImage({ params }: Props) {
             )}
             <div
               style={{
+                display: "flex",
                 fontSize: 72,
                 fontWeight: 700,
                 lineHeight: 1.1,
-                display: "flex",
               }}
             >
               {product.name}
@@ -161,17 +179,28 @@ export default async function ProductOpenGraphImage({ params }: Props) {
                   color: CORAL,
                 }}
               >
-                <div style={{ fontSize: 28, fontWeight: 600 }}>desde</div>
                 <div
-                  style={{ fontSize: 96, fontWeight: 800, letterSpacing: -2 }}
+                  style={{ display: "flex", fontSize: 28, fontWeight: 600 }}
+                >
+                  desde
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    fontSize: 96,
+                    fontWeight: 800,
+                    letterSpacing: -2,
+                  }}
                 >
                   {product.cheapestPrice.toFixed(2)}€
                 </div>
               </div>
             ) : (
-              <div />
+              <div style={{ display: "flex" }} />
             )}
-            <div style={{ fontSize: 28, color: MUTED }}>cesta · Madrid</div>
+            <div style={{ display: "flex", fontSize: 28, color: MUTED }}>
+              cesta · Madrid
+            </div>
           </div>
         </div>
       ),

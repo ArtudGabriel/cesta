@@ -51,38 +51,41 @@ export async function generateMetadata({
 
   const title = `${product.name} · Cesta`;
   const description = tOg("productDescription", { name: product.name });
-  const ogImage = product.imageUrl ?? `${baseUrl}/og-image.png`;
+  // og:image / twitter:image apontam pra opengraph-image.tsx dinâmico, não /og-image.png
+  // genérico (QA gate 4 round 2 P2). OG endpoint resolve nome+preço por produto.
+  const ogImage = `${baseUrl}/produto/${pid}/opengraph-image`;
+
+  // Sprint 88 gate 4 round 2: `other: { "og:type": "product" }` NÃO sobrescreve
+  // Next default og:type=website — Next emite ambos ou prioriza openGraph.type.
+  // Workaround: cast openGraph.type via `as unknown as "website"` — Next lê o
+  // campo como string no runtime (next/dist/lib/metadata/generate/opengraph.ts)
+  // e emite og:type=<string>, sem validar o union em runtime.
+  const openGraph = {
+    type: "product",
+    title,
+    description,
+    url: canonical,
+    siteName: "Cesta",
+    images: [
+      {
+        url: ogImage,
+        width: 1200,
+        height: 630,
+        alt: product.name,
+      },
+    ],
+  } as unknown as Metadata["openGraph"];
 
   return {
     title,
     description,
     alternates: { canonical },
-    openGraph: {
-      // og:type=product não faz parte do union de Next.js openGraph.type (só
-      // website/article/book/profile/music/video). Mantemos "website" aqui e
-      // sobrescrevemos via `other` abaixo pra emitir og:type=product real.
-      type: "website",
-      title,
-      description,
-      url: canonical,
-      siteName: "Cesta",
-      images: [
-        {
-          url: ogImage,
-          width: 1200,
-          height: 630,
-          alt: product.name,
-        },
-      ],
-    },
+    openGraph,
     twitter: {
       card: "summary_large_image",
       title,
       description,
       images: [ogImage],
-    },
-    other: {
-      "og:type": "product",
     },
   };
 }
