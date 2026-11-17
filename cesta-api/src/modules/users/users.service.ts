@@ -227,6 +227,38 @@ export class UsersService {
   }
 
   /**
+   * Sprint 95: lista paginada de users soft-deleted pro admin UI. Projeta
+   * apenas id+email+deletedAt+graceEndsAt (hardDeleteScheduledAt renomeado
+   * pro contrato público) — nunca exporta passwordHash nem phone.
+   */
+  async adminListSoftDeleted(
+    limit: number,
+    offset: number,
+  ): Promise<{
+    items: Array<{
+      id: string;
+      email: string | null;
+      deletedAt: Date;
+      graceEndsAt: Date | null;
+    }>;
+    total: number;
+  }> {
+    const { items, total } = await this.usersRepository.listSoftDeleted(
+      limit,
+      offset,
+    );
+    return {
+      items: items.map((u) => ({
+        id: u.id,
+        email: u.email,
+        deletedAt: u.deletedAt as Date,
+        graceEndsAt: u.hardDeleteScheduledAt,
+      })),
+      total,
+    };
+  }
+
+  /**
    * Sprint 92: admin cancela soft-delete de um user. Idempotente — user já
    * ativo retorna status=already_active sem efeito colateral. Audit
    * AdminCancelledDelete via Sentry breadcrumb + log estruturado.

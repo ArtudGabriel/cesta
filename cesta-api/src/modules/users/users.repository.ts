@@ -84,6 +84,29 @@ export class UsersRepository {
   }
 
   /**
+   * Sprint 95: paginação de users soft-deleted pro admin UI. Ordena por
+   * deletedAt desc (mais recentes primeiro, grace window ainda ampla).
+   * Count + findMany em transação pra evitar leitura inconsistente sob
+   * writes concorrentes (soft-delete/reactivate).
+   */
+  async listSoftDeleted(
+    limit: number,
+    offset: number,
+  ): Promise<{ items: User[]; total: number }> {
+    const where: Prisma.UserWhereInput = { deletedAt: { not: null } };
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        where,
+        orderBy: { deletedAt: 'desc' },
+        take: limit,
+        skip: offset,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+    return { items, total };
+  }
+
+  /**
    * Sprint 94: candidatos pro cron grace-reminder. Users soft-deleted (filtra
    * no SQL pra evitar scan global) + têm email (phone-only skip). O stage
    * exato (7d/1d) e idempotent guard ficam no processor pra manter query
