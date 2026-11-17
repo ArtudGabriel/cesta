@@ -34,7 +34,11 @@ export function TwoFactorSection() {
   const [disablePassword, setDisablePassword] = useState("");
   const [disableCode, setDisableCode] = useState("");
 
-  const enabled = profile?.twoFactorEnabled ?? false;
+  // S99 ajuste: enquanto backend não deployar (Render stuck pending env vars),
+  // o campo vem undefined → esconde seção inteira pra não expor CTA que
+  // chamaria /auth/2fa/enroll e retornaria 404.
+  const enabled = profile?.twoFactorEnabled;
+  if (enabled === undefined) return null;
 
   const enroll = useMutation({
     mutationFn: () => authService.twoFactorEnroll(),

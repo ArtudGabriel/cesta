@@ -18,7 +18,9 @@ export interface Profile {
   cookieConsentLevel: CookieConsentLevel | null;
   cookiesAcceptedAt: string | null;
   emailVerifiedAt: string | null;
-  twoFactorEnabled: boolean;
+  // S99: optional pois backend < S99 (Render stuck) não emite o campo. UI
+  // esconde /perfil Seguridad enquanto undefined (feature detection runtime).
+  twoFactorEnabled?: boolean;
   createdAt: string;
 }
 

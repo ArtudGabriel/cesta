@@ -121,7 +121,13 @@
       "verifyExpired": "O link de confirmação expirou",
       "accountSoftDeleted": "Sua conta está agendada para exclusão. Reative antes do fim do prazo.",
       "accountAlreadyActive": "A conta já está ativa",
-      "reactivateWindowExpired": "O prazo pra reativar sua conta expirou"
+      "reactivateWindowExpired": "O prazo pra reativar sua conta expirou",
+      "2faAlreadyEnabled": "A verificação em duas etapas já está ativada",
+      "2faNoPendingEnroll": "Nenhuma ativação pendente. Comece novamente.",
+      "2faInvalidCode": "Código incorreto. Confira seu app autenticador.",
+      "2faInvalidCredentials": "Senha ou código incorretos",
+      "2faNotEnabled": "A verificação em duas etapas não está ativada",
+      "2faPartialTokenInvalid": "Sua sessão de verificação expirou. Faça login novamente."
     },
     "alerts": {
       "notFound": "Alerta não encontrado",
