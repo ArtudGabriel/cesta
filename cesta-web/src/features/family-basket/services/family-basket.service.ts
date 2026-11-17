@@ -16,6 +16,7 @@ type UpsertProfilePayload = {
   restrictions?: string[];
   blockedCategories?: string[];
   requiredProductIds?: string[];
+  monthlyBudget?: number | null;
 };
 
 export const familyBasketService = {

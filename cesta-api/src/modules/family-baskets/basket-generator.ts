@@ -112,6 +112,7 @@ export class BasketGenerator {
     blockedCategories: string[];
     requiredProductIds: string[];
     lockedExisting: Array<{ productId: string; quantity: number; unitPrice: number }>;
+    monthlyBudget?: number | null;
   }): Promise<GeneratedItem[]> {
     const {
       members,
@@ -120,6 +121,7 @@ export class BasketGenerator {
       blockedCategories,
       requiredProductIds,
       lockedExisting,
+      monthlyBudget,
     } = input;
 
     const units = Math.max(0.5, memberUnits(members));
@@ -191,6 +193,28 @@ export class BasketGenerator {
         isLocked: false,
         position: position++,
       });
+    }
+
+    // 4) Budget soft constraint: se total projetado > budget, reduz quantidades
+    //    proporcionalmente nos items não-locked e não-required.
+    if (monthlyBudget && monthlyBudget > 0) {
+      const items = [...picks.values()];
+      const total = items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+      if (total > monthlyBudget) {
+        const fixed = items
+          .filter((i) => i.isLocked || i.isRequired)
+          .reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+        const adjustableTotal = total - fixed;
+        const adjustableBudget = Math.max(0, monthlyBudget - fixed);
+        if (adjustableTotal > 0) {
+          const ratio = adjustableBudget / adjustableTotal;
+          for (const item of items) {
+            if (item.isLocked || item.isRequired) continue;
+            const newQty = Math.max(1, Math.round(item.quantity * ratio));
+            picks.set(item.productId, { ...item, quantity: newQty });
+          }
+        }
+      }
     }
 
     return [...picks.values()];

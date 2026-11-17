@@ -10,6 +10,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import {
   AddBasketItemDto,
@@ -25,16 +26,18 @@ export class FamilyBasketsController {
 
   @Post('generate')
   @HttpCode(HttpStatus.ACCEPTED)
-  @ApiOperation({ summary: 'Gera cesta familiar a partir do perfil (async)' })
+  @Throttle({ familyBasket: { limit: 1, ttl: 86_400_000 } })
+  @ApiOperation({ summary: 'Gera cesta familiar a partir do perfil (async) — 1/24h' })
   generate(@CurrentUser('id') userId: string) {
     return this.service.generate(userId);
   }
 
   @Post(':id/regenerate')
   @HttpCode(HttpStatus.ACCEPTED)
+  @Throttle({ familyBasket: { limit: 1, ttl: 86_400_000 } })
   @ApiOperation({
     summary:
-      'Regenera cesta preservando items locked + required (async)',
+      'Regenera cesta preservando items locked + required (async) — 1/24h',
   })
   regenerate(
     @CurrentUser('id') userId: string,

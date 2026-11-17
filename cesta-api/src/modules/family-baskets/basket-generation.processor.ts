@@ -51,6 +51,8 @@ export class BasketGenerationProcessor extends WorkerHost {
         blockedCategories: profile.blockedCategories,
         requiredProductIds: profile.requiredProductIds,
         lockedExisting,
+        monthlyBudget:
+          profile.monthlyBudget == null ? null : Number(profile.monthlyBudget),
       });
 
       const totalCost = items.reduce(
