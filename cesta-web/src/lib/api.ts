@@ -49,16 +49,25 @@ api.interceptors.request.use((config) => {
 
 /**
  * Erro normalizado da API. Expõe `errorCode` namespaced (Sprint 38) pra
- * frontend traduzir via i18n; `message` é fallback do backend.
+ * frontend traduzir via i18n; `message` é fallback do backend. `meta`
+ * carrega dados estruturados do AppException (Sprint 90 usa pra
+ * ACCOUNT_SOFT_DELETED com deletedAt + graceEndsAt).
  */
 export class ApiError extends Error {
   readonly errorCode?: string;
   readonly statusCode?: number;
-  constructor(message: string, errorCode?: string, statusCode?: number) {
+  readonly meta?: Record<string, unknown>;
+  constructor(
+    message: string,
+    errorCode?: string,
+    statusCode?: number,
+    meta?: Record<string, unknown>,
+  ) {
     super(message);
     this.name = "ApiError";
     this.errorCode = errorCode;
     this.statusCode = statusCode;
+    this.meta = meta;
   }
 }
 
@@ -140,6 +149,7 @@ api.interceptors.response.use(
     error: AxiosError<{
       message?: string;
       errorCode?: string;
+      meta?: Record<string, unknown>;
     }>,
   ) => {
     const original = error.config as RetryableConfig | undefined;
@@ -200,10 +210,15 @@ api.interceptors.response.use(
 );
 
 function buildApiError(
-  error: AxiosError<{ message?: string; errorCode?: string }>,
+  error: AxiosError<{
+    message?: string;
+    errorCode?: string;
+    meta?: Record<string, unknown>;
+  }>,
 ): ApiError {
   const message =
     error.response?.data?.message ?? error.message ?? "Erro de rede";
   const errorCode = error.response?.data?.errorCode;
-  return new ApiError(message, errorCode, error.response?.status);
+  const meta = error.response?.data?.meta;
+  return new ApiError(message, errorCode, error.response?.status, meta);
 }

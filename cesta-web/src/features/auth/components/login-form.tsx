@@ -10,13 +10,38 @@ import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ApiError } from "@/lib/api";
 import { useLogin } from "../hooks/use-auth";
 import { loginSchema, type LoginFormData } from "../schemas/auth.schema";
+import type {
+  ReactivatePayload,
+  SoftDeletedMeta,
+} from "../types/auth.types";
+import { AccountSoftDeletedBanner } from "./account-soft-deleted-banner";
 
 type Method = "email" | "phone";
 
+interface SoftDeletedState {
+  meta: SoftDeletedMeta;
+  payload: ReactivatePayload;
+}
+
+function parseSoftDeletedMeta(err: unknown): SoftDeletedMeta | null {
+  if (!(err instanceof ApiError)) return null;
+  if (err.errorCode !== "AUTH.ACCOUNT_SOFT_DELETED") return null;
+  const meta = err.meta;
+  if (!meta || typeof meta !== "object") return null;
+  const deletedAt = (meta as { deletedAt?: unknown }).deletedAt;
+  const graceEndsAt = (meta as { graceEndsAt?: unknown }).graceEndsAt;
+  if (typeof deletedAt !== "string" || typeof graceEndsAt !== "string") {
+    return null;
+  }
+  return { deletedAt, graceEndsAt };
+}
+
 export function LoginForm() {
   const [method, setMethod] = useState<Method>("email");
+  const [softDeleted, setSoftDeleted] = useState<SoftDeletedState | null>(null);
   const login = useLogin();
   const t = useTranslations("auth");
 
@@ -30,15 +55,28 @@ export function LoginForm() {
   });
 
   function onSubmit(data: LoginFormData) {
-    const payload =
+    const payload: ReactivatePayload =
       method === "email"
         ? { email: data.email, password: data.password }
         : { phone: data.phone, password: data.password };
-    login.mutate(payload);
+    setSoftDeleted(null);
+    login.mutate(payload, {
+      onError: (err) => {
+        const meta = parseSoftDeletedMeta(err);
+        if (meta) setSoftDeleted({ meta, payload });
+      },
+    });
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      {softDeleted && (
+        <AccountSoftDeletedBanner
+          meta={softDeleted.meta}
+          payload={softDeleted.payload}
+          onDismiss={() => setSoftDeleted(null)}
+        />
+      )}
       <div className="flex gap-2 rounded-pill bg-surface p-1">
         {(["email", "phone"] as Method[]).map((m) => (
           <button
