@@ -1,11 +1,6 @@
-import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
-
-export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("meta.title");
-  return { title: `${t("produto")} · Cesta` };
-}
-
+// Sprint 88 gate 4: metadata (title/description/openGraph/twitter/canonical)
+// movida pra page.tsx onde fetchProductSSR resolve o produto. Layout vira
+// pass-through.
 export default function ProdutoLayout({
   children,
 }: {

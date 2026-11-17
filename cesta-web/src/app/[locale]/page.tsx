@@ -6,7 +6,7 @@ import { HomeClient } from "./home-client";
 // pra manter interações (search debounce, filtros, sort) sem SSR-first.
 export default function HomePage() {
   const baseUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ?? "https://cesta.vercel.app";
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://cesta-web.vercel.app";
 
   const websiteJsonLd = {
     "@context": "https://schema.org",

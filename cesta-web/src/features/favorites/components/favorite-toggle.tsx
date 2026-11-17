@@ -9,6 +9,7 @@ import {
   useRemoveFavorite,
 } from "../hooks/use-favorites";
 import { useAuthStore } from "@/stores/auth.store";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { LoginGate } from "@/components/login-gate";
 import { cn } from "@/lib/utils";
 
@@ -31,22 +32,27 @@ export function FavoriteToggle({
   const remove = useRemoveFavorite();
   const pending = add.isPending || remove.isPending;
   const [gateOpen, setGateOpen] = useState(false);
+  const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
   const tAria = useTranslations("common.aria");
+  const tFav = useTranslations("favorites");
 
   function toggle(e: React.MouseEvent) {
-    // Evita navegar quando usado dentro de um card/link clicável
     e.stopPropagation();
     e.preventDefault();
     if (!user) {
       setGateOpen(true);
       return;
     }
-    if (isFavorite) remove.mutate(productId);
-    else add.mutate(productId);
+    // Sprint 88 gate 4: remove exige confirm (destructive sem undo imediato).
+    // Add continua instantâneo (ação não destrutiva).
+    if (isFavorite) {
+      setRemoveConfirmOpen(true);
+    } else {
+      add.mutate(productId);
+    }
   }
 
-  const visualSize =
-    size === "sm" ? "h-9 w-9" : "h-11 w-11";
+  const visualSize = size === "sm" ? "h-9 w-9" : "h-11 w-11";
   const iconSize = size === "sm" ? "h-5 w-5" : "h-6 w-6";
 
   return (
@@ -57,8 +63,6 @@ export function FavoriteToggle({
         disabled={pending}
         aria-pressed={isFavorite}
         aria-label={isFavorite ? tAria("favoriteRemove") : tAria("favoriteAdd")}
-        // Hit-area expandida via ::before (pseudo-element invisível) garante
-        // touch target WCAG 44x44 mesmo quando visual é 36x36 (size=sm).
         className={cn(
           "relative inline-flex items-center justify-center rounded-full transition-transform active:scale-95 disabled:opacity-60",
           "bg-white/90 backdrop-blur ring-1 ring-black/5 shadow-sm cursor-pointer",
@@ -80,6 +84,17 @@ export function FavoriteToggle({
         onClose={() => setGateOpen(false)}
         returnUrl={returnUrl}
         action="favorite"
+      />
+      <ConfirmDialog
+        open={removeConfirmOpen}
+        onClose={() => setRemoveConfirmOpen(false)}
+        onConfirm={() => {
+          setRemoveConfirmOpen(false);
+          remove.mutate(productId);
+        }}
+        title={tFav("confirmRemove")}
+        destructive
+        isPending={remove.isPending}
       />
     </>
   );

@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
 const BASE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://cesta.vercel.app";
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://cesta-web.vercel.app";
 
 /**
  * Sprint 69 MVP: rotas estáticas públicas. Fase 2 vai iterar /produto/[pid]
