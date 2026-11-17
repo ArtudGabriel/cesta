@@ -1,6 +1,7 @@
 "use client";
 
 import { Heart } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import {
   useAddFavorite,
@@ -30,6 +31,7 @@ export function FavoriteToggle({
   const remove = useRemoveFavorite();
   const pending = add.isPending || remove.isPending;
   const [gateOpen, setGateOpen] = useState(false);
+  const tAria = useTranslations("common.aria");
 
   function toggle(e: React.MouseEvent) {
     // Evita navegar quando usado dentro de um card/link clicável
@@ -54,7 +56,7 @@ export function FavoriteToggle({
         onClick={toggle}
         disabled={pending}
         aria-pressed={isFavorite}
-        aria-label={isFavorite ? "Quitar de favoritos" : "Añadir a favoritos"}
+        aria-label={isFavorite ? tAria("favoriteRemove") : tAria("favoriteAdd")}
         // Hit-area expandida via ::before (pseudo-element invisível) garante
         // touch target WCAG 44x44 mesmo quando visual é 36x36 (size=sm).
         className={cn(

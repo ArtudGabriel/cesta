@@ -23,6 +23,16 @@
       },
       "later": "Ahora no",
       "login": "Entrar"
+    },
+    "aria": {
+      "close": "Cerrar",
+      "back": "Volver",
+      "editName": "Editar nombre",
+      "installApp": "Instalar Cesta como app",
+      "favoriteAdd": "Añadir a favoritos",
+      "favoriteRemove": "Quitar de favoritos",
+      "starCount": "{count, plural, =1 {# estrella} other {# estrellas}}",
+      "rating": "Puntuación {value} de 5"
     }
   },
   "auth": {
@@ -154,6 +164,9 @@
     "noUnitComparison": "Sin comparación unitaria",
     "normalizedNoteAbsolute": "Mostrando precios totales — alterna arriba para comparar por unidad",
     "normalizedNoteUnit": "Comparando precios por unidad — fairness en embalajes distintos",
+    "title": "Comparar",
+    "removeFromComparisonAria": "Quitar producto de la comparación",
+    "addProductTitle": "Agregar producto",
     "viewPrices": "Precios",
     "viewNutrition": "Nutrición",
     "nutritionNote": "Valores por 100g / 100ml / unidad según embalaje",

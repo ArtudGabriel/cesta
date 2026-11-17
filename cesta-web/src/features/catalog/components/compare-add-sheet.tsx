@@ -1,6 +1,7 @@
 "use client";
 
 import { Search, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useProducts } from "../hooks/use-catalog";
@@ -24,6 +25,8 @@ export function CompareAddSheet({
   const [q, setQ] = useState("");
   const atMax = selectedIds.length >= max;
   const results = useProducts({ search: q || undefined, limit: 20 });
+  const t = useTranslations("compare");
+  const tAria = useTranslations("common.aria");
 
   if (!open) return null;
 
@@ -39,12 +42,12 @@ export function CompareAddSheet({
       >
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-display text-lg font-semibold text-ink">
-            Agregar producto
+            {t("addProductTitle")}
           </h3>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Cerrar"
+            aria-label={tAria("close")}
             className="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted hover:bg-surface cursor-pointer"
           >
             <X className="h-5 w-5" />

@@ -56,6 +56,8 @@ export default function FavoritosPage() {
   const remove = useRemoveFavorite();
   const locale = useLocale();
   const t = useTranslations("favorites");
+  const tNav = useTranslations("nav");
+  const tAria = useTranslations("common.aria");
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const nutri = useNutriPreferences();
@@ -178,7 +180,7 @@ export default function FavoritosPage() {
   return (
     <main className="pb-24">
       <header className="sticky top-0 z-10 flex items-center gap-3 bg-cream px-4 py-3">
-        <Button asChild size="icon" variant="ghost" aria-label="Volver">
+        <Button asChild size="icon" variant="ghost" aria-label={tNav("back")}>
           <Link href="/">
             <ArrowLeft className="h-5 w-5" />
           </Link>
@@ -351,7 +353,7 @@ export default function FavoritosPage() {
                       type="button"
                       onClick={() => remove.mutate(fav.productId)}
                       disabled={remove.isPending}
-                      aria-label="Quitar de favoritos"
+                      aria-label={tAria("favoriteRemove")}
                       className="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted hover:bg-surface cursor-pointer"
                     >
                       <X className="h-5 w-5" />

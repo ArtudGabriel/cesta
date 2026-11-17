@@ -216,7 +216,7 @@ function ProductCompareCard({
         <button
           type="button"
           onClick={onRemove}
-          aria-label="Quitar producto de la comparación"
+          aria-label={t("removeFromComparisonAria")}
           className="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted hover:bg-surface cursor-pointer"
         >
           <X className="h-5 w-5" />
@@ -310,6 +310,7 @@ function ProductNutritionCard({
   onlyHealthy: boolean;
 }) {
   const preferences = useDietaryPreferences();
+  const t = useTranslations("compare");
   const tNutri = useTranslations("catalog.nutriFilters");
   const outOfRange = onlyHealthy && !isHealthyGrade(product.nutriScore?.grade);
   return (
@@ -349,7 +350,7 @@ function ProductNutritionCard({
         <button
           type="button"
           onClick={onRemove}
-          aria-label="Quitar producto de la comparación"
+          aria-label={t("removeFromComparisonAria")}
           className="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted hover:bg-surface cursor-pointer"
         >
           <X className="h-5 w-5" />

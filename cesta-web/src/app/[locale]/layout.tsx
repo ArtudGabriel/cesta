@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { NextIntlClientProvider } from "next-intl";
+import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
@@ -20,9 +20,20 @@ export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
 
-export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations("meta.title");
-  const tOg = await getTranslations("meta.og");
+const OG_LOCALE_MAP: Record<string, { current: string; alternate: string[] }> = {
+  es: { current: "es_ES", alternate: ["pt_BR"] },
+  "pt-BR": { current: "pt_BR", alternate: ["es_ES"] },
+};
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const ogLocale = OG_LOCALE_MAP[locale] ?? OG_LOCALE_MAP.es;
+  const t = await getTranslations({ locale, namespace: "meta.title" });
+  const tOg = await getTranslations({ locale, namespace: "meta.og" });
   const baseUrl =
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://cesta.vercel.app";
   const defaultTitle = `${t("home")} · Cesta`;
@@ -57,8 +68,8 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     openGraph: {
       type: "website",
-      locale: "es_ES",
-      alternateLocale: ["pt_BR"],
+      locale: ogLocale.current,
+      alternateLocale: ogLocale.alternate,
       url: baseUrl,
       siteName: "Cesta",
       title: defaultTitle,
@@ -93,7 +104,7 @@ export default async function LocaleLayout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  if (!routing.locales.includes(locale as (typeof routing.locales)[number])) {
+  if (!hasLocale(routing.locales, locale)) {
     notFound();
   }
   setRequestLocale(locale);

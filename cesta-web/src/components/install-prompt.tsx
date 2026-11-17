@@ -1,6 +1,7 @@
 "use client";
 
 import { Download, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
 interface BeforeInstallPromptEvent extends Event {
@@ -14,6 +15,7 @@ export function InstallPrompt() {
   );
   const [standalone, setStandalone] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const tAria = useTranslations("common.aria");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -61,7 +63,7 @@ export function InstallPrompt() {
         type="button"
         onClick={handleInstall}
         className="flex items-center gap-2 text-sm font-medium cursor-pointer"
-        aria-label="Instalar Cesta como app"
+        aria-label={tAria("installApp")}
       >
         <Download className="h-4 w-4" />
         Instalar app
@@ -70,7 +72,7 @@ export function InstallPrompt() {
         type="button"
         onClick={() => setDismissed(true)}
         className="rounded-pill p-1 hover:bg-cesta-green-light cursor-pointer"
-        aria-label="Cerrar"
+        aria-label={tAria("close")}
       >
         <X className="h-4 w-4" />
       </button>

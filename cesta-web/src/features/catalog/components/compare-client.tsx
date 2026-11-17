@@ -80,7 +80,7 @@ export function CompareClient({ initialIds, initialData }: CompareClientProps) {
   return (
     <main className="pb-16">
       <header className="sticky top-0 z-10 flex items-center gap-3 bg-cream px-4 py-3">
-        <Button asChild size="icon" variant="ghost" aria-label="Volver">
+        <Button asChild size="icon" variant="ghost" aria-label={tNav("back")}>
           <Link href="/">
             <ArrowLeft className="h-5 w-5" />
           </Link>
