@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { randomBytes } from 'crypto';
@@ -43,6 +44,7 @@ export class ReceiptsController {
 
   @Post()
   @HttpCode(HttpStatus.ACCEPTED)
+  @Throttle({ default: { limit: 5, ttl: 3_600_000 } })
   @ApiOperation({ summary: 'Upload de nota fiscal → OCR async' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({

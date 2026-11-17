@@ -525,6 +525,18 @@
       "deltaVsPrevious": "{pct}% vs período anterior",
       "byCategory": "Por categoría",
       "bySupermarket": "Por supermercado"
+    },
+    "ocr": {
+      "scanCta": "Escanear ticket",
+      "uploadCta": "Subir imagen",
+      "uploading": "Subiendo imagen…",
+      "uploaded": "Ticket enviado, procesando OCR…",
+      "parsing": "Analizando ticket…",
+      "parsed": "Ticket listo",
+      "parseFailed": "No pudimos leer el ticket. Prueba con otra foto.",
+      "invalidFormat": "Solo JPG o PNG",
+      "maxSize": "Imagen máx {mb}MB",
+      "rateLimited": "Has subido demasiados tickets. Intenta en 1 hora."
     }
   },
   "alerts": {

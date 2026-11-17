@@ -14,6 +14,7 @@ export const expensesService = {
   async uploadReceipt(
     file: File,
     notes?: string,
+    onProgress?: (pct: number) => void,
   ): Promise<{ jobId: string; receiptId: string; status: string }> {
     const form = new FormData();
     form.append("image", file);
@@ -22,6 +23,10 @@ export const expensesService = {
       Envelope<{ jobId: string; receiptId: string; status: string }>
     >("/receipts", form, {
       headers: { "Content-Type": "multipart/form-data" },
+      onUploadProgress: (event) => {
+        if (!onProgress || !event.total) return;
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      },
     });
     return data.data;
   },
