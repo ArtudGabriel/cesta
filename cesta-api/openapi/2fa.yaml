@@ -1,0 +1,265 @@
+openapi: 3.0.3
+info:
+  title: Cesta 2FA API
+  description: >
+    Autenticação de dois fatores via TOTP (RFC 6238) + backup codes.
+    Sprint 99 — SDD-lite spec.
+  version: "1.0.0"
+servers:
+  - url: https://api.cesta.app
+    description: Production
+  - url: http://localhost:3000
+    description: Local dev
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Auth 2FA
+    description: Enroll, verify, challenge, disable, recovery
+
+paths:
+  /auth/2fa/enroll:
+    post:
+      tags: [Auth 2FA]
+      operationId: enroll2fa
+      summary: Inicia enroll TOTP (gera secret + QR + URL otpauth)
+      description: >
+        Gera um TOTP secret novo (base32) e retorna QR data URI + URL otpauth://
+        para o app autenticador (Google Authenticator, Authy, 1Password).
+        O secret só é persistido quando confirmado via /verify.
+      responses:
+        "200":
+          description: Enroll iniciado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnrollResponse"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409":
+          description: 2FA já está habilitado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /auth/2fa/verify:
+    post:
+      tags: [Auth 2FA]
+      operationId: verify2fa
+      summary: Confirma enroll com código TOTP → habilita 2FA
+      description: >
+        Valida o código TOTP de 6 dígitos contra o secret pendente.
+        Se válido: persiste User.twoFactorSecret (encrypted), seta twoFactorEnabled=true,
+        gera 10 backup codes (hashed no DB, retornados em plain uma única vez).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyRequest"
+      responses:
+        "200":
+          description: 2FA habilitado + backup codes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifyResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401":
+          description: Código inválido ou enroll expirou
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /auth/2fa/challenge:
+    post:
+      tags: [Auth 2FA]
+      operationId: challenge2fa
+      summary: 2ª fase do login quando 2FA habilitado
+      description: >
+        Chamado após POST /auth/login retornar 2FA_REQUIRED + partialToken.
+        Valida código TOTP (ou backup code via /recovery). Em sucesso emite JWT final.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChallengeRequest"
+      responses:
+        "200":
+          description: Login completo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokens"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401":
+          description: Código inválido ou partialToken expirou
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /auth/2fa/disable:
+    post:
+      tags: [Auth 2FA]
+      operationId: disable2fa
+      summary: Desabilita 2FA (exige senha + código atual)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DisableRequest"
+      responses:
+        "200":
+          description: 2FA desabilitado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DisableResponse"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /auth/2fa/recovery:
+    post:
+      tags: [Auth 2FA]
+      operationId: recovery2fa
+      summary: Login via backup code quando usuário perdeu autenticador
+      description: >
+        Aceita partialToken + backupCode. Consome o code (remove da lista hashed)
+        e emite JWT final. Mesmo throughput que /challenge.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecoveryRequest"
+      responses:
+        "200":
+          description: Login completo + código consumido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokens"
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401":
+          description: Código inválido ou já usado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    BadRequest:
+      description: Validação falhou
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Sem token ou token inválido
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      required: [errorCode, message, statusCode]
+      properties:
+        errorCode: { type: string, example: "AUTH.2FA.INVALID_CODE" }
+        message: { type: string }
+        statusCode: { type: integer, example: 401 }
+
+    EnrollResponse:
+      type: object
+      required: [secret, qrCodeDataUri, otpauthUrl]
+      properties:
+        secret:
+          type: string
+          description: Base32 secret (também embarcado no otpauthUrl)
+          example: "JBSWY3DPEHPK3PXP"
+        qrCodeDataUri:
+          type: string
+          description: Data URI PNG do QR code (base64)
+          example: "data:image/png;base64,iVBORw0KGgoAAAA..."
+        otpauthUrl:
+          type: string
+          description: URL otpauth:// para apps autenticadores
+          example: "otpauth://totp/Cesta:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Cesta"
+
+    VerifyRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+          description: Código TOTP de 6 dígitos
+
+    VerifyResponse:
+      type: object
+      required: [enabled, backupCodes]
+      properties:
+        enabled:
+          type: boolean
+          example: true
+        backupCodes:
+          type: array
+          description: 10 códigos de recuperação de uso único. Retornados UMA VEZ.
+          items:
+            type: string
+            pattern: "^[A-Z0-9]{10}$"
+          minItems: 10
+          maxItems: 10
+
+    ChallengeRequest:
+      type: object
+      required: [partialToken, code]
+      properties:
+        partialToken:
+          type: string
+          description: Token temporário emitido no /auth/login quando 2FA_REQUIRED
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+
+    RecoveryRequest:
+      type: object
+      required: [partialToken, backupCode]
+      properties:
+        partialToken: { type: string }
+        backupCode:
+          type: string
+          pattern: "^[A-Z0-9]{10}$"
+
+    DisableRequest:
+      type: object
+      required: [password, code]
+      properties:
+        password: { type: string, format: password }
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+
+    DisableResponse:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+          example: false
+
+    AuthTokens:
+      type: object
+      required: [accessToken, refreshToken]
+      properties:
+        accessToken:  { type: string }
+        refreshToken: { type: string }

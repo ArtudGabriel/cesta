@@ -43,3 +43,34 @@ export interface SoftDeletedMeta {
   deletedAt: string;
   graceEndsAt: string;
 }
+
+export interface TwoFactorChallengeResponse {
+  status: "2FA_REQUIRED";
+  partialToken: string;
+}
+
+export type LoginResponse = AuthResponse | TwoFactorChallengeResponse;
+
+export function isTwoFactorChallenge(
+  r: LoginResponse,
+): r is TwoFactorChallengeResponse {
+  return (
+    (r as TwoFactorChallengeResponse).status === "2FA_REQUIRED" &&
+    typeof (r as TwoFactorChallengeResponse).partialToken === "string"
+  );
+}
+
+export interface TwoFactorEnrollResponse {
+  secret: string;
+  qrCodeDataUri: string;
+  otpauthUrl: string;
+}
+
+export interface TwoFactorVerifyResponse {
+  enabled: true;
+  backupCodes: string[];
+}
+
+export interface TwoFactorDisableResponse {
+  enabled: false;
+}

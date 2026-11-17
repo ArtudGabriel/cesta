@@ -57,6 +57,11 @@ export class UserResponseDto {
   })
   emailVerifiedAt: Date | null;
 
+  @ApiProperty({
+    description: '2FA TOTP ativado (Sprint 99). UI /perfil Seguridad.',
+  })
+  twoFactorEnabled: boolean;
+
   @ApiProperty()
   createdAt: Date;
 
@@ -81,6 +86,7 @@ export class UserResponseDto {
       | null;
     dto.cookiesAcceptedAt = user.cookiesAcceptedAt;
     dto.emailVerifiedAt = user.emailVerifiedAt;
+    dto.twoFactorEnabled = user.twoFactorEnabled;
     dto.createdAt = user.createdAt;
     return dto;
   }

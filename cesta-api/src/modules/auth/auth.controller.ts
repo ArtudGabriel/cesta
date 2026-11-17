@@ -21,6 +21,13 @@ import {
   AuthResponseDto,
   AuthWireResponse,
 } from './dtos/auth-response.dto';
+import { TwoFactorChallengeResponseDto } from './two-factor/dtos/responses.dto';
+
+function isTwoFactorChallenge(
+  r: AuthResponseDto | TwoFactorChallengeResponseDto,
+): r is TwoFactorChallengeResponseDto {
+  return (r as TwoFactorChallengeResponseDto).status === '2FA_REQUIRED';
+}
 import { LoginDto } from './dtos/login.dto';
 import { ReactivateAccountDto } from './dtos/reactivate-account.dto';
 import { RegisterDto } from './dtos/register.dto';
@@ -95,8 +102,9 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<AuthWireResponse> {
+  ): Promise<AuthWireResponse | TwoFactorChallengeResponseDto> {
     const result = await this.authService.login(dto, requestContext(req));
+    if (isTwoFactorChallenge(result)) return result;
     setRefreshCookie(res, result.tokens.refreshToken);
     return toWire(result);
   }

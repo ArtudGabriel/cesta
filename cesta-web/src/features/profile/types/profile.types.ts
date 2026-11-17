@@ -18,6 +18,7 @@ export interface Profile {
   cookieConsentLevel: CookieConsentLevel | null;
   cookiesAcceptedAt: string | null;
   emailVerifiedAt: string | null;
+  twoFactorEnabled: boolean;
   createdAt: string;
 }
 

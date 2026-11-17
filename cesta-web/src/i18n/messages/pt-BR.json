@@ -416,6 +416,41 @@
       "success": "Dados exportados",
       "errorRateLimit": "Você só pode exportar uma vez por hora. Tente mais tarde.",
       "errorGeneric": "Não foi possível preparar sua exportação. Tente de novo."
+    },
+    "security": {
+      "title": "Segurança",
+      "statusEnabled": "Verificação em duas etapas ativada",
+      "statusEnabledHint": "Vamos pedir um código do app autenticador a cada login.",
+      "statusDisabled": "Verificação em duas etapas desativada",
+      "statusDisabledHint": "Proteja sua conta com um código de 6 dígitos gerado pelo app autenticador.",
+      "enableCta": "Ativar 2FA",
+      "disableCta": "Desativar 2FA",
+      "scanTitle": "Escaneie o QR",
+      "scanHint": "Use Google Authenticator, Authy ou 1Password. Depois digite o código de 6 dígitos.",
+      "codeLabel": "Código de 6 dígitos",
+      "verifyCta": "Confirmar",
+      "backupsTitle": "Seus códigos de recuperação",
+      "backupsHint": "Guarde esses códigos em um lugar seguro. Cada um só funciona uma vez e você não poderá vê-los de novo.",
+      "copyCta": "Copiar para a área de transferência",
+      "doneCta": "Entendi",
+      "copiedToast": "Códigos copiados",
+      "disableTitle": "Desativar 2FA",
+      "disableHint": "Você precisa da senha e de um código atual do app autenticador.",
+      "passwordLabel": "Senha",
+      "disableConfirmCta": "Desativar",
+      "disabledToast": "2FA desativada"
+    }
+  },
+  "twoFactor": {
+    "challenge": {
+      "title": "Verificação em duas etapas",
+      "hint": "Digite o código de 6 dígitos do app autenticador.",
+      "backupHint": "Digite um dos seus códigos de recuperação (10 caracteres).",
+      "codeLabel": "Código",
+      "backupLabel": "Código de recuperação",
+      "submit": "Continuar",
+      "useBackup": "Usar código de recuperação",
+      "useCode": "Usar código do autenticador"
     }
   },
   "toast": {

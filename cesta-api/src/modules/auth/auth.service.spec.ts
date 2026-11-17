@@ -9,6 +9,7 @@ import { UsersService } from '../users/users.service';
 import { AuthRepository } from './auth.repository';
 import { AuthService } from './auth.service';
 import { JwtRotationService } from './jwt-rotation.service';
+import { TwoFactorService } from './two-factor/two-factor.service';
 
 function sha256(s: string): string {
   return createHash('sha256').update(s).digest('hex');
@@ -37,6 +38,10 @@ function buildUser(partial: Partial<User> = {}): User {
     createdAt: new Date(),
     updatedAt: new Date(),
     deletedAt: null,
+    graceReminderSentAt: null,
+    twoFactorEnabled: false,
+    twoFactorSecret: null,
+    twoFactorBackupCodes: [],
     ...partial,
   } as User;
 }
@@ -92,13 +97,25 @@ function buildService() {
     verifyRefresh: jest.fn(),
   } as unknown as jest.Mocked<JwtRotationService>;
 
+  const twoFactorService = {
+    issuePartialToken: jest.fn(),
+  } as unknown as jest.Mocked<TwoFactorService>;
+
   return {
-    svc: new AuthService(usersService, rotation, config, repo, emailService),
+    svc: new AuthService(
+      usersService,
+      rotation,
+      config,
+      repo,
+      emailService,
+      twoFactorService,
+    ),
     repo,
     usersService,
     emailService,
     config,
     rotation,
+    twoFactorService,
   };
 }
 
