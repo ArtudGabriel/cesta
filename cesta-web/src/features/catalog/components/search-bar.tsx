@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, Search, X } from "lucide-react";
+import type { RefObject } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +15,7 @@ interface SearchBarProps {
   onFocus?: () => void;
   ariaExpanded?: boolean;
   ariaActivedescendant?: string;
+  inputRef?: RefObject<HTMLInputElement | null>;
 }
 
 export function SearchBar({
@@ -26,11 +28,13 @@ export function SearchBar({
   onFocus,
   ariaExpanded,
   ariaActivedescendant,
+  inputRef,
 }: SearchBarProps) {
   return (
     <div className={cn("relative", className)}>
       <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
       <Input
+        ref={inputRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onFocus={onFocus}

@@ -1,7 +1,8 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
 import { Queue } from 'bullmq';
+import { AppException } from '../../common/exceptions/app-exception';
 import { RevalidateService } from '../../common/revalidate/revalidate.service';
 import {
   PRICE_ALERTS_QUEUE,
@@ -68,11 +69,21 @@ export class CatalogSyncService {
   async runFor(supermarketSlug: string): Promise<SyncResult> {
     const adapter = this.adapters.get(supermarketSlug);
     if (!adapter)
-      throw new NotFoundException(`Adapter "${supermarketSlug}" não registrado`);
+      throw new AppException(
+        'CATALOG_SYNC.ADAPTER_NOT_REGISTERED',
+        `Adapter "${supermarketSlug}" não registrado`,
+        HttpStatus.NOT_FOUND,
+        { supermarketSlug },
+      );
 
     const supermarket = await this.repo.findSupermarketBySlug(supermarketSlug);
     if (!supermarket)
-      throw new NotFoundException(`Supermercado "${supermarketSlug}" não cadastrado`);
+      throw new AppException(
+        'CATALOG_SYNC.SUPERMARKET_NOT_FOUND',
+        `Supermercado "${supermarketSlug}" não cadastrado`,
+        HttpStatus.NOT_FOUND,
+        { supermarketSlug },
+      );
 
     const run = await this.repo.createRun(supermarketSlug);
     const stats = {

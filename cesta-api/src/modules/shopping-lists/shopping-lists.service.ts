@@ -1,9 +1,4 @@
-import {
-  ForbiddenException,
-  HttpStatus,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { AppException } from '../../common/exceptions/app-exception';
 import { ProductsRepository } from '../products/products.repository';
 import { CreateListDto, UpdateListDto } from './dtos/create-list.dto';
@@ -85,7 +80,12 @@ export class ShoppingListsService {
     await this.assertOwner(userId, listId);
     const product = await this.productsRepo.findById(dto.productId);
     if (!product)
-      throw new NotFoundException(`Produto "${dto.productId}" não encontrado`);
+      throw new AppException(
+        'LISTS.PRODUCT_NOT_FOUND',
+        `Produto "${dto.productId}" não encontrado`,
+        HttpStatus.NOT_FOUND,
+        { productId: dto.productId },
+      );
 
     await this.repo.addItem(listId, dto.productId, dto.quantity ?? 1, dto.position);
     return this.findOne(userId, listId);
@@ -174,12 +174,24 @@ export class ShoppingListsService {
 
   private async assertOwner(userId: string, listId: string): Promise<void> {
     const list = await this.repo.findByIdForUser(listId, userId);
-    if (!list) throw new ForbiddenException('Lista não acessível');
+    if (!list)
+      throw new AppException(
+        'LISTS.FORBIDDEN',
+        'Lista não acessível',
+        HttpStatus.FORBIDDEN,
+        { listId },
+      );
   }
 
   private async assertItemOwner(userId: string, itemId: string): Promise<void> {
     const item = await this.repo.findItemForUser(itemId, userId);
-    if (!item) throw new ForbiddenException('Item não acessível');
+    if (!item)
+      throw new AppException(
+        'LISTS.ITEM_FORBIDDEN',
+        'Item não acessível',
+        HttpStatus.FORBIDDEN,
+        { itemId },
+      );
   }
 }
 

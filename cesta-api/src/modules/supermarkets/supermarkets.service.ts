@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
+import { AppException } from '../../common/exceptions/app-exception';
 import { SupermarketResponseDto } from './dtos/supermarket-response.dto';
 import { SupermarketsRepository } from './supermarkets.repository';
 
@@ -13,7 +14,13 @@ export class SupermarketsService {
 
   async findBySlug(slug: string): Promise<SupermarketResponseDto> {
     const sm = await this.repo.findBySlug(slug);
-    if (!sm) throw new NotFoundException(`Supermarket "${slug}" não encontrado`);
+    if (!sm)
+      throw new AppException(
+        'SUPERMARKETS.NOT_FOUND',
+        `Supermarket "${slug}" não encontrado`,
+        HttpStatus.NOT_FOUND,
+        { slug },
+      );
     return SupermarketResponseDto.fromEntity(sm);
   }
 }

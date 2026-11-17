@@ -1,9 +1,5 @@
-import {
-  ConflictException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
+import { AppException } from '../../common/exceptions/app-exception';
 import { ProductsRepository } from '../products/products.repository';
 import { CreateReviewDto, UpdateReviewDto } from './dtos/create-review.dto';
 import {
@@ -26,11 +22,21 @@ export class ReviewsService {
   ): Promise<ReviewResponseDto> {
     const product = await this.productsRepo.findById(dto.productId);
     if (!product)
-      throw new NotFoundException(`Produto "${dto.productId}" não encontrado`);
+      throw new AppException(
+        'REVIEWS.PRODUCT_NOT_FOUND',
+        `Produto "${dto.productId}" não encontrado`,
+        HttpStatus.NOT_FOUND,
+        { productId: dto.productId },
+      );
 
     const existing = await this.repo.findByUserAndProduct(userId, dto.productId);
     if (existing)
-      throw new ConflictException('Você já avaliou este produto. Edite sua avaliação.');
+      throw new AppException(
+        'REVIEWS.ALREADY_REVIEWED',
+        'Você já avaliou este produto. Edite sua avaliação.',
+        HttpStatus.CONFLICT,
+        { productId: dto.productId },
+      );
 
     const review = await this.repo.create({
       userId,
@@ -47,9 +53,20 @@ export class ReviewsService {
     dto: UpdateReviewDto,
   ): Promise<ReviewResponseDto> {
     const review = await this.repo.findById(reviewId);
-    if (!review) throw new NotFoundException(`Review "${reviewId}" não encontrado`);
+    if (!review)
+      throw new AppException(
+        'REVIEWS.NOT_FOUND',
+        `Review "${reviewId}" não encontrado`,
+        HttpStatus.NOT_FOUND,
+        { reviewId },
+      );
     if (review.userId !== userId)
-      throw new ForbiddenException('Você só pode editar suas próprias avaliações');
+      throw new AppException(
+        'REVIEWS.FORBIDDEN_EDIT',
+        'Você só pode editar suas próprias avaliações',
+        HttpStatus.FORBIDDEN,
+        { reviewId },
+      );
 
     const updated = await this.repo.update(reviewId, {
       rating: dto.rating,
@@ -60,9 +77,20 @@ export class ReviewsService {
 
   async remove(userId: string, reviewId: string): Promise<void> {
     const review = await this.repo.findById(reviewId);
-    if (!review) throw new NotFoundException(`Review "${reviewId}" não encontrado`);
+    if (!review)
+      throw new AppException(
+        'REVIEWS.NOT_FOUND',
+        `Review "${reviewId}" não encontrado`,
+        HttpStatus.NOT_FOUND,
+        { reviewId },
+      );
     if (review.userId !== userId)
-      throw new ForbiddenException('Você só pode excluir suas próprias avaliações');
+      throw new AppException(
+        'REVIEWS.FORBIDDEN_DELETE',
+        'Você só pode excluir suas próprias avaliações',
+        HttpStatus.FORBIDDEN,
+        { reviewId },
+      );
 
     await this.repo.softDelete(reviewId);
   }
@@ -95,18 +123,40 @@ export class ReviewsService {
     reviewId: string,
   ): Promise<{ markedHelpful: boolean; helpfulCount: number }> {
     const review = await this.repo.findById(reviewId);
-    if (!review) throw new NotFoundException(`Review "${reviewId}" não encontrado`);
+    if (!review)
+      throw new AppException(
+        'REVIEWS.NOT_FOUND',
+        `Review "${reviewId}" não encontrado`,
+        HttpStatus.NOT_FOUND,
+        { reviewId },
+      );
     if (review.userId === userId)
-      throw new ForbiddenException('Você não pode marcar útil sua própria avaliação');
+      throw new AppException(
+        'REVIEWS.CANNOT_HELPFUL_OWN',
+        'Você não pode marcar útil sua própria avaliação',
+        HttpStatus.FORBIDDEN,
+        { reviewId },
+      );
 
     return this.repo.toggleHelpful(reviewId, userId);
   }
 
   async report(userId: string, reviewId: string): Promise<void> {
     const review = await this.repo.findById(reviewId);
-    if (!review) throw new NotFoundException(`Review "${reviewId}" não encontrado`);
+    if (!review)
+      throw new AppException(
+        'REVIEWS.NOT_FOUND',
+        `Review "${reviewId}" não encontrado`,
+        HttpStatus.NOT_FOUND,
+        { reviewId },
+      );
     if (review.userId === userId)
-      throw new ForbiddenException('Você não pode reportar sua própria avaliação');
+      throw new AppException(
+        'REVIEWS.CANNOT_REPORT_OWN',
+        'Você não pode reportar sua própria avaliação',
+        HttpStatus.FORBIDDEN,
+        { reviewId },
+      );
     await this.repo.incrementReport(reviewId);
   }
 
