@@ -6,6 +6,7 @@ import {
   Header,
   HttpCode,
   HttpStatus,
+  Param,
   Patch,
   Post,
   Res,
@@ -15,6 +16,8 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { SubscribeDto } from '../notifications/dtos/subscribe.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ConsentDto } from './dtos/consent.dto';
 import { DeleteAccountDto } from './dtos/delete-account.dto';
 import { UpdateProfileDto } from './dtos/update-profile.dto';
@@ -24,7 +27,10 @@ import { UsersService } from './users.service';
 @ApiTags('Users')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly users: UsersService) {}
+  constructor(
+    private readonly users: UsersService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   @Get('me')
   @ApiOperation({ summary: 'Perfil do usuário autenticado' })
@@ -88,5 +94,33 @@ export class UsersController {
     @Body() _dto: DeleteAccountDto,
   ): Promise<void> {
     await this.users.deleteMyAccount(userId);
+  }
+
+  @Post('me/push-subscription')
+  @Throttle({ write: { limit: 10, ttl: 60_000 } })
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary:
+      'Sprint 96 — registra push subscription do usuário. Upsert por endpoint. Retorna { id, endpoint }.',
+  })
+  async createPushSubscription(
+    @CurrentUser('id') userId: string,
+    @Body() dto: SubscribeDto,
+  ) {
+    return this.notifications.subscribe(userId, dto);
+  }
+
+  @Delete('me/push-subscription/:id')
+  @Throttle({ write: { limit: 20, ttl: 60_000 } })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary:
+      'Sprint 96 — revoga push subscription do usuário por id. 204 mesmo se não existir (idempotente).',
+  })
+  async deletePushSubscription(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+  ): Promise<void> {
+    await this.notifications.revokeById(userId, id);
   }
 }

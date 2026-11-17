@@ -537,6 +537,13 @@
     "pushInactive": "Activa para recibir alertas al momento.",
     "pushEnable": "Activar",
     "pushDisable": "Desactivar",
+    "push": {
+      "permissionDenied": "Permiso denegado",
+      "serverNotConfigured": "Push no está configurado en el servidor",
+      "activated": "Notificaciones activadas",
+      "deactivated": "Notificaciones desactivadas",
+      "unknownError": "Error desconocido"
+    },
     "activeHeader": "Alertas activas",
     "empty": "Aún no tienes alertas. Añade una desde la página de producto.",
     "anyMarket": "Cualquier supermercado",

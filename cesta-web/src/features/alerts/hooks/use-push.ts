@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { pushService } from "../services/alerts.service";
+
+const SUBSCRIPTION_ID_KEY = "cesta:push-subscription-id";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -25,6 +28,7 @@ export interface PushState {
 }
 
 export function usePush() {
+  const t = useTranslations("alerts.push");
   const [state, setState] = useState<PushState>({
     supported: false,
     permission: "unknown",
@@ -56,13 +60,13 @@ export function usePush() {
     try {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
-        toast.error("Permiso denegado");
+        toast.error(t("permissionDenied"));
         setState((s) => ({ ...s, permission, loading: false }));
         return;
       }
       const publicKey = await pushService.getVapidKey();
       if (!publicKey) {
-        toast.error("Push no está configurado en el servidor");
+        toast.error(t("serverNotConfigured"));
         setState((s) => ({ ...s, loading: false }));
         return;
       }
@@ -73,7 +77,7 @@ export function usePush() {
         applicationServerKey: urlBase64ToUint8Array(publicKey).buffer as ArrayBuffer,
       });
       const payload = sub.toJSON();
-      await pushService.subscribe({
+      const saved = await pushService.subscribe({
         endpoint: payload.endpoint!,
         keys: {
           p256dh: payload.keys!.p256dh!,
@@ -81,7 +85,12 @@ export function usePush() {
         },
         userAgent: navigator.userAgent,
       });
-      toast.success("Notificaciones activadas");
+      try {
+        window.localStorage.setItem(SUBSCRIPTION_ID_KEY, saved.id);
+      } catch {
+        // storage pode falhar em modo privado; não é crítico pra o enable.
+      }
+      toast.success(t("activated"));
       setState({
         supported: true,
         permission: "granted",
@@ -89,7 +98,7 @@ export function usePush() {
         loading: false,
       });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Error desconocido");
+      toast.error(error instanceof Error ? error.message : t("unknownError"));
       setState((s) => ({ ...s, loading: false }));
     }
   }
@@ -98,14 +107,27 @@ export function usePush() {
     setState((s) => ({ ...s, loading: true }));
     try {
       const sub = await checkSubscription();
+      let savedId: string | null = null;
+      try {
+        savedId = window.localStorage.getItem(SUBSCRIPTION_ID_KEY);
+      } catch {
+        savedId = null;
+      }
+      if (savedId) {
+        await pushService.unsubscribe(savedId);
+        try {
+          window.localStorage.removeItem(SUBSCRIPTION_ID_KEY);
+        } catch {
+          // ignore
+        }
+      }
       if (sub) {
-        await pushService.unsubscribe(sub.endpoint);
         await sub.unsubscribe();
       }
       setState((s) => ({ ...s, subscribed: false, loading: false }));
-      toast.success("Notificaciones desactivadas");
+      toast.success(t("deactivated"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Error desconocido");
+      toast.error(error instanceof Error ? error.message : t("unknownError"));
       setState((s) => ({ ...s, loading: false }));
     }
   }

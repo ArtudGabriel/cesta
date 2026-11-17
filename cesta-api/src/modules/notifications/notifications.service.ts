@@ -44,18 +44,25 @@ export class NotificationsService implements OnModuleInit {
     return { publicKey: this.config.getOrThrow<string>('VAPID_PUBLIC_KEY') };
   }
 
-  async subscribe(userId: string, dto: SubscribeDto): Promise<void> {
-    await this.repo.upsertSubscription({
+  async subscribe(
+    userId: string,
+    dto: SubscribeDto,
+  ): Promise<{ id: string; endpoint: string }> {
+    const sub = await this.repo.upsertSubscription({
       userId,
       endpoint: dto.endpoint,
       p256dh: dto.keys.p256dh,
       auth: dto.keys.auth,
       userAgent: dto.userAgent ?? null,
     });
+    return { id: sub.id, endpoint: sub.endpoint };
   }
 
-  async unsubscribe(endpoint: string): Promise<void> {
-    await this.repo.deleteByEndpoint(endpoint);
+  async revokeById(userId: string, id: string): Promise<boolean> {
+    const sub = await this.repo.findByIdForUser(id, userId);
+    if (!sub) return false;
+    await this.repo.deleteById(sub.id);
+    return true;
   }
 
   async sendToUser(

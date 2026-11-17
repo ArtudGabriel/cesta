@@ -82,6 +82,13 @@ export class AlertsRepository {
     });
   }
 
+  findAllActive(): Promise<AlertWithRelations[]> {
+    return this.prisma.alert.findMany({
+      where: { isActive: true, deletedAt: null },
+      include: ALERT_INCLUDE,
+    });
+  }
+
   createTrigger(data: Prisma.AlertTriggerUncheckedCreateInput) {
     return this.prisma.alertTrigger.create({ data });
   }
@@ -97,6 +104,17 @@ export class AlertsRepository {
     return this.prisma.alertTrigger.update({
       where: { id: triggerId },
       data: { notifiedAt: new Date() },
+    });
+  }
+
+  markAlertNotified(
+    alertId: string,
+    price: Prisma.Decimal,
+    when: Date,
+  ): Promise<Alert> {
+    return this.prisma.alert.update({
+      where: { id: alertId },
+      data: { lastNotifiedAt: when, lastNotifiedPrice: price },
     });
   }
 }

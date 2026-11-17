@@ -532,6 +532,12 @@ model Alert {
   targetPrice     Decimal?  @db.Decimal(10, 2) @map("target_price")
   isActive        Boolean   @default(true) @map("is_active")
   lastTriggeredAt DateTime? @map("last_triggered_at")
+
+  // Sprint 96 idempotência push notifications. Cron 2h compara currentPrice com
+  // lastNotifiedPrice; só dispara push se mudou (ou subiu depois caiu de novo).
+  lastNotifiedAt    DateTime? @map("last_notified_at")
+  lastNotifiedPrice Decimal?  @db.Decimal(10, 2) @map("last_notified_price")
+
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
   deletedAt       DateTime? @map("deleted_at")
