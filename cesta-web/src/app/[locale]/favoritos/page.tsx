@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   useFavorites,
   useRemoveFavorite,
@@ -60,6 +61,9 @@ export default function FavoritosPage() {
   const tAria = useTranslations("common.aria");
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
+  // Sprint 88 gate 4 round 2 P1: ConfirmDialog em remove da list page.
+  // favorite-toggle.tsx já tem; esta rota não invocava.
+  const [removePending, setRemovePending] = useState<string | null>(null);
   const nutri = useNutriPreferences();
   const sortByNutri = nutri.sortEnabled;
   const setSortByNutri = nutri.setSortEnabled;
@@ -351,7 +355,7 @@ export default function FavoritosPage() {
                   {!selectMode && (
                     <button
                       type="button"
-                      onClick={() => remove.mutate(fav.productId)}
+                      onClick={() => setRemovePending(fav.productId)}
                       disabled={remove.isPending}
                       aria-label={tAria("favoriteRemove")}
                       className="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted hover:bg-surface cursor-pointer"
@@ -384,6 +388,19 @@ export default function FavoritosPage() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={removePending !== null}
+        onClose={() => setRemovePending(null)}
+        onConfirm={() => {
+          const id = removePending;
+          setRemovePending(null);
+          if (id) remove.mutate(id);
+        }}
+        title={t("confirmRemove")}
+        destructive
+        isPending={remove.isPending}
+      />
     </main>
   );
 }
