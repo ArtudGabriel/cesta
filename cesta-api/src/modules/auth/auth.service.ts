@@ -1,6 +1,5 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
 import { User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomBytes, createHash } from 'crypto';
@@ -13,7 +12,7 @@ import { AuthResponseDto, AuthTokensDto } from './dtos/auth-response.dto';
 import { LoginDto } from './dtos/login.dto';
 import { ReactivateAccountDto } from './dtos/reactivate-account.dto';
 import { RegisterDto } from './dtos/register.dto';
-import { JwtPayload } from './strategies/jwt.strategy';
+import { JwtPayload, JwtRotationService } from './jwt-rotation.service';
 
 const BCRYPT_ROUNDS = 12;
 const REFRESH_TOKEN_TTL_DAYS = 7;
@@ -40,7 +39,7 @@ export class AuthService {
 
   constructor(
     private readonly usersService: UsersService,
-    private readonly jwtService: JwtService,
+    private readonly rotation: JwtRotationService,
     private readonly config: ConfigService,
     private readonly repo: AuthRepository,
     private readonly emailService: EmailService,
@@ -273,9 +272,7 @@ export class AuthService {
   ): Promise<AuthResponseDto> {
     let payload: JwtPayload;
     try {
-      payload = await this.jwtService.verifyAsync<JwtPayload>(refreshToken, {
-        secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
-      });
+      payload = await this.rotation.verifyRefresh<JwtPayload>(refreshToken);
     } catch {
       throw new AppException(
         'AUTH.REFRESH_INVALID',
@@ -336,14 +333,8 @@ export class AuthService {
       '7d',
     );
 
-    const accessToken = await this.jwtService.signAsync(payload, {
-      secret: this.config.getOrThrow<string>('JWT_ACCESS_SECRET'),
-      expiresIn: accessExpires as unknown as number,
-    });
-    const refreshToken = await this.jwtService.signAsync(payload, {
-      secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
-      expiresIn: refreshExpires as unknown as number,
-    });
+    const accessToken = await this.rotation.signAccess(payload, accessExpires);
+    const refreshToken = await this.rotation.signRefresh(payload, refreshExpires);
 
     const tokenHash = await bcrypt.hash(refreshToken, BCRYPT_ROUNDS);
     const expiresAt = new Date(

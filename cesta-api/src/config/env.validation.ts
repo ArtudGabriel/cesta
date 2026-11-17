@@ -2,6 +2,7 @@ import { plainToInstance } from 'class-transformer';
 import {
   IsEnum,
   IsInt,
+  IsOptional,
   IsString,
   Min,
   MinLength,
@@ -28,13 +29,25 @@ export class EnvironmentVariables {
   @IsString()
   DATABASE_URL: string;
 
+  // Sprint 92 rotação: CURRENT assina + verifica primeiro; PREVIOUS cobre
+  // janela de overlap zero-downtime. README documenta procedimento.
   @IsString()
   @MinLength(32)
-  JWT_ACCESS_SECRET: string;
+  JWT_ACCESS_SECRET_CURRENT: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(32)
+  JWT_ACCESS_SECRET_PREVIOUS?: string;
 
   @IsString()
   @MinLength(32)
-  JWT_REFRESH_SECRET: string;
+  JWT_REFRESH_SECRET_CURRENT: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(32)
+  JWT_REFRESH_SECRET_PREVIOUS?: string;
 
   @IsString()
   JWT_ACCESS_EXPIRES_IN: string = '15m';

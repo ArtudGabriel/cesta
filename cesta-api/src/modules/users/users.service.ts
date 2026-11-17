@@ -227,6 +227,58 @@ export class UsersService {
   }
 
   /**
+   * Sprint 92: admin cancela soft-delete de um user. Idempotente — user já
+   * ativo retorna status=already_active sem efeito colateral. Audit
+   * AdminCancelledDelete via Sentry breadcrumb + log estruturado.
+   * O worker user-cleanup já aborta em user.deletedAt=null, então o job
+   * BullMQ pendente de 30d fica inofensivo (não precisa remover).
+   */
+  async adminCancelDelete(
+    adminId: string,
+    userId: string,
+  ): Promise<{ status: 'reactivated' | 'already_active'; user: UserResponseDto }> {
+    const user = await this.usersRepository.findByIdIgnoreDeleted(userId);
+    if (!user) {
+      throw new AppException(
+        'USERS.NOT_FOUND',
+        `User "${userId}" not found`,
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    if (!user.deletedAt) {
+      Sentry.addBreadcrumb({
+        category: 'audit',
+        level: 'info',
+        message: 'AdminCancelledDelete',
+        data: { adminId, userId, status: 'already_active' },
+      });
+      this.logger.log(
+        `[audit] AdminCancelledDelete adminId=${adminId} userId=${userId} status=already_active`,
+      );
+      return {
+        status: 'already_active',
+        user: UserResponseDto.fromEntity(user),
+      };
+    }
+
+    const reactivated = await this.usersRepository.reactivate(userId);
+    Sentry.addBreadcrumb({
+      category: 'audit',
+      level: 'info',
+      message: 'AdminCancelledDelete',
+      data: { adminId, userId, status: 'reactivated' },
+    });
+    this.logger.log(
+      `[audit] AdminCancelledDelete adminId=${adminId} userId=${userId} status=reactivated`,
+    );
+    return {
+      status: 'reactivated',
+      user: UserResponseDto.fromEntity(reactivated),
+    };
+  }
+
+  /**
    * Sprint 63 GDPR Art. 17: soft-delete + revoke refresh tokens + zera
    * consent. User que chama DELETE na própria conta já estava autenticado,
    * então o guard garante que só o dono dispara.

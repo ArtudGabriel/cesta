@@ -23,6 +23,7 @@
     "prisma:seed": "ts-node prisma/seed.ts",
     "audit:dtos": "ts-node scripts/audit-dtos.ts",
     "audit:repos": "ts-node scripts/audit-repos.ts",
+    "seed:admin": "ts-node scripts/seed-admin.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {

@@ -1,6 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
 import type { EmailVerificationToken, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash } from 'crypto';
@@ -9,6 +8,7 @@ import { EmailService } from '../email/email.service';
 import { UsersService } from '../users/users.service';
 import { AuthRepository } from './auth.repository';
 import { AuthService } from './auth.service';
+import { JwtRotationService } from './jwt-rotation.service';
 
 function sha256(s: string): string {
   return createHash('sha256').update(s).digest('hex');
@@ -85,17 +85,20 @@ function buildService() {
     getOrThrow: jest.fn(() => 'secret-that-is-32-chars-or-longer-aaaaa'),
   } as unknown as jest.Mocked<ConfigService>;
 
-  const jwt = {
-    signAsync: jest.fn().mockResolvedValue('jwt'),
-    verifyAsync: jest.fn(),
-  } as unknown as jest.Mocked<JwtService>;
+  const rotation = {
+    signAccess: jest.fn().mockResolvedValue('jwt'),
+    signRefresh: jest.fn().mockResolvedValue('jwt'),
+    verifyAccess: jest.fn(),
+    verifyRefresh: jest.fn(),
+  } as unknown as jest.Mocked<JwtRotationService>;
 
   return {
-    svc: new AuthService(usersService, jwt, config, repo, emailService),
+    svc: new AuthService(usersService, rotation, config, repo, emailService),
     repo,
     usersService,
     emailService,
     config,
+    rotation,
   };
 }
 

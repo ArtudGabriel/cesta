@@ -18,10 +18,17 @@ services:
         sync: false
       - key: CORS_ORIGIN
         sync: false
-      - key: JWT_ACCESS_SECRET
+      # Sprint 92 rotação: durante swap, promover CURRENT → PREVIOUS e gerar
+      # novo CURRENT. Zero-downtime; tokens emitidos pelo valor antigo seguem
+      # válidos até expirar (access 15m, refresh 7d).
+      - key: JWT_ACCESS_SECRET_CURRENT
         generateValue: true
-      - key: JWT_REFRESH_SECRET
+      - key: JWT_ACCESS_SECRET_PREVIOUS
+        sync: false
+      - key: JWT_REFRESH_SECRET_CURRENT
         generateValue: true
+      - key: JWT_REFRESH_SECRET_PREVIOUS
+        sync: false
       - key: JWT_ACCESS_EXPIRES_IN
         value: 15m
       - key: JWT_REFRESH_EXPIRES_IN
