@@ -53,12 +53,20 @@ export async function generateMetadata({
   const description = tOg("productDescription", { name: product.name });
   const ogImage = `${baseUrl}/produto/${pid}/opengraph-image`;
 
-  // Sprint 88 gate 4 round 3: Next 16 valida openGraph.type em runtime contra
-  // o union OpenGraphType (website/article/book/profile/music/video.*) e lança
-  // "Invalid OpenGraph type: product" (Vercel digest 1255419040), descartando
-  // TODA a metadata — PDP perdia title/canonical/og:*/twitter:*. Mantemos
-  // "website" aqui pra preservar metadata completa; emissão de og:type=product
-  // fica fora de escopo (QA autorizou aceitar website).
+  // Sprint 88 gate 4 round 3 + Sprint 89: Next 16 valida openGraph.type em
+  // runtime contra o union OpenGraphType (website/article/book/profile/music/
+  // video.*) e lança "Invalid OpenGraph type: product" (Vercel digest
+  // 1255419040), descartando TODA a metadata — PDP perdia title/canonical/
+  // og:*/twitter:*. Sprint 89 confirmou: não há path safe pra og:type=product
+  // via Metadata API tipada em Next 16. Alternativas descartadas:
+  //   - `other: { "og:type": "product" }` emite <meta name="..."> (name≠property,
+  //     crawlers OG ignoram) e ainda coexiste com og:type=website embutido;
+  //   - route handler /opengraph custom quebra generateMetadata typing + perde
+  //     integração com openGraph.images (duplicação de source of truth).
+  // Rich results pra Product vêm do JSON-LD Product+AggregateOffer injetado no
+  // body da página (ver ProductDetailPage abaixo) — essa é a compensação real
+  // reconhecida pelo Google. og:type=website é aceitável pra Facebook/Twitter
+  // card porque siteName+image+title já carregam o contexto de produto.
   return {
     title,
     description,

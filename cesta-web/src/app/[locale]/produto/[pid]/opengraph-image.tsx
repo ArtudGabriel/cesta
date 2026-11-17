@@ -29,13 +29,20 @@ const CORAL = "#E8513A";
  * quando a árvore for refatorada.
  */
 
+// Sprint 89: AbortController 5s evita crawler timeout quando API Render spins
+// down (cold start ~30s free tier). Fetch estourando AbortError cai no catch e
+// aciona brandFallback — Vercel OG route completa em <6s e crawler recebe
+// imagem válida em vez de 500/timeout. Timer sempre limpo via finally.
 async function fetchProductForOg(pid: string): Promise<ProductForOg | null> {
   const base = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL;
   if (!base) return null;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
   try {
     const res = await fetch(`${base}/products/${pid}`, {
       headers: { "Content-Type": "application/json" },
       next: { revalidate: 3600 },
+      signal: controller.signal,
     });
     if (!res.ok) return null;
     const json = (await res.json()) as {
@@ -48,6 +55,8 @@ async function fetchProductForOg(pid: string): Promise<ProductForOg | null> {
     };
   } catch {
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
