@@ -66,4 +66,88 @@ describe("AlertRuleWizard (Sprint 105)", () => {
     const form = getByTestId("rule-wizard-form");
     expect(form.hasAttribute("data-sentry-mask")).toBe(true);
   });
+
+  it("trend: submit válido chama createTrend e navega pra /alertas", async () => {
+    (alertsService.createTrend as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "r-trend",
+    });
+    const { getByTestId } = renderWithProviders(<AlertRuleWizard />);
+    fireEvent.click(getByTestId("rule-type-trend"));
+
+    fireEvent.change(getByTestId("rule-input-product-ids"), {
+      target: { value: VALID_CUID_1 },
+    });
+    fireEvent.change(getByTestId("rule-input-weeks"), {
+      target: { value: "3" },
+    });
+    fireEvent.click(getByTestId("rule-submit"));
+
+    await waitFor(() => {
+      expect(alertsService.createTrend).toHaveBeenCalledWith({
+        productId: VALID_CUID_1,
+        consecutiveWeeks: 3,
+      });
+      expect(pushMock).toHaveBeenCalledWith("/alertas");
+    });
+  });
+
+  it("trend: weeks fora da faixa 2..12 → erro inline, não chama service", async () => {
+    const { getByTestId, container } = renderWithProviders(<AlertRuleWizard />);
+    fireEvent.click(getByTestId("rule-type-trend"));
+
+    fireEvent.change(getByTestId("rule-input-product-ids"), {
+      target: { value: VALID_CUID_1 },
+    });
+    fireEvent.change(getByTestId("rule-input-weeks"), {
+      target: { value: "13" },
+    });
+    fireEvent.click(getByTestId("rule-submit"));
+
+    await waitFor(() => {
+      expect(container.textContent).toMatch(/2.*12/);
+    });
+    expect(alertsService.createTrend).not.toHaveBeenCalled();
+  });
+
+  it("bundle: submit válido chama createBundle e navega pra /alertas", async () => {
+    (alertsService.createBundle as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "r-bundle",
+    });
+    const { getByTestId } = renderWithProviders(<AlertRuleWizard />);
+    fireEvent.click(getByTestId("rule-type-bundle"));
+
+    fireEvent.change(getByTestId("rule-input-product-ids"), {
+      target: { value: `${VALID_CUID_1} ${VALID_CUID_2}` },
+    });
+    fireEvent.change(getByTestId("rule-input-target-savings"), {
+      target: { value: "3.00" },
+    });
+    fireEvent.click(getByTestId("rule-submit"));
+
+    await waitFor(() => {
+      expect(alertsService.createBundle).toHaveBeenCalledWith({
+        productIds: [VALID_CUID_1, VALID_CUID_2],
+        targetSavings: 3,
+      });
+      expect(pushMock).toHaveBeenCalledWith("/alertas");
+    });
+  });
+
+  it("combo: menos de 2 productIds → erro inline, não chama service", async () => {
+    const { getByTestId, container } = renderWithProviders(<AlertRuleWizard />);
+    fireEvent.click(getByTestId("rule-type-combo"));
+
+    fireEvent.change(getByTestId("rule-input-product-ids"), {
+      target: { value: VALID_CUID_1 },
+    });
+    fireEvent.change(getByTestId("rule-input-target-total"), {
+      target: { value: "10.50" },
+    });
+    fireEvent.click(getByTestId("rule-submit"));
+
+    await waitFor(() => {
+      expect(container.textContent).toMatch(/2 productos|2 produtos/i);
+    });
+    expect(alertsService.createCombo).not.toHaveBeenCalled();
+  });
 });
