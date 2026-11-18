@@ -928,6 +928,22 @@
         "UserDataImported": "Dados importados",
         "UserReminderSent": "Lembrete enviado"
       }
+    },
+    "metrics": {
+      "title": "Métricas",
+      "subtitle": "Gerado em {generatedAt}",
+      "cachedBadge": "cache",
+      "cards": {
+        "usersTotal": "Usuários totais",
+        "usersActive7d": "Usuários ativos (7d)",
+        "usersActiveCaption": "Login recente",
+        "alertsActive": "Alertas ativos",
+        "alertsBreakdown": "Simples {simple} · Combo {combo} · Trend {trend} · Bundle {bundle}",
+        "receipts30d": "Notas processadas (30d)",
+        "receiptsBreakdown": "Falhadas: {failed}",
+        "pushNotifications7d": "Push enviados (7d)",
+        "familyBaskets7d": "Cestas familiares (7d)"
+      }
     }
   },
   "components": {

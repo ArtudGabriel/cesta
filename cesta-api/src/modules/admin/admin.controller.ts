@@ -15,6 +15,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AdminGuard } from '../../common/guards/admin.guard';
 import { UsersService } from '../users/users.service';
 import { AuditService } from '../audit/audit.service';
+import { AdminMetricsService } from './admin-metrics.service';
 import { ListAuditLogsQueryDto } from './dtos/list-audit-logs-query.dto';
 import { ListUsersQueryDto } from './dtos/list-users-query.dto';
 
@@ -26,7 +27,19 @@ export class AdminController {
   constructor(
     private readonly users: UsersService,
     private readonly audit: AuditService,
+    private readonly metrics: AdminMetricsService,
   ) {}
+
+  @Get('metrics')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Sprint 107: snapshot agregado (users, alertas, OCR, push, cesta familiar). Cache in-memory 5min. Ver ADR-0007.',
+  })
+  async getMetrics() {
+    return this.metrics.getSnapshot();
+  }
 
   @Get('users')
   @Throttle({ strict: { limit: 20, ttl: 60_000 } })

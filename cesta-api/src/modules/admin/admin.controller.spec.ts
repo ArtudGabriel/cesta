@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { AdminController } from './admin.controller';
 import { AuditService } from '../audit/audit.service';
 import { UsersService } from '../users/users.service';
+import { AdminMetricsService } from './admin-metrics.service';
 import { ListAuditLogsQueryDto } from './dtos/list-audit-logs-query.dto';
 import { ListUsersQueryDto } from './dtos/list-users-query.dto';
 
@@ -13,6 +14,7 @@ describe('AdminController.listUsers (Sprint 95)', () => {
     adminCancelDelete: jest.Mock;
   };
   let auditMock: { list: jest.Mock; record: jest.Mock };
+  let metricsMock: { getSnapshot: jest.Mock };
 
   beforeEach(async () => {
     usersMock = {
@@ -20,11 +22,13 @@ describe('AdminController.listUsers (Sprint 95)', () => {
       adminCancelDelete: jest.fn(),
     };
     auditMock = { list: jest.fn(), record: jest.fn() };
+    metricsMock = { getSnapshot: jest.fn() };
     const module = await Test.createTestingModule({
       controllers: [AdminController],
       providers: [
         { provide: UsersService, useValue: usersMock },
         { provide: AuditService, useValue: auditMock },
+        { provide: AdminMetricsService, useValue: metricsMock },
       ],
     }).compile();
     controller = module.get(AdminController);
@@ -55,6 +59,7 @@ describe('AdminController.listAuditLogs (Sprint 104)', () => {
     adminCancelDelete: jest.Mock;
   };
   let auditMock: { list: jest.Mock; record: jest.Mock };
+  let metricsMock: { getSnapshot: jest.Mock };
 
   beforeEach(async () => {
     usersMock = {
@@ -62,11 +67,13 @@ describe('AdminController.listAuditLogs (Sprint 104)', () => {
       adminCancelDelete: jest.fn(),
     };
     auditMock = { list: jest.fn(), record: jest.fn() };
+    metricsMock = { getSnapshot: jest.fn() };
     const module = await Test.createTestingModule({
       controllers: [AdminController],
       providers: [
         { provide: UsersService, useValue: usersMock },
         { provide: AuditService, useValue: auditMock },
+        { provide: AdminMetricsService, useValue: metricsMock },
       ],
     }).compile();
     controller = module.get(AdminController);
@@ -109,5 +116,49 @@ describe('AdminController.listAuditLogs (Sprint 104)', () => {
     auditMock.list.mockRejectedValue(dbErr);
     const query = new ListAuditLogsQueryDto();
     await expect(controller.listAuditLogs(query)).rejects.toBe(dbErr);
+  });
+});
+
+describe('AdminController.getMetrics (Sprint 107)', () => {
+  let controller: AdminController;
+  let usersMock: {
+    adminListSoftDeleted: jest.Mock;
+    adminCancelDelete: jest.Mock;
+  };
+  let auditMock: { list: jest.Mock; record: jest.Mock };
+  let metricsMock: { getSnapshot: jest.Mock };
+
+  beforeEach(async () => {
+    usersMock = {
+      adminListSoftDeleted: jest.fn(),
+      adminCancelDelete: jest.fn(),
+    };
+    auditMock = { list: jest.fn(), record: jest.fn() };
+    metricsMock = { getSnapshot: jest.fn() };
+    const module = await Test.createTestingModule({
+      controllers: [AdminController],
+      providers: [
+        { provide: UsersService, useValue: usersMock },
+        { provide: AuditService, useValue: auditMock },
+        { provide: AdminMetricsService, useValue: metricsMock },
+      ],
+    }).compile();
+    controller = module.get(AdminController);
+  });
+
+  it('delega direto pro AdminMetricsService.getSnapshot sem transform', async () => {
+    const snapshot = {
+      usersTotal: 10,
+      usersActive7d: 3,
+      alertsActiveByType: { simple: 1, combo: 0, trend: 0, bundle: 0 },
+      receipts30d: { parsed: 5, failed: 1 },
+      pushNotifications7d: 2,
+      familyBasketsGenerated7d: 0,
+      generatedAt: '2026-11-18T12:00:00.000Z',
+      cached: false,
+    };
+    metricsMock.getSnapshot.mockResolvedValue(snapshot);
+    await expect(controller.getMetrics()).resolves.toBe(snapshot);
+    expect(metricsMock.getSnapshot).toHaveBeenCalledTimes(1);
   });
 });
