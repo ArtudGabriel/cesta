@@ -283,7 +283,7 @@ export function HomeClient() {
             <span
               key={sm.id}
               className="rounded-pill px-3 py-1 text-[10px] font-medium text-white"
-              style={{ backgroundColor: sm.color ?? "#1b6b48" }}
+              style={{ backgroundColor: sm.color ?? "var(--color-cesta-green)" }}
             >
               {sm.name}
             </span>

@@ -47,7 +47,7 @@ export function PriceComparisonGrid({ prices }: PriceComparisonGridProps) {
           >
             <span
               className="h-10 w-10 flex-shrink-0 rounded-btn flex items-center justify-center text-xs font-bold text-white"
-              style={{ backgroundColor: p.supermarketColor ?? "#1b6b48" }}
+              style={{ backgroundColor: p.supermarketColor ?? "var(--color-cesta-green)" }}
             >
               {p.supermarketName.slice(0, 2).toUpperCase()}
             </span>

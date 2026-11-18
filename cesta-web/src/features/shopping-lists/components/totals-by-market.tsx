@@ -42,7 +42,7 @@ export function TotalsByMarket({ totals }: TotalsByMarketProps) {
           >
             <span
               className="h-10 w-10 flex-shrink-0 rounded-btn flex items-center justify-center text-xs font-bold text-white"
-              style={{ backgroundColor: market.supermarketColor ?? "#1b6b48" }}
+              style={{ backgroundColor: market.supermarketColor ?? "var(--color-cesta-green)" }}
             >
               {market.supermarketName.slice(0, 2).toUpperCase()}
             </span>
