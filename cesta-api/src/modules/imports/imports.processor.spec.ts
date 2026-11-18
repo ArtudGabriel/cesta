@@ -2,6 +2,7 @@ import { Job } from 'bullmq';
 import * as fs from 'fs/promises';
 import * as JSZip from 'jszip';
 import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import {
   buildAlertasCsv,
   buildExpensesCsv,
@@ -57,9 +58,13 @@ describe('ImportsProcessor (S102)', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    const audit = {
+      record: jest.fn().mockResolvedValue(undefined),
+    } as unknown as AuditService;
     processor = new ImportsProcessor(
       repo as unknown as ImportsRepository,
       prisma as unknown as PrismaService,
+      audit,
     );
     prisma.import.findUnique.mockResolvedValue({
       id: 'imp1',

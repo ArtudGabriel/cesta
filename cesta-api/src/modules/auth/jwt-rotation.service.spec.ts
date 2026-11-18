@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { AuditService } from '../audit/audit.service';
 import { JwtRotationService } from './jwt-rotation.service';
 
 function buildRotation(env: Record<string, string | undefined>) {
@@ -13,7 +14,14 @@ function buildRotation(env: Record<string, string | undefined>) {
       return v as unknown as T;
     },
   } as unknown as ConfigService;
-  return { rotation: new JwtRotationService(jwt, config), jwt };
+  const audit = {
+    record: jest.fn().mockResolvedValue(undefined),
+  } as unknown as AuditService;
+  return {
+    rotation: new JwtRotationService(jwt, config, audit),
+    jwt,
+    audit,
+  };
 }
 
 describe('JwtRotationService', () => {

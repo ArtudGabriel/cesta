@@ -22,6 +22,16 @@ export interface SoftDeletedPage {
   total: number;
 }
 
+// Re-export shared audit types (sem server-only dep) pros SSR fetchers.
+// Client components devem importar direto de `../types/audit`.
+export {
+  AUDIT_LOG_TYPES,
+  type AuditLogType,
+  type AuditLogItem,
+  type AuditLogsPage,
+} from "../types/audit";
+import type { AuditLogType, AuditLogsPage } from "../types/audit";
+
 const ACCESS_TOKEN_COOKIE = "cesta_access_token";
 
 function resolveBaseUrl(): string {
@@ -78,5 +88,43 @@ export async function fetchSoftDeletedUsersSSR(): Promise<SoftDeletedPage> {
     throw new Error(`Failed to fetch soft-deleted users: ${res.status}`);
   }
   const json = (await res.json()) as Envelope<SoftDeletedPage>;
+  return json.data;
+}
+
+/**
+ * Sprint 104: audit logs paginados pro admin /admin/audit. `types` filter
+ * CSV (whitelist no backend); vazio = sem filtro. AdminGuard é fonte da
+ * verdade — page faz gate de UI apenas pra UX.
+ */
+export async function fetchAuditLogsSSR(params: {
+  limit?: number;
+  offset?: number;
+  types?: readonly AuditLogType[];
+}): Promise<AuditLogsPage> {
+  const token = (await cookies()).get(ACCESS_TOKEN_COOKIE)?.value;
+  if (!token) return { items: [], total: 0 };
+  const limit = params.limit ?? 50;
+  const offset = params.offset ?? 0;
+  const qs = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  if (params.types && params.types.length > 0) {
+    qs.set("type", params.types.join(","));
+  }
+  const res = await fetch(
+    `${resolveBaseUrl()}/admin/audit-logs?${qs.toString()}`,
+    {
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+      },
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to fetch audit logs: ${res.status}`);
+  }
+  const json = (await res.json()) as Envelope<AuditLogsPage>;
   return json.data;
 }

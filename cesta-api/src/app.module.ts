@@ -8,6 +8,7 @@ import { validateEnv } from './config/env.validation';
 import { PrismaModule } from './database/prisma.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AlertsModule } from './modules/alerts/alerts.module';
+import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { TwoFactorModule } from './modules/auth/two-factor/two-factor.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
@@ -57,6 +58,7 @@ import { UsersModule } from './modules/users/users.module';
       },
     }),
     PrismaModule,
+    AuditModule,
     UsersModule,
     AuthModule,
     TwoFactorModule,

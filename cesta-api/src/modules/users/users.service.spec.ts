@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { AuditService } from '../audit/audit.service';
 import { FamilyProfilesRepository } from '../family-profiles/family-profiles.repository';
 import { USER_CLEANUP_QUEUE } from './user-cleanup.constants';
 import { UsersService } from './users.service';
@@ -63,6 +64,10 @@ describe('UsersService.updateProfile', () => {
         {
           provide: FamilyProfilesRepository,
           useValue: familyProfilesRepoMock,
+        },
+        {
+          provide: AuditService,
+          useValue: { record: jest.fn().mockResolvedValue(undefined) },
         },
       ],
     }).compile();

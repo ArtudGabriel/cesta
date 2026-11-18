@@ -2,6 +2,7 @@ import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Job, Queue } from 'bullmq';
+import { AuditService } from '../audit/audit.service';
 import { EmailService } from '../email/email.service';
 import {
   GRACE_REMINDER_QUEUE,
@@ -40,6 +41,7 @@ export class GraceReminderProcessor
     private readonly config: ConfigService,
     @InjectQueue(GRACE_REMINDER_QUEUE)
     private readonly queue: Queue<GraceReminderScanJob>,
+    private readonly audit: AuditService,
   ) {
     super();
   }
@@ -109,6 +111,11 @@ export class GraceReminderProcessor
         reactivateUrl,
       });
       await this.repo.markGraceReminderSent(user.id, now);
+      await this.audit.record({
+        type: 'UserReminderSent',
+        userId: user.id,
+        metadata: { stage, daysRemaining, locale },
+      });
       sent++;
     }
 

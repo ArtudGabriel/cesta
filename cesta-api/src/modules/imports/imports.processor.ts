@@ -4,6 +4,7 @@ import { Job } from 'bullmq';
 import * as fs from 'fs/promises';
 import * as Sentry from '@sentry/node';
 import { PrismaService } from '../../database/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { ImportSummary } from './dtos/import-response.dto';
 import { IMPORTS_QUEUE, ImportJob } from './imports.queue';
 import { ImportsRepository } from './imports.repository';
@@ -58,6 +59,7 @@ export class ImportsProcessor extends WorkerHost {
   constructor(
     private readonly repo: ImportsRepository,
     private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
   ) {
     super();
   }
@@ -158,6 +160,17 @@ export class ImportsProcessor extends WorkerHost {
         `[audit] UserDataImported userId=${row.userId} jobId=${importId} apply=${apply} ` +
           `added=${JSON.stringify(summary.added)} skipped=${JSON.stringify(summary.skipped)} errors=${summary.errors.length}`,
       );
+      await this.audit.record({
+        type: 'UserDataImported',
+        userId: row.userId,
+        metadata: {
+          jobId: importId,
+          apply,
+          added: summary.added,
+          skipped: summary.skipped,
+          errors: summary.errors.length,
+        },
+      });
 
       if (apply) {
         await this.cleanupZip(importId, row.zipPath);

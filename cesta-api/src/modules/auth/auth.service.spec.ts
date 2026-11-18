@@ -4,6 +4,7 @@ import type { EmailVerificationToken, User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { createHash } from 'crypto';
 import { AppException } from '../../common/exceptions/app-exception';
+import { AuditService } from '../audit/audit.service';
 import { EmailService } from '../email/email.service';
 import { UsersService } from '../users/users.service';
 import { AuthRepository } from './auth.repository';
@@ -101,6 +102,10 @@ function buildService() {
     issuePartialToken: jest.fn(),
   } as unknown as jest.Mocked<TwoFactorService>;
 
+  const audit = {
+    record: jest.fn().mockResolvedValue(undefined),
+  } as unknown as AuditService;
+
   return {
     svc: new AuthService(
       usersService,
@@ -109,6 +114,7 @@ function buildService() {
       repo,
       emailService,
       twoFactorService,
+      audit,
     ),
     repo,
     usersService,

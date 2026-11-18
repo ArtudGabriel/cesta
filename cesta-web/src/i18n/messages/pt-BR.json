@@ -845,6 +845,35 @@
       "reactivated": "Conta reativada.",
       "alreadyActive": "A conta já estava ativa.",
       "error": "Não foi possível cancelar a exclusão."
+    },
+    "audit": {
+      "title": "Registro de auditoria",
+      "subtitle": "{total, plural, =0 {Sem eventos registrados} =1 {# evento registrado} other {# eventos registrados}}",
+      "empty": "Nenhum evento para os filtros selecionados.",
+      "loadMore": "Carregar mais",
+      "showing": "Mostrando {shown} de {total}",
+      "filter": {
+        "label": "Filtrar por tipo",
+        "clear": "Limpar filtros"
+      },
+      "fields": {
+        "userId": "ID do usuário",
+        "actorId": "Executor"
+      },
+      "metadata": {
+        "show": "Ver metadados",
+        "hide": "Ocultar metadados"
+      },
+      "types": {
+        "UserReactivated": "Conta reativada",
+        "UserDataExported": "Dados exportados",
+        "SecretRotated": "Segredo JWT rotacionado",
+        "AdminCancelledDelete": "Admin cancelou exclusão",
+        "TwoFactorEnabled": "2FA ativado",
+        "TwoFactorDisabled": "2FA desativado",
+        "UserDataImported": "Dados importados",
+        "UserReminderSent": "Lembrete enviado"
+      }
     }
   }
 }

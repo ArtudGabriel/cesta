@@ -79,6 +79,8 @@ model User {
   favorites          Favorite[]
   searchHistory      SearchHistory[]
   imports            Import[]
+  auditLogs          AuditLog[] @relation("auditUser")
+  auditActions       AuditLog[] @relation("auditActor")
 
   @@index([deletedAt])
   @@map("users")
@@ -616,6 +618,31 @@ model Import {
 
   @@index([userId, createdAt])
   @@map("imports")
+}
+
+// Sprint 104 — audit trail persistente para eventos GDPR-relevantes e admin
+// actions (UserReactivated S90, UserDataExported S91, SecretRotated S92,
+// AdminCancelledDelete S92, UserReminderSent S94, TwoFactorEnabled/Disabled
+// S99, UserDataImported S102). Até S104 só existiam como log statement em
+// stdout; agora persistem em DB pra UI admin consultar (/admin/audit).
+// `type` fica como String (whitelist em código) pra evitar migration a cada
+// evento novo. `onDelete: SetNull` nos dois FKs mantém row viva após
+// hard-delete do user (GDPR Art. 17 já removeu identificadores — audit
+// mantém só metadata não-PII).
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?  @map("user_id")
+  actorId   String?  @map("actor_id")
+  type      String
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User? @relation("auditUser", fields: [userId], references: [id], onDelete: SetNull)
+  actor User? @relation("auditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([type, createdAt])
+  @@index([userId, createdAt])
+  @@map("audit_logs")
 }
 
 model SyncRun {
