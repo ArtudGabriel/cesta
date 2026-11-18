@@ -4,6 +4,7 @@ import type { User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { authenticator } from 'otplib';
 import { AppException } from '../../../common/exceptions/app-exception';
+import { AuditService } from '../../audit/audit.service';
 import { UsersService } from '../../users/users.service';
 import { AuthRepository } from '../auth.repository';
 import { JwtRotationService } from '../jwt-rotation.service';
@@ -77,6 +78,9 @@ function build() {
     createRefreshToken: jest.fn().mockResolvedValue(undefined),
   } as unknown as jest.Mocked<AuthRepository>;
 
+  const audit = {
+    record: jest.fn().mockResolvedValue(undefined),
+  } as unknown as AuditService;
   const svc = new TwoFactorService(
     usersService,
     repo,
@@ -85,8 +89,9 @@ function build() {
     jwt,
     config,
     authRepo,
+    audit,
   );
-  return { svc, usersService, repo, encryption, rotation, jwt, authRepo };
+  return { svc, usersService, repo, encryption, rotation, jwt, authRepo, audit };
 }
 
 describe('TwoFactorService.enroll', () => {

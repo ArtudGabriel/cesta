@@ -4,6 +4,7 @@ import { User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomBytes, createHash } from 'crypto';
 import { AppException } from '../../common/exceptions/app-exception';
+import { AuditService } from '../audit/audit.service';
 import { TwoFactorService } from './two-factor/two-factor.service';
 import { TwoFactorChallengeResponseDto } from './two-factor/dtos/responses.dto';
 import { EmailService } from '../email/email.service';
@@ -47,6 +48,7 @@ export class AuthService {
     private readonly emailService: EmailService,
     @Inject(forwardRef(() => TwoFactorService))
     private readonly twoFactorService: TwoFactorService,
+    private readonly audit: AuditService,
   ) {}
 
   async register(
@@ -272,6 +274,11 @@ export class AuthService {
     this.logger.log(
       `UserReactivated: user ${user.id} elapsed=${elapsed}ms (grace 30d).`,
     );
+    await this.audit.record({
+      type: 'UserReactivated',
+      userId: user.id,
+      metadata: { elapsedMs: elapsed },
+    });
     const tokens = await this.issueTokens(reactivated, ctx);
     return { user: UserResponseDto.fromEntity(reactivated), tokens };
   }

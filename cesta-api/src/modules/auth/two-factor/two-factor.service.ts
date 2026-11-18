@@ -6,6 +6,7 @@ import { authenticator } from 'otplib';
 import * as QRCode from 'qrcode';
 import { randomBytes } from 'crypto';
 import { AppException } from '../../../common/exceptions/app-exception';
+import { AuditService } from '../../audit/audit.service';
 import { UsersService } from '../../users/users.service';
 import { AuthRepository } from '../auth.repository';
 import { JwtRotationService } from '../jwt-rotation.service';
@@ -46,6 +47,7 @@ export class TwoFactorService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly authRepo: AuthRepository,
+    private readonly audit: AuditService,
   ) {}
 
   async enroll(userId: string): Promise<EnrollResponseDto> {
@@ -95,6 +97,10 @@ export class TwoFactorService {
       plainCodes.map((c) => bcrypt.hash(c, BCRYPT_ROUNDS)),
     );
     await this.repo.enable(userId, hashed);
+    await this.audit.record({
+      type: 'TwoFactorEnabled',
+      userId,
+    });
     return { enabled: true, backupCodes: plainCodes };
   }
 
@@ -188,6 +194,10 @@ export class TwoFactorService {
       );
     }
     await this.repo.disable(userId);
+    await this.audit.record({
+      type: 'TwoFactorDisabled',
+      userId,
+    });
     return { enabled: false };
   }
 

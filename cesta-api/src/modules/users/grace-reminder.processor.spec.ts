@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { Job, Queue } from 'bullmq';
+import { AuditService } from '../audit/audit.service';
 import { EmailService } from '../email/email.service';
 import { GraceReminderProcessor } from './grace-reminder.processor';
 import { GraceReminderScanJob } from './grace-reminder.constants';
@@ -58,11 +59,15 @@ describe('GraceReminderProcessor', () => {
       }),
     } as unknown as ConfigService;
 
+    const audit = {
+      record: jest.fn().mockResolvedValue(undefined),
+    } as unknown as AuditService;
     processor = new GraceReminderProcessor(
       repoMock as unknown as UsersRepository,
       emailMock as unknown as EmailService,
       configMock,
       queueMock as unknown as Queue<GraceReminderScanJob>,
+      audit,
     );
     jest
       .spyOn(processor['logger'], 'log')

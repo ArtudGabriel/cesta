@@ -1,0 +1,137 @@
+openapi: 3.0.3
+info:
+  title: Cesta Admin Audit Log API
+  description: >
+    Sprint 104 — SDD-lite spec. Admin-only read API para audit log persistente
+    (model AuditLog). Extende /admin existente (S95 listSoftDeleted + S92
+    cancelDelete). Eventos emitidos de sprints anteriores agora também
+    persistem em DB (backfill): UserReactivated (S90), UserDataExported (S91),
+    SecretRotated (S92), AdminCancelledDelete (S92), UserReminderSent (S94),
+    TwoFactorEnabled/Disabled (S99), UserDataImported (S102). Até S104 só
+    existiam como log statements; S104 adiciona linha em `audit_logs`
+    simultânea pra tornar auditável via UI. Rate limit 60/min (read-only,
+    AdminGuard). GDPR: userId retornado literal (admin-only scope); frontend
+    aplica `data-sentry-mask`.
+  version: "1.0.0"
+servers:
+  - url: https://cesta-gsvc.onrender.com/api/v1
+    description: Production
+  - url: http://localhost:3001/api/v1
+    description: Local dev
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Admin Audit Log
+    description: Leitura paginada do audit log (admin-only)
+
+paths:
+  /admin/audit-logs:
+    get:
+      tags: [Admin Audit Log]
+      operationId: listAuditLogs
+      summary: Lista paginada de audit logs filtrável por type
+      description: >
+        Requer AdminGuard (user.roles contém "admin"). Paginação cursor-less
+        via limit/offset (cap 100, default 50). Filtro `type` aceita
+        comma-separated whitelist. Ordenação fixa `createdAt DESC`. Retorna
+        items + total pra permitir load-more sem over-fetch.
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: type
+          description: >
+            Comma-separated. Whitelist: UserReactivated, UserDataExported,
+            SecretRotated, AdminCancelledDelete, TwoFactorEnabled,
+            TwoFactorDisabled, UserDataImported, UserReminderSent. Valor fora
+            da lista → 400.
+          schema:
+            type: string
+            example: "UserReactivated,SecretRotated"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditLogListResponse"
+        "400":
+          description: Invalid type filter
+        "401":
+          description: Unauthenticated
+        "403":
+          description: Not admin
+        "429":
+          description: Rate limited
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    AuditLogListResponse:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditLogItem"
+        total:
+          type: integer
+          description: Total rows matching filter (ignora limit/offset)
+
+    AuditLogItem:
+      type: object
+      required: [id, type, createdAt]
+      properties:
+        id:
+          type: string
+          description: cuid
+        userId:
+          type: string
+          nullable: true
+          description: >
+            Sujeito do evento (ex: user que exportou dados, user reativado).
+            Null para eventos de sistema (ex: SecretRotated).
+        actorId:
+          type: string
+          nullable: true
+          description: >
+            Executor da ação quando ≠ userId (ex: admin que cancelou delete).
+            Null quando user é o próprio actor ou evento é de sistema.
+        type:
+          type: string
+          enum:
+            - UserReactivated
+            - UserDataExported
+            - SecretRotated
+            - AdminCancelledDelete
+            - TwoFactorEnabled
+            - TwoFactorDisabled
+            - UserDataImported
+            - UserReminderSent
+        metadata:
+          type: object
+          nullable: true
+          description: Payload event-specific (bytes, kinds, jobId, etc.)
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time

@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { AuditService } from '../audit/audit.service';
 
 export interface JwtPayload {
   sub: string;
@@ -21,6 +22,7 @@ export class JwtRotationService implements OnModuleInit {
   constructor(
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly audit: AuditService,
   ) {}
 
   onModuleInit(): void {
@@ -33,6 +35,11 @@ export class JwtRotationService implements OnModuleInit {
       this.logger.log(
         `[audit] SecretRotated kinds=${kinds.join(',')} ts=${new Date().toISOString()}`,
       );
+      // fire-and-forget: boot não aguarda
+      void this.audit.record({
+        type: 'SecretRotated',
+        metadata: { kinds },
+      });
     }
   }
 

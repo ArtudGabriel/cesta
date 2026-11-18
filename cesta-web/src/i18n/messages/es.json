@@ -845,6 +845,35 @@
       "reactivated": "Cuenta reactivada.",
       "alreadyActive": "La cuenta ya estaba activa.",
       "error": "No se pudo cancelar la eliminación."
+    },
+    "audit": {
+      "title": "Registro de auditoría",
+      "subtitle": "{total, plural, =0 {Sin eventos registrados} =1 {# evento registrado} other {# eventos registrados}}",
+      "empty": "No hay eventos para los filtros seleccionados.",
+      "loadMore": "Cargar más",
+      "showing": "Mostrando {shown} de {total}",
+      "filter": {
+        "label": "Filtrar por tipo",
+        "clear": "Limpiar filtros"
+      },
+      "fields": {
+        "userId": "ID de usuario",
+        "actorId": "Actor"
+      },
+      "metadata": {
+        "show": "Ver metadatos",
+        "hide": "Ocultar metadatos"
+      },
+      "types": {
+        "UserReactivated": "Cuenta reactivada",
+        "UserDataExported": "Datos exportados",
+        "SecretRotated": "Secreto JWT rotado",
+        "AdminCancelledDelete": "Admin canceló eliminación",
+        "TwoFactorEnabled": "2FA activado",
+        "TwoFactorDisabled": "2FA desactivado",
+        "UserDataImported": "Datos importados",
+        "UserReminderSent": "Recordatorio enviado"
+      }
     }
   }
 }

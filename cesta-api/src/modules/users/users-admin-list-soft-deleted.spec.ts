@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { AuditService } from '../audit/audit.service';
 import { FamilyProfilesRepository } from '../family-profiles/family-profiles.repository';
 import { USER_CLEANUP_QUEUE } from './user-cleanup.constants';
 import { UsersRepository } from './users.repository';
@@ -53,6 +54,10 @@ describe('UsersService.adminListSoftDeleted', () => {
             findByUser: jest.fn().mockResolvedValue(null),
             updateRestrictions: jest.fn(),
           },
+        },
+        {
+          provide: AuditService,
+          useValue: { record: jest.fn().mockResolvedValue(undefined) },
         },
       ],
     }).compile();

@@ -22,6 +22,33 @@ export interface SoftDeletedPage {
   total: number;
 }
 
+export const AUDIT_LOG_TYPES = [
+  "UserReactivated",
+  "UserDataExported",
+  "SecretRotated",
+  "AdminCancelledDelete",
+  "TwoFactorEnabled",
+  "TwoFactorDisabled",
+  "UserDataImported",
+  "UserReminderSent",
+] as const;
+
+export type AuditLogType = (typeof AUDIT_LOG_TYPES)[number];
+
+export interface AuditLogItem {
+  id: string;
+  userId: string | null;
+  actorId: string | null;
+  type: AuditLogType;
+  metadata: unknown;
+  createdAt: string;
+}
+
+export interface AuditLogsPage {
+  items: AuditLogItem[];
+  total: number;
+}
+
 const ACCESS_TOKEN_COOKIE = "cesta_access_token";
 
 function resolveBaseUrl(): string {
@@ -78,5 +105,43 @@ export async function fetchSoftDeletedUsersSSR(): Promise<SoftDeletedPage> {
     throw new Error(`Failed to fetch soft-deleted users: ${res.status}`);
   }
   const json = (await res.json()) as Envelope<SoftDeletedPage>;
+  return json.data;
+}
+
+/**
+ * Sprint 104: audit logs paginados pro admin /admin/audit. `types` filter
+ * CSV (whitelist no backend); vazio = sem filtro. AdminGuard é fonte da
+ * verdade — page faz gate de UI apenas pra UX.
+ */
+export async function fetchAuditLogsSSR(params: {
+  limit?: number;
+  offset?: number;
+  types?: readonly AuditLogType[];
+}): Promise<AuditLogsPage> {
+  const token = (await cookies()).get(ACCESS_TOKEN_COOKIE)?.value;
+  if (!token) return { items: [], total: 0 };
+  const limit = params.limit ?? 50;
+  const offset = params.offset ?? 0;
+  const qs = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
+  if (params.types && params.types.length > 0) {
+    qs.set("type", params.types.join(","));
+  }
+  const res = await fetch(
+    `${resolveBaseUrl()}/admin/audit-logs?${qs.toString()}`,
+    {
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+      },
+      cache: "no-store",
+    },
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to fetch audit logs: ${res.status}`);
+  }
+  const json = (await res.json()) as Envelope<AuditLogsPage>;
   return json.data;
 }

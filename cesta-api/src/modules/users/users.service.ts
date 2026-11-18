@@ -10,6 +10,7 @@ import { Prisma, User } from '@prisma/client';
 import { Queue } from 'bullmq';
 import * as Sentry from '@sentry/node';
 import { AppException } from '../../common/exceptions/app-exception';
+import { AuditService } from '../audit/audit.service';
 import { buildExportZip, ExportZip } from './users-export.util';
 import {
   DIETARY_KEYS,
@@ -49,6 +50,7 @@ export class UsersService {
     // pra evitar recursão service-to-service.
     @Inject(forwardRef(() => FamilyProfilesRepository))
     private readonly familyProfilesRepository: FamilyProfilesRepository,
+    private readonly audit: AuditService,
   ) {}
 
   async findById(id: string): Promise<User> {
@@ -222,6 +224,11 @@ export class UsersService {
     this.logger.log(
       `[audit] UserDataExported userId=${userId} bytes=${result.zip.length} files=${result.files.length}`,
     );
+    await this.audit.record({
+      type: 'UserDataExported',
+      userId,
+      metadata: { bytes: result.zip.length, files: result.files.length },
+    });
 
     return result;
   }
@@ -288,6 +295,12 @@ export class UsersService {
       this.logger.log(
         `[audit] AdminCancelledDelete adminId=${adminId} userId=${userId} status=already_active`,
       );
+      await this.audit.record({
+        type: 'AdminCancelledDelete',
+        userId,
+        actorId: adminId,
+        metadata: { status: 'already_active' },
+      });
       return {
         status: 'already_active',
         user: UserResponseDto.fromEntity(user),
@@ -304,6 +317,12 @@ export class UsersService {
     this.logger.log(
       `[audit] AdminCancelledDelete adminId=${adminId} userId=${userId} status=reactivated`,
     );
+    await this.audit.record({
+      type: 'AdminCancelledDelete',
+      userId,
+      actorId: adminId,
+      metadata: { status: 'reactivated' },
+    });
     return {
       status: 'reactivated',
       user: UserResponseDto.fromEntity(reactivated),

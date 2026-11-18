@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   HttpCode,
@@ -13,6 +14,8 @@ import { Throttle } from '@nestjs/throttler';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AdminGuard } from '../../common/guards/admin.guard';
 import { UsersService } from '../users/users.service';
+import { AuditService } from '../audit/audit.service';
+import { ListAuditLogsQueryDto } from './dtos/list-audit-logs-query.dto';
 import { ListUsersQueryDto } from './dtos/list-users-query.dto';
 
 @ApiTags('Admin')
@@ -20,7 +23,10 @@ import { ListUsersQueryDto } from './dtos/list-users-query.dto';
 @UseGuards(AdminGuard)
 @Controller('admin')
 export class AdminController {
-  constructor(private readonly users: UsersService) {}
+  constructor(
+    private readonly users: UsersService,
+    private readonly audit: AuditService,
+  ) {}
 
   @Get('users')
   @Throttle({ strict: { limit: 20, ttl: 60_000 } })
@@ -47,5 +53,25 @@ export class AdminController {
     @Param('userId') userId: string,
   ) {
     return this.users.adminCancelDelete(adminId, userId);
+  }
+
+  @Get('audit-logs')
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Sprint 104: lista paginada de audit logs filtrável por type. Ver ADR-0004.',
+  })
+  async listAuditLogs(@Query() query: ListAuditLogsQueryDto) {
+    const limit = query.limit ?? 50;
+    const offset = query.offset ?? 0;
+    try {
+      return await this.audit.list(limit, offset, query.type);
+    } catch (err) {
+      if ((err as Error).message.startsWith('invalid audit types:')) {
+        throw new BadRequestException((err as Error).message);
+      }
+      throw err;
+    }
   }
 }
