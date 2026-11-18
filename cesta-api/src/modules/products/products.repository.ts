@@ -71,9 +71,11 @@ export class ProductsRepository {
     }>;
     total: number;
   }> {
-    // Sprint 106 — ILIKE em name/brand, dedupe pelo distinct productId do findMany
-    // (Prisma retorna 1 row por produto), ordena por menor preço asc (NULLs ao
-    // final: calculamos client-side via sort estável).
+    // Sprint 106 (fix S106) — ILIKE em name/brand. Prisma não suporta orderBy
+    // em agregado de relação 1:N (menor price per product) sem raw SQL. Pra
+    // garantir "top N globais por cheapestUnitPrice", oversample (limit*3,
+    // cap 40) e re-ordena+slica em memória (mesmo padrão de findSuggestions
+    // L133). `take: limit` puro ordenava só rows arbitrárias do DB.
     const where: Prisma.ProductWhereInput = {
       deletedAt: null,
       OR: [
@@ -82,10 +84,12 @@ export class ProductsRepository {
       ],
     };
 
+    const sampleSize = Math.min(limit * 3, 40);
+
     const [rows, total] = await Promise.all([
       this.prisma.product.findMany({
         where,
-        take: limit,
+        take: sampleSize,
         select: {
           id: true,
           name: true,
@@ -101,7 +105,7 @@ export class ProductsRepository {
       this.prisma.product.count({ where }),
     ]);
 
-    const items = rows.map((r) => ({
+    const scored = rows.map((r) => ({
       id: r.id,
       name: r.name,
       imageUrl: r.imageUrl,
@@ -110,13 +114,13 @@ export class ProductsRepository {
         : null,
     }));
 
-    items.sort((a, b) => {
+    scored.sort((a, b) => {
       const ap = a.cheapestUnitPrice ?? Number.POSITIVE_INFINITY;
       const bp = b.cheapestUnitPrice ?? Number.POSITIVE_INFINITY;
       return ap - bp;
     });
 
-    return { items, total };
+    return { items: scored.slice(0, limit), total };
   }
 
   async findSuggestions(q: string, limit: number): Promise<
