@@ -604,6 +604,24 @@
       "invalidFormat": "Só JPG ou PNG",
       "maxSize": "Imagem máx {mb}MB",
       "rateLimited": "Você enviou notas demais. Tente em 1 hora."
+    },
+    "edit": {
+      "itemsHeading": "Produtos ({count})",
+      "addItem": "Adicionar",
+      "editItem": "Editar item",
+      "removeItem": "Remover item",
+      "name": "Nome",
+      "quantity": "Quantidade",
+      "unitPrice": "Preço unitário",
+      "total": "Total",
+      "supermarket": "Supermercado (slug)",
+      "date": "Data",
+      "save": "Salvar",
+      "saved": "Salvo",
+      "itemAdded": "Produto adicionado",
+      "itemRemoved": "Produto removido",
+      "errorSave": "Erro ao salvar",
+      "noItems": "Sem produtos ainda"
     }
   },
   "alerts": {

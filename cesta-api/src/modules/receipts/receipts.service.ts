@@ -5,12 +5,13 @@ import * as path from 'path';
 import * as Sentry from '@sentry/node';
 import { AppException } from '../../common/exceptions/app-exception';
 import {
+  CreateReceiptItemDto,
   UpdateReceiptItemDto,
   UpdateReceiptMetaDto,
 } from './dtos/update-receipt-item.dto';
 import { ReceiptResponseDto } from './dtos/receipt-response.dto';
 import { ReceiptsRepository } from './receipts.repository';
-import { RECEIPTS_QUEUE, ReceiptJob } from './receipts.processor';
+import { RECEIPTS_QUEUE, ReceiptJob } from './receipts.queue';
 
 @Injectable()
 export class ReceiptsService {
@@ -85,21 +86,48 @@ export class ReceiptsService {
     itemId: string,
     dto: UpdateReceiptItemDto,
   ): Promise<ReceiptResponseDto> {
+    await this.assertItemOwner(userId, receiptId, itemId);
+    await this.repo.updateItemAndRecalc(receiptId, itemId, dto);
+    return this.findOne(userId, receiptId);
+  }
+
+  async addItem(
+    userId: string,
+    receiptId: string,
+    dto: CreateReceiptItemDto,
+  ): Promise<ReceiptResponseDto> {
+    await this.assertOwner(userId, receiptId);
+    await this.repo.addItemAndRecalc(receiptId, dto);
+    return this.findOne(userId, receiptId);
+  }
+
+  async removeItem(
+    userId: string,
+    receiptId: string,
+    itemId: string,
+  ): Promise<void> {
+    await this.assertOwner(userId, receiptId);
+    await this.repo.removeItemAndRecalc(receiptId, itemId);
+  }
+
+  async remove(userId: string, id: string): Promise<void> {
+    await this.assertOwner(userId, id);
+    await this.repo.softDelete(id);
+  }
+
+  private async assertItemOwner(
+    userId: string,
+    receiptId: string,
+    itemId: string,
+  ): Promise<void> {
     const item = await this.repo.findItemForUser(itemId, userId);
-    if (!item)
+    if (!item || item.receiptId !== receiptId)
       throw new AppException(
         'RECEIPTS.ITEM_FORBIDDEN',
         'Item não acessível',
         HttpStatus.FORBIDDEN,
         { itemId },
       );
-    await this.repo.updateItem(itemId, dto);
-    return this.findOne(userId, receiptId);
-  }
-
-  async remove(userId: string, id: string): Promise<void> {
-    await this.assertOwner(userId, id);
-    await this.repo.softDelete(id);
   }
 
   private async assertOwner(userId: string, id: string): Promise<void> {

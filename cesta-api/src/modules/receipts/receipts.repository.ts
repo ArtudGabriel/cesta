@@ -126,23 +126,86 @@ export class ReceiptsRepository {
     });
   }
 
-  updateItem(
+  async updateItemAndRecalc(
+    receiptId: string,
     itemId: string,
     data: { quantity?: number; unitPrice?: number; productId?: string | null },
-  ): Promise<ReceiptItem> {
-    const update: Prisma.ReceiptItemUpdateInput = {};
-    if (data.quantity !== undefined)
-      update.quantity = new Prisma.Decimal(data.quantity);
-    if (data.unitPrice !== undefined)
-      update.unitPrice = new Prisma.Decimal(data.unitPrice);
-    if (data.productId !== undefined) {
-      update.product = data.productId
-        ? { connect: { id: data.productId } }
-        : { disconnect: true };
-    }
-    return this.prisma.receiptItem.update({
-      where: { id: itemId },
-      data: update,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const current = await tx.receiptItem.findUnique({
+        where: { id: itemId },
+        select: { quantity: true, unitPrice: true },
+      });
+      if (!current) return;
+      const update: Prisma.ReceiptItemUpdateInput = {};
+      const nextQty =
+        data.quantity !== undefined ? data.quantity : Number(current.quantity);
+      const nextUnit =
+        data.unitPrice !== undefined
+          ? data.unitPrice
+          : Number(current.unitPrice);
+      if (data.quantity !== undefined)
+        update.quantity = new Prisma.Decimal(data.quantity);
+      if (data.unitPrice !== undefined)
+        update.unitPrice = new Prisma.Decimal(data.unitPrice);
+      if (data.quantity !== undefined || data.unitPrice !== undefined) {
+        update.total = new Prisma.Decimal(round2(nextQty * nextUnit));
+      }
+      if (data.productId !== undefined) {
+        update.product = data.productId
+          ? { connect: { id: data.productId } }
+          : { disconnect: true };
+      }
+      await tx.receiptItem.update({ where: { id: itemId }, data: update });
+      await recalcReceiptTotal(tx, receiptId);
+    });
+  }
+
+  async addItemAndRecalc(
+    receiptId: string,
+    data: {
+      rawText: string;
+      normalizedName: string;
+      quantity: number;
+      unitPrice: number;
+      productId?: string | null;
+      categoryHint?: string | null;
+    },
+  ): Promise<void> {
+    const total = round2(data.quantity * data.unitPrice);
+    await this.prisma.$transaction(async (tx) => {
+      const last = await tx.receiptItem.findFirst({
+        where: { receiptId },
+        orderBy: { position: 'desc' },
+        select: { position: true },
+      });
+      const position = (last?.position ?? -1) + 1;
+      await tx.receiptItem.create({
+        data: {
+          receiptId,
+          rawText: data.rawText,
+          normalizedName: data.normalizedName,
+          quantity: new Prisma.Decimal(data.quantity),
+          unitPrice: new Prisma.Decimal(data.unitPrice),
+          total: new Prisma.Decimal(total),
+          productId: data.productId ?? null,
+          categoryHint: data.categoryHint ?? null,
+          position,
+        },
+      });
+      await recalcReceiptTotal(tx, receiptId);
+    });
+  }
+
+  async removeItemAndRecalc(
+    receiptId: string,
+    itemId: string,
+  ): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.receiptItem.deleteMany({
+        where: { id: itemId, receiptId },
+      });
+      await recalcReceiptTotal(tx, receiptId);
     });
   }
 
@@ -157,7 +220,12 @@ export class ReceiptsRepository {
 
   updateMeta(
     id: string,
-    data: { supermarketSlug?: string; notes?: string },
+    data: {
+      supermarketSlug?: string | null;
+      purchaseDate?: Date | null;
+      total?: number | null;
+      notes?: string;
+    },
   ): Promise<Receipt> {
     const update: Prisma.ReceiptUpdateInput = {};
     if (data.supermarketSlug !== undefined) {
@@ -166,6 +234,10 @@ export class ReceiptsRepository {
         : { disconnect: true };
       update.supermarketSlug = data.supermarketSlug;
     }
+    if (data.purchaseDate !== undefined) update.purchaseDate = data.purchaseDate;
+    if (data.total !== undefined)
+      update.total =
+        data.total === null ? null : new Prisma.Decimal(round2(data.total));
     if (data.notes !== undefined) update.notes = data.notes;
     return this.prisma.receipt.update({ where: { id }, data: update });
   }
@@ -176,4 +248,22 @@ export class ReceiptsRepository {
       data: { deletedAt: new Date() },
     });
   }
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+async function recalcReceiptTotal(
+  tx: Prisma.TransactionClient,
+  receiptId: string,
+): Promise<void> {
+  const agg = await tx.receiptItem.aggregate({
+    where: { receiptId },
+    _sum: { total: true },
+  });
+  await tx.receipt.update({
+    where: { id: receiptId },
+    data: { total: agg._sum.total ?? new Prisma.Decimal(0) },
+  });
 }

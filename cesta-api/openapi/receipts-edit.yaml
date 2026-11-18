@@ -1,0 +1,273 @@
+openapi: 3.0.3
+info:
+  title: Cesta Receipts Edit API
+  description: >
+    Pós-OCR expense edit UI. Sprint 101 — SDD-lite spec.
+    Extensão da feature Gastos OCR (S97): endpoints de edição manual de
+    notas parseadas (metadata + items). Total da nota recomputado
+    automaticamente após qualquer mutação de item (soma de item.total).
+  version: "1.0.0"
+servers:
+  - url: https://cesta-gsvc.onrender.com/api/v1
+    description: Production
+  - url: http://localhost:3001/api/v1
+    description: Local dev
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Receipts Edit
+    description: Edição manual pós-OCR (metadata + items)
+
+paths:
+  /receipts/{id}:
+    patch:
+      tags: [Receipts Edit]
+      operationId: updateReceiptMeta
+      summary: Atualiza metadados da nota (supermarket/date/total/notes)
+      description: >
+        Permite correção manual de mercado, data da compra, total override e notes.
+        Preserva items. 403 se user não for owner.
+      parameters:
+        - $ref: "#/components/parameters/ReceiptId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateReceiptMetaRequest" }
+      responses:
+        "200":
+          description: Receipt atualizada (completa com items)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReceiptResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /receipts/{id}/items:
+    post:
+      tags: [Receipts Edit]
+      operationId: addReceiptItem
+      summary: Adiciona item manual na nota
+      description: >
+        Cria item ReceiptItem novo com position = max(items.position) + 1.
+        Após create, total da receipt é recomputado como soma de item.total.
+      parameters:
+        - $ref: "#/components/parameters/ReceiptId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateReceiptItemRequest" }
+      responses:
+        "201":
+          description: Item adicionado (receipt completa retornada)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReceiptResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /receipts/{id}/items/{itemId}:
+    patch:
+      tags: [Receipts Edit]
+      operationId: updateReceiptItem
+      summary: Edita item existente (qty/unitPrice/productId)
+      description: >
+        Atualiza item. Se qty ou unitPrice mudam, item.total = qty * unitPrice.
+        Receipt.total é recomputado após update. Idempotente.
+      parameters:
+        - $ref: "#/components/parameters/ReceiptId"
+        - $ref: "#/components/parameters/ItemId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateReceiptItemRequest" }
+      responses:
+        "200":
+          description: Item atualizado (receipt completa retornada)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReceiptResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+    delete:
+      tags: [Receipts Edit]
+      operationId: deleteReceiptItem
+      summary: Remove item da nota
+      description: >
+        Remove ReceiptItem. Receipt.total é recomputado após delete.
+        Idempotente (204 mesmo se item já removido).
+      parameters:
+        - $ref: "#/components/parameters/ReceiptId"
+        - $ref: "#/components/parameters/ItemId"
+      responses:
+        "204":
+          description: Item removido (sem body)
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ReceiptId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, description: "cuid da Receipt" }
+    ItemId:
+      name: itemId
+      in: path
+      required: true
+      schema: { type: string, description: "cuid do ReceiptItem" }
+
+  schemas:
+    UpdateReceiptMetaRequest:
+      type: object
+      properties:
+        supermarketSlug:
+          type: string
+          nullable: true
+          pattern: "^[a-z0-9-]{1,64}$"
+          description: "slug do mercado (ex: mercadona, carrefour); null desvincula"
+        purchaseDate:
+          type: string
+          format: date-time
+          nullable: true
+          description: "data da compra; null limpa"
+        total:
+          type: number
+          format: float
+          nullable: true
+          minimum: 0
+          multipleOf: 0.01
+          description: "override manual do total; null re-habilita autocompute"
+        notes:
+          type: string
+          maxLength: 500
+
+    CreateReceiptItemRequest:
+      type: object
+      required: [rawText, normalizedName, quantity, unitPrice]
+      properties:
+        rawText: { type: string, maxLength: 500, description: "texto original ou manual" }
+        normalizedName: { type: string, maxLength: 200 }
+        quantity:
+          type: number
+          format: float
+          minimum: 0.001
+          multipleOf: 0.001
+        unitPrice:
+          type: number
+          format: float
+          minimum: 0
+          multipleOf: 0.01
+        productId:
+          type: string
+          nullable: true
+          description: "cuid de Product (match manual); null se sem match"
+        categoryHint:
+          type: string
+          nullable: true
+          maxLength: 64
+
+    UpdateReceiptItemRequest:
+      type: object
+      properties:
+        quantity:
+          type: number
+          format: float
+          minimum: 0.001
+          multipleOf: 0.001
+        unitPrice:
+          type: number
+          format: float
+          minimum: 0
+          multipleOf: 0.01
+        productId:
+          type: string
+          nullable: true
+
+    ReceiptResponse:
+      type: object
+      required: [id, status, items, createdAt]
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [pending, processing, ready, failed] }
+        errorMessage: { type: string, nullable: true }
+        supermarketSlug: { type: string, nullable: true }
+        supermarketName: { type: string, nullable: true }
+        purchaseDate: { type: string, format: date-time, nullable: true }
+        total: { type: number, nullable: true }
+        imageUrl: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ReceiptItemDto" }
+
+    ReceiptItemDto:
+      type: object
+      required: [id, rawText, normalizedName, quantity, unitPrice, total, position]
+      properties:
+        id: { type: string }
+        rawText: { type: string }
+        normalizedName: { type: string }
+        quantity: { type: number }
+        unitPrice: { type: number }
+        total: { type: number }
+        productId: { type: string, nullable: true }
+        productName: { type: string, nullable: true }
+        position: { type: integer }
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, description: "ex: RECEIPTS.FORBIDDEN" }
+        message: { type: string }
+        details: { type: object, additionalProperties: true }
+
+  responses:
+    BadRequest:
+      description: Payload inválido
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Sem token ou token inválido
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: User não é owner da receipt/item
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Receipt não encontrada
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    RateLimited:
+      description: Rate limit excedido (30 req/min/user em endpoints edit)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }

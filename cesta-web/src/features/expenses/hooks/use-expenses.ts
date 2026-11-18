@@ -10,7 +10,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 import { expensesService } from "../services/expenses.service";
-import type { Period } from "../types/expense.types";
+import type { Period, Receipt } from "../types/expense.types";
 
 export const EXPENSES_KEYS = {
   receipts: ["expenses", "receipts"] as const,
@@ -79,6 +79,148 @@ export function useRemoveReceipt() {
       toast.success("Nota eliminada");
     },
     onError: (err: Error) => toast.error(err.message),
+  });
+}
+
+export function useUpdateReceipt(id: string) {
+  const qc = useQueryClient();
+  const t = useTranslations("expenses.edit");
+  return useMutation({
+    mutationFn: (payload: {
+      supermarketSlug?: string | null;
+      purchaseDate?: string | null;
+      total?: number | null;
+      notes?: string;
+    }) => expensesService.updateReceipt(id, payload),
+    onMutate: async (payload) => {
+      await qc.cancelQueries({ queryKey: EXPENSES_KEYS.receipt(id) });
+      const prev = qc.getQueryData<Receipt>(EXPENSES_KEYS.receipt(id));
+      if (prev) {
+        qc.setQueryData<Receipt>(EXPENSES_KEYS.receipt(id), {
+          ...prev,
+          supermarketSlug:
+            payload.supermarketSlug !== undefined
+              ? payload.supermarketSlug
+              : prev.supermarketSlug,
+          purchaseDate:
+            payload.purchaseDate !== undefined
+              ? payload.purchaseDate
+              : prev.purchaseDate,
+          total: payload.total !== undefined ? payload.total : prev.total,
+          notes: payload.notes !== undefined ? payload.notes : prev.notes,
+        });
+      }
+      return { prev };
+    },
+    onError: (err: Error, _payload, ctx) => {
+      if (ctx?.prev) qc.setQueryData(EXPENSES_KEYS.receipt(id), ctx.prev);
+      toast.error(err.message || t("errorSave"));
+    },
+    onSuccess: (receipt) => {
+      qc.setQueryData(EXPENSES_KEYS.receipt(id), receipt);
+      qc.invalidateQueries({ queryKey: EXPENSES_KEYS.receipts });
+      toast.success(t("saved"));
+    },
+  });
+}
+
+export function useUpdateReceiptItem(receiptId: string) {
+  const qc = useQueryClient();
+  const t = useTranslations("expenses.edit");
+  return useMutation({
+    mutationFn: ({
+      itemId,
+      payload,
+    }: {
+      itemId: string;
+      payload: {
+        quantity?: number;
+        unitPrice?: number;
+        productId?: string | null;
+      };
+    }) => expensesService.updateReceiptItem(receiptId, itemId, payload),
+    onMutate: async ({ itemId, payload }) => {
+      await qc.cancelQueries({ queryKey: EXPENSES_KEYS.receipt(receiptId) });
+      const prev = qc.getQueryData<Receipt>(EXPENSES_KEYS.receipt(receiptId));
+      if (prev) {
+        qc.setQueryData<Receipt>(EXPENSES_KEYS.receipt(receiptId), {
+          ...prev,
+          items: prev.items.map((item) => {
+            if (item.id !== itemId) return item;
+            const nextQty = payload.quantity ?? item.quantity;
+            const nextUnit = payload.unitPrice ?? item.unitPrice;
+            return {
+              ...item,
+              quantity: nextQty,
+              unitPrice: nextUnit,
+              total: Math.round(nextQty * nextUnit * 100) / 100,
+              productId:
+                payload.productId !== undefined
+                  ? payload.productId
+                  : item.productId,
+            };
+          }),
+        });
+      }
+      return { prev };
+    },
+    onError: (err: Error, _vars, ctx) => {
+      if (ctx?.prev)
+        qc.setQueryData(EXPENSES_KEYS.receipt(receiptId), ctx.prev);
+      toast.error(err.message || t("errorSave"));
+    },
+    onSuccess: (receipt) => {
+      qc.setQueryData(EXPENSES_KEYS.receipt(receiptId), receipt);
+      qc.invalidateQueries({ queryKey: EXPENSES_KEYS.receipts });
+    },
+  });
+}
+
+export function useAddReceiptItem(receiptId: string) {
+  const qc = useQueryClient();
+  const t = useTranslations("expenses.edit");
+  return useMutation({
+    mutationFn: (payload: {
+      rawText: string;
+      normalizedName: string;
+      quantity: number;
+      unitPrice: number;
+    }) => expensesService.addReceiptItem(receiptId, payload),
+    onSuccess: (receipt) => {
+      qc.setQueryData(EXPENSES_KEYS.receipt(receiptId), receipt);
+      qc.invalidateQueries({ queryKey: EXPENSES_KEYS.receipts });
+      toast.success(t("itemAdded"));
+    },
+    onError: (err: Error) => toast.error(err.message || t("errorSave")),
+  });
+}
+
+export function useRemoveReceiptItem(receiptId: string) {
+  const qc = useQueryClient();
+  const t = useTranslations("expenses.edit");
+  return useMutation({
+    mutationFn: (itemId: string) =>
+      expensesService.removeReceiptItem(receiptId, itemId),
+    onMutate: async (itemId) => {
+      await qc.cancelQueries({ queryKey: EXPENSES_KEYS.receipt(receiptId) });
+      const prev = qc.getQueryData<Receipt>(EXPENSES_KEYS.receipt(receiptId));
+      if (prev) {
+        qc.setQueryData<Receipt>(EXPENSES_KEYS.receipt(receiptId), {
+          ...prev,
+          items: prev.items.filter((item) => item.id !== itemId),
+        });
+      }
+      return { prev };
+    },
+    onError: (err: Error, _vars, ctx) => {
+      if (ctx?.prev)
+        qc.setQueryData(EXPENSES_KEYS.receipt(receiptId), ctx.prev);
+      toast.error(err.message || t("errorSave"));
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: EXPENSES_KEYS.receipt(receiptId) });
+      toast.success(t("itemRemoved"));
+    },
   });
 }
 

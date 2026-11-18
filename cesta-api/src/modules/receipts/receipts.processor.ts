@@ -9,13 +9,9 @@ import { parseReceipt } from './receipt-parser';
 import { ReceiptsRepository } from './receipts.repository';
 import type { PriceCorrectionJob } from './price-correction.processor';
 import { PRICE_CORRECTION_QUEUE } from './price-correction.processor';
+import { RECEIPTS_QUEUE, ReceiptJob } from './receipts.queue';
 
-export const RECEIPTS_QUEUE = 'receipts';
-
-export interface ReceiptJob {
-  receiptId: string;
-  imagePath: string;
-}
+export { RECEIPTS_QUEUE, ReceiptJob };
 
 @Processor(RECEIPTS_QUEUE)
 export class ReceiptsProcessor extends WorkerHost {

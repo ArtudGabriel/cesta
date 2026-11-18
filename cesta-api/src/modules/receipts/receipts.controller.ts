@@ -19,6 +19,7 @@ import { extname } from 'path';
 import { randomBytes } from 'crypto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import {
+  CreateReceiptItemDto,
   UpdateReceiptItemDto,
   UpdateReceiptMetaDto,
 } from './dtos/update-receipt-item.dto';
@@ -87,7 +88,8 @@ export class ReceiptsController {
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Atualizar metadados da nota (mercado/notes)' })
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Atualizar metadados da nota (mercado/data/total/notes)' })
   updateMeta(
     @CurrentUser('id') userId: string,
     @Param('id') id: string,
@@ -96,7 +98,20 @@ export class ReceiptsController {
     return this.service.updateMeta(userId, id, dto);
   }
 
+  @Post(':id/items')
+  @HttpCode(HttpStatus.CREATED)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Adiciona item manual na nota' })
+  addItem(
+    @CurrentUser('id') userId: string,
+    @Param('id') receiptId: string,
+    @Body() dto: CreateReceiptItemDto,
+  ) {
+    return this.service.addItem(userId, receiptId, dto);
+  }
+
   @Patch(':id/items/:itemId')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @ApiOperation({ summary: 'Editar item da nota (qty/preço/produto)' })
   updateItem(
     @CurrentUser('id') userId: string,
@@ -105,6 +120,18 @@ export class ReceiptsController {
     @Body() dto: UpdateReceiptItemDto,
   ) {
     return this.service.updateItem(userId, receiptId, itemId, dto);
+  }
+
+  @Delete(':id/items/:itemId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Remove item da nota' })
+  async removeItem(
+    @CurrentUser('id') userId: string,
+    @Param('id') receiptId: string,
+    @Param('itemId') itemId: string,
+  ) {
+    await this.service.removeItem(userId, receiptId, itemId);
   }
 
   @Delete(':id')
