@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { formatPrice } from "@/lib/utils";
 import type { Receipt } from "../types/expense.types";
+import { ReceiptEditPanel } from "./receipt-edit-panel";
 import { RemoveReceiptButton } from "./remove-receipt-button";
 
 interface ReceiptDetailBodyProps {
@@ -64,38 +65,7 @@ export function ReceiptDetailBody({ receipt }: ReceiptDetailBodyProps) {
           </div>
         )}
 
-        {receipt.items.length > 0 && (
-          <section>
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">
-              {t("productsCount", { count: receipt.items.length })}
-            </h2>
-            <ul className="space-y-2">
-              {receipt.items.map((item) => (
-                <li
-                  key={item.id}
-                  className="flex items-center gap-3 rounded-card bg-white p-3 shadow-card"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="line-clamp-2 text-sm font-medium text-ink">
-                      {item.productName ?? item.rawText}
-                    </p>
-                    <p className="text-xs text-muted">
-                      {item.quantity} × {formatPrice(item.unitPrice)}
-                      {!item.productId && (
-                        <span className="ml-2 text-amber">
-                          · {t("notIdentified")}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                  <span className="font-bold text-cesta-green">
-                    {formatPrice(item.total)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+        {receipt.status === "ready" && <ReceiptEditPanel receipt={receipt} />}
       </div>
     </main>
   );

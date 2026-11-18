@@ -45,6 +45,60 @@ export const expensesService = {
     await api.delete(`/receipts/${id}`);
   },
 
+  async updateReceipt(
+    id: string,
+    payload: {
+      supermarketSlug?: string | null;
+      purchaseDate?: string | null;
+      total?: number | null;
+      notes?: string;
+    },
+  ): Promise<Receipt> {
+    const { data } = await api.patch<Envelope<Receipt>>(
+      `/receipts/${id}`,
+      payload,
+    );
+    return data.data;
+  },
+
+  async updateReceiptItem(
+    receiptId: string,
+    itemId: string,
+    payload: {
+      quantity?: number;
+      unitPrice?: number;
+      productId?: string | null;
+    },
+  ): Promise<Receipt> {
+    const { data } = await api.patch<Envelope<Receipt>>(
+      `/receipts/${receiptId}/items/${itemId}`,
+      payload,
+    );
+    return data.data;
+  },
+
+  async addReceiptItem(
+    receiptId: string,
+    payload: {
+      rawText: string;
+      normalizedName: string;
+      quantity: number;
+      unitPrice: number;
+      productId?: string | null;
+      categoryHint?: string | null;
+    },
+  ): Promise<Receipt> {
+    const { data } = await api.post<Envelope<Receipt>>(
+      `/receipts/${receiptId}/items`,
+      payload,
+    );
+    return data.data;
+  },
+
+  async removeReceiptItem(receiptId: string, itemId: string): Promise<void> {
+    await api.delete(`/receipts/${receiptId}/items/${itemId}`);
+  },
+
   async summary(period: Period): Promise<ExpenseSummary> {
     const { data } = await api.get<Envelope<ExpenseSummary>>(
       "/expenses/summary",
