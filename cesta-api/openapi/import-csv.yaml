@@ -1,0 +1,214 @@
+openapi: 3.0.3
+info:
+  title: Cesta User CSV Import API
+  description: >
+    Sprint 102 — SDD-lite spec. Simétrico ao export Sprint 91 (GDPR Art. 20).
+    Usuário faz upload de ZIP com os 5 CSVs (favoritos, listas, alertas, reviews,
+    expenses) exportado previamente de outra conta Cesta (ou editado manualmente).
+    Fluxo é two-step: primeiro dry-run (parse + preview summary sem write DB);
+    depois apply (worker idempotente escreve DB, deduplicando por chave natural).
+    Rate limit 1 import/hora/user (GDPR non-abusive + proteção de carga BullMQ).
+  version: "1.0.0"
+servers:
+  - url: https://cesta-gsvc.onrender.com/api/v1
+    description: Production
+  - url: http://localhost:3001/api/v1
+    description: Local dev
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: User CSV Import
+    description: Import de dados pessoais a partir de ZIP multi-CSV
+
+paths:
+  /users/me/import:
+    post:
+      tags: [User CSV Import]
+      operationId: createUserImport
+      summary: Upload ZIP → dry-run parse (202 + jobId)
+      description: >
+        Recebe multipart com campo "file" (ZIP ≤ 5 MB contendo favoritos.csv,
+        listas.csv, alertas.csv, reviews.csv, expenses.csv) e flag "dryRun".
+        Cria Import row status=pending, enfileira job import-csv-user.
+        Retorna 202 + jobId imediato. Worker parse async; status vira
+        ready_to_apply (dryRun=true) ou complete (dryRun=false).
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: "ZIP export Sprint 91 shape (max 5 MB)"
+                dryRun:
+                  type: boolean
+                  default: true
+                  description: "true=preview only; false=skip ready_to_apply e aplica direto"
+      responses:
+        "202":
+          description: Import enfileirado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportStatus" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "413":
+          description: ZIP excede 5 MB
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /users/me/import/{jobId}:
+    get:
+      tags: [User CSV Import]
+      operationId: getUserImport
+      summary: Status + summary do import
+      description: >
+        Retorna status atual do job. `summary` populado quando status in
+        [ready_to_apply, complete, failed]. 403 se user não é owner.
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "200":
+          description: Status atual
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportStatus" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /users/me/import/{jobId}/apply:
+    post:
+      tags: [User CSV Import]
+      operationId: applyUserImport
+      summary: Confirma dry-run → enfileira apply
+      description: >
+        Só válido se status=ready_to_apply (dry-run completou). Enfileira worker
+        novamente em modo apply. Idempotente: segundo apply no mesmo jobId
+        retorna 409.
+      parameters:
+        - $ref: "#/components/parameters/JobId"
+      responses:
+        "202":
+          description: Apply enfileirado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportStatus" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Job não está em ready_to_apply (já aplicado, failed, ou parsing)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    JobId:
+      name: jobId
+      in: path
+      required: true
+      schema: { type: string, description: "cuid da Import row" }
+
+  schemas:
+    ImportStatus:
+      type: object
+      required: [jobId, status, dryRun, createdAt]
+      properties:
+        jobId: { type: string, description: "cuid do Import" }
+        status:
+          type: string
+          enum: [pending, parsing, ready_to_apply, applying, complete, failed]
+        dryRun: { type: boolean }
+        errorMessage: { type: string, nullable: true }
+        summary:
+          oneOf:
+            - $ref: "#/components/schemas/ImportSummary"
+            - type: "null"
+        createdAt: { type: string, format: date-time }
+
+    ImportSummary:
+      type: object
+      description: >
+        Contagens por tabela. "added" = novos (serão inseridos / foram inseridos).
+        "skipped" = já existiam (dedupe hit). "errors" = linhas inválidas Zod com
+        file + lineNumber + motivo.
+      required: [added, skipped, errors]
+      properties:
+        added:
+          type: object
+          properties:
+            favoritos: { type: integer, minimum: 0 }
+            listas: { type: integer, minimum: 0 }
+            listaItems: { type: integer, minimum: 0 }
+            alertas: { type: integer, minimum: 0 }
+            reviews: { type: integer, minimum: 0 }
+            expenses: { type: integer, minimum: 0 }
+            expenseItems: { type: integer, minimum: 0 }
+        skipped:
+          type: object
+          properties:
+            favoritos: { type: integer, minimum: 0 }
+            listas: { type: integer, minimum: 0 }
+            alertas: { type: integer, minimum: 0 }
+            reviews: { type: integer, minimum: 0 }
+            productsNotFound: { type: integer, minimum: 0 }
+        errors:
+          type: array
+          items:
+            type: object
+            required: [file, line, message]
+            properties:
+              file: { type: string, description: "favoritos.csv | listas.csv | ..." }
+              line: { type: integer, minimum: 2, description: "número da linha (1=header)" }
+              message: { type: string }
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, description: "ex: IMPORT.MALFORMED_ZIP" }
+        message: { type: string }
+        details: { type: object, additionalProperties: true }
+
+  responses:
+    BadRequest:
+      description: Multipart inválido / ZIP malformado / CSVs faltando
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Sem token ou token inválido
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: User não é owner do jobId
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Import não encontrado
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    RateLimited:
+      description: Rate limit 1 import/hora/user excedido
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
