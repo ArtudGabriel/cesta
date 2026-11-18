@@ -2,6 +2,10 @@ import { HttpStatus, Injectable } from '@nestjs/common';
 import { AppException } from '../../common/exceptions/app-exception';
 import { ProductFiltersDto } from './dtos/product-filters.dto';
 import { ProductResponseDto } from './dtos/product-response.dto';
+import {
+  ProductSearchQuery,
+  ProductSearchResponseDto,
+} from './dtos/product-search.dto';
 import { SuggestResponseDto, SuggestionDto } from './dtos/suggest-query.dto';
 import { ProductsRepository } from './products.repository';
 
@@ -52,6 +56,14 @@ export class ProductsService {
       );
     const products = await this.repo.findManyByIds(ids);
     return products.map(ProductResponseDto.fromEntity);
+  }
+
+  async search(query: ProductSearchQuery): Promise<ProductSearchResponseDto> {
+    const { items, total } = await this.repo.findForSearch(
+      query.q,
+      query.limit,
+    );
+    return { items, total };
   }
 
   async suggest(q: string, limit: number): Promise<SuggestResponseDto> {

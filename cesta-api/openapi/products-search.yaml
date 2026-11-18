@@ -1,0 +1,114 @@
+openapi: 3.0.3
+info:
+  title: Cesta Products Search API
+  description: >
+    Sprint 106 — SDD-lite spec. Endpoint público (auth-optional) de autocomplete
+    de produtos para o ProductPicker do frontend (wizard de alert rules S105 e
+    futuros flows: favoritos, listas, cesta familiar).
+
+    **Shape distinto de `/products/suggest`** (S61, usa class-validator e retorna
+    `{suggestions: [...]}`): aqui o payload é `{items: [...], total}` validado
+    por Zod no boundary e com tipo canônico `cheapestUnitPrice` em euro
+    (nullable quando produto não tem oferta ativa).
+
+    Match: `ILIKE %q%` em `name` e `brand`, dedupe por `productId`, ordenado
+    por `cheapestUnitPrice ASC` com NULLs no fim. Produtos soft-deleted
+    (`deletedAt != null`) excluídos.
+
+    Rate limit named "default" sobrescrito inline para 20 req/60s via
+    `@Throttle({default:{limit:20,ttl:60_000}})` (padrão global = 120/60s).
+    Rota `@Public()` (sem JwtAuthGuard), mas `@Throttle` aplica mesmo em
+    anonymous — key do ThrottlerGuard = IP.
+  version: "1.0.0"
+servers:
+  - url: https://cesta-gsvc.onrender.com/api/v1
+    description: Production
+  - url: http://localhost:3001/api/v1
+    description: Local dev
+
+tags:
+  - name: Products
+    description: Autocomplete endpoint para ProductPicker
+
+paths:
+  /products/search:
+    get:
+      tags: [Products]
+      operationId: searchProducts
+      summary: Autocomplete minimalista para ProductPicker (name/brand ILIKE)
+      description: >
+        Retorna até 10 produtos matching `q` (min 2 chars) ordenados por
+        cheapestUnitPrice ASC. Diferente de `/products/suggest`, é otimizado
+        para seleção em bulk (wizard, basket builder) com payload enxuto
+        (sem brand, sem supermarket name, só preço numérico).
+      security: []
+      parameters:
+        - in: query
+          name: q
+          required: true
+          description: Termo de busca (name ou brand, case-insensitive, min 2 chars)
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 128
+        - in: query
+          name: limit
+          required: false
+          description: Máximo de itens (default 10, cap 10)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 10
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductSearchResponse"
+        "400":
+          description: >
+            Payload inválido (q ausente/curto/longo, limit fora do range,
+            caracteres bloqueados pelo SEARCH_PATTERN)
+        "429":
+          description: Rate limited (20/60s por IP)
+
+components:
+  schemas:
+    ProductSearchResponse:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/ProductSearchItem"
+        total:
+          type: integer
+          minimum: 0
+          description: Count real do match no banco (para feedback "N resultados")
+
+    ProductSearchItem:
+      type: object
+      required: [id, name, imageUrl, cheapestUnitPrice]
+      properties:
+        id:
+          type: string
+          description: cuid do produto
+        name:
+          type: string
+        imageUrl:
+          type: string
+          format: uri
+          nullable: true
+        cheapestUnitPrice:
+          type: number
+          nullable: true
+          minimum: 0
+          multipleOf: 0.01
+          description: >
+            Menor preço unitário em € do produto across supermercados ativos.
+            `null` quando produto não tem oferta ativa (todos os prices com
+            `isAvailable=false` ou supermarkets inativos).

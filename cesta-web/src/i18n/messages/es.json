@@ -930,5 +930,13 @@
         "UserReminderSent": "Recordatorio enviado"
       }
     }
+  },
+  "components": {
+    "productPicker": {
+      "placeholder": "Buscar producto…",
+      "noResults": "Sin resultados",
+      "noPrice": "Sin oferta",
+      "removeAria": "Quitar {name}"
+    }
   }
 }

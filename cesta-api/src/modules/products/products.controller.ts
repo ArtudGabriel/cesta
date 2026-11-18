@@ -1,9 +1,11 @@
 import { BadRequestException, Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { Public } from '../../common/decorators/public.decorator';
 import { CUID_PATTERN } from '../../common/validators/is-cuid.validator';
 import { PriceHistoryQueryDto } from './dtos/price-history-query.dto';
 import { ProductFiltersDto } from './dtos/product-filters.dto';
+import { productSearchQuerySchema } from './dtos/product-search.dto';
 import { SuggestQueryDto } from './dtos/suggest-query.dto';
 import { PriceHistoryService } from './price-history.service';
 import { ProductsService } from './products.service';
@@ -23,6 +25,23 @@ export class ProductsController {
   })
   findMany(@Query() filters: ProductFiltersDto) {
     return this.productsService.findMany(filters);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Get('search')
+  @ApiOperation({
+    summary:
+      'Autocomplete minimalista (ProductPicker): ILIKE name/brand, até 10 items, ordenado por preço asc',
+  })
+  search(@Query() raw: Record<string, unknown>) {
+    const parsed = productSearchQuerySchema.safeParse(raw);
+    if (!parsed.success) {
+      throw new BadRequestException({
+        message: parsed.error.issues.map((i) => i.message).join('; '),
+      });
+    }
+    return this.productsService.search(parsed.data);
   }
 
   @Public()

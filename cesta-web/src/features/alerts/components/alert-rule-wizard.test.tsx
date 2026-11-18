@@ -3,6 +3,7 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "@/test-utils";
 import { AlertRuleWizard } from "./alert-rule-wizard";
 import { alertsService } from "@/features/alerts/services/alerts.service";
+import { productsService } from "@/features/products/services/products.service";
 
 const pushMock = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -17,8 +18,34 @@ vi.mock("@/features/alerts/services/alerts.service", () => ({
   },
 }));
 
+vi.mock("@/features/products/services/products.service", () => ({
+  productsService: {
+    search: vi.fn(),
+  },
+}));
+
 const VALID_CUID_1 = "c" + "a".repeat(24);
 const VALID_CUID_2 = "c" + "b".repeat(24);
+
+async function pickTwoProducts(getByTestId: (id: string) => HTMLElement) {
+  (productsService.search as ReturnType<typeof vi.fn>).mockResolvedValue({
+    items: [
+      { id: VALID_CUID_1, name: "Leche entera", imageUrl: null, cheapestUnitPrice: 0.95 },
+      { id: VALID_CUID_2, name: "Leche desnatada", imageUrl: null, cheapestUnitPrice: 1.1 },
+    ],
+    total: 2,
+  });
+  const input = getByTestId("product-picker-input") as HTMLInputElement;
+  fireEvent.focus(input);
+  fireEvent.change(input, { target: { value: "leche" } });
+  await waitFor(() => getByTestId(`product-picker-result-${VALID_CUID_1}`));
+  fireEvent.mouseDown(getByTestId(`product-picker-result-${VALID_CUID_1}`));
+  // Após pick, picker limpa a query (UX). Re-digita pra selecionar o segundo.
+  fireEvent.focus(input);
+  fireEvent.change(input, { target: { value: "leche" } });
+  await waitFor(() => getByTestId(`product-picker-result-${VALID_CUID_2}`));
+  fireEvent.mouseDown(getByTestId(`product-picker-result-${VALID_CUID_2}`));
+}
 
 describe("AlertRuleWizard (Sprint 105)", () => {
   beforeEach(() => {
@@ -43,9 +70,7 @@ describe("AlertRuleWizard (Sprint 105)", () => {
     const { getByTestId } = renderWithProviders(<AlertRuleWizard />);
     fireEvent.click(getByTestId("rule-type-combo"));
 
-    fireEvent.change(getByTestId("rule-input-product-ids"), {
-      target: { value: `${VALID_CUID_1}, ${VALID_CUID_2}` },
-    });
+    await pickTwoProducts(getByTestId);
     fireEvent.change(getByTestId("rule-input-target-total"), {
       target: { value: "10.50" },
     });
@@ -116,9 +141,7 @@ describe("AlertRuleWizard (Sprint 105)", () => {
     const { getByTestId } = renderWithProviders(<AlertRuleWizard />);
     fireEvent.click(getByTestId("rule-type-bundle"));
 
-    fireEvent.change(getByTestId("rule-input-product-ids"), {
-      target: { value: `${VALID_CUID_1} ${VALID_CUID_2}` },
-    });
+    await pickTwoProducts(getByTestId);
     fireEvent.change(getByTestId("rule-input-target-savings"), {
       target: { value: "3.00" },
     });
@@ -134,12 +157,10 @@ describe("AlertRuleWizard (Sprint 105)", () => {
   });
 
   it("combo: menos de 2 productIds → erro inline, não chama service", async () => {
+    // Nenhum produto selecionado via ProductPicker → validate() bloqueia submit.
     const { getByTestId, container } = renderWithProviders(<AlertRuleWizard />);
     fireEvent.click(getByTestId("rule-type-combo"));
 
-    fireEvent.change(getByTestId("rule-input-product-ids"), {
-      target: { value: VALID_CUID_1 },
-    });
     fireEvent.change(getByTestId("rule-input-target-total"), {
       target: { value: "10.50" },
     });

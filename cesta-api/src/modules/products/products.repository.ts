@@ -62,6 +62,63 @@ export class ProductsRepository {
     });
   }
 
+  async findForSearch(q: string, limit: number): Promise<{
+    items: Array<{
+      id: string;
+      name: string;
+      imageUrl: string | null;
+      cheapestUnitPrice: number | null;
+    }>;
+    total: number;
+  }> {
+    // Sprint 106 — ILIKE em name/brand, dedupe pelo distinct productId do findMany
+    // (Prisma retorna 1 row por produto), ordena por menor preço asc (NULLs ao
+    // final: calculamos client-side via sort estável).
+    const where: Prisma.ProductWhereInput = {
+      deletedAt: null,
+      OR: [
+        { name: { contains: q, mode: 'insensitive' } },
+        { brand: { contains: q, mode: 'insensitive' } },
+      ],
+    };
+
+    const [rows, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        take: limit,
+        select: {
+          id: true,
+          name: true,
+          imageUrl: true,
+          prices: {
+            where: { isAvailable: true, supermarket: { isActive: true } },
+            orderBy: { currentPrice: 'asc' },
+            take: 1,
+            select: { currentPrice: true },
+          },
+        },
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    const items = rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      imageUrl: r.imageUrl,
+      cheapestUnitPrice: r.prices[0]
+        ? Number(r.prices[0].currentPrice)
+        : null,
+    }));
+
+    items.sort((a, b) => {
+      const ap = a.cheapestUnitPrice ?? Number.POSITIVE_INFINITY;
+      const bp = b.cheapestUnitPrice ?? Number.POSITIVE_INFINITY;
+      return ap - bp;
+    });
+
+    return { items, total };
+  }
+
   async findSuggestions(q: string, limit: number): Promise<
     Array<{
       id: string;
