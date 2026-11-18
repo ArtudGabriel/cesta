@@ -1,5 +1,14 @@
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { AlertRuleWizard } from "@/features/alerts/components/alert-rule-wizard";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("alerts.rules");
+  return {
+    title: `${t("newTitle")} · Cesta`,
+    description: t("newSubtitle"),
+  };
+}
 
 export default async function NewAlertRulePage() {
   const t = await getTranslations("alerts.rules");

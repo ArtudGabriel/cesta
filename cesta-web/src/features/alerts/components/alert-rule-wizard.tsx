@@ -175,6 +175,9 @@ export function AlertRuleWizard() {
         <>
           <div>
             <Label htmlFor="productIds">{t("fields.productIds")}</Label>
+            {/* TODO(S106): swap for ProductPicker/autocomplete (backend needs
+                GET /products/search endpoint + Combobox UI). Raw cuid input
+                shipped in S105 scope. */}
             <Input
               id="productIds"
               value={productIdsInput}

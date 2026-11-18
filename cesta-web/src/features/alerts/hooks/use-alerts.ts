@@ -13,12 +13,20 @@ import type { CreateAlertPayload } from "../types/alert.types";
 
 export const ALERT_KEYS = {
   all: ["alerts"] as const,
+  rules: ["alerts", "rules"] as const,
 };
 
 export function useAlerts() {
   return useQuery({
     queryKey: ALERT_KEYS.all,
     queryFn: alertsService.list,
+  });
+}
+
+export function useAlertRules() {
+  return useQuery({
+    queryKey: ALERT_KEYS.rules,
+    queryFn: () => alertsService.listRules(),
   });
 }
 
