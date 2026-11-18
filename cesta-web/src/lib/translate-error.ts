@@ -23,24 +23,30 @@ function errorCodeToI18nKey(errorCode: string): string {
 }
 
 /**
- * Traduz erro da API usando i18n. Se errorCode conhecido → tradução; se
- * desconhecido → message original do backend; se nada → fallback genérico.
+ * Traduz erro da API usando i18n. Se `errorCode` conhecido → tradução;
+ * se `ApiError` sem `errorCode` (ex: 404 Nest default, 502 gateway) →
+ * `fallback` genérico — nunca vaza mensagem HTTP crua do backend pro user
+ * (regressão S102 → S103: raw `Cannot POST /api/v1/users/me/import`). Erros
+ * JS puros (não-`ApiError`) ainda expõem `message` porque são bugs de código
+ * que o dev precisa ver no console.
  *
  * Uso típico em hook.onError: `toast.error(translateError(err, t))`.
  * `t` deve ser o retorno de `useTranslations("errors")`.
  */
 export function translateError(err: unknown, t: TranslateFn): string {
-  if (err instanceof ApiError && err.errorCode) {
-    const key = errorCodeToI18nKey(err.errorCode);
-    // next-intl `has()` evita MISSING_MESSAGE throw em chaves ausentes.
-    const has = (t as unknown as { has?: (k: string) => boolean }).has;
-    if (typeof has === "function" ? has.call(t, key) : true) {
-      try {
-        return t(key);
-      } catch {
-        // fallthrough pra message/fallback
+  if (err instanceof ApiError) {
+    if (err.errorCode) {
+      const key = errorCodeToI18nKey(err.errorCode);
+      const has = (t as unknown as { has?: (k: string) => boolean }).has;
+      if (typeof has === "function" ? has.call(t, key) : true) {
+        try {
+          return t(key);
+        } catch {
+          // fallthrough pra fallback
+        }
       }
     }
+    return t("fallback");
   }
   if (err instanceof Error && err.message) return err.message;
   return t("fallback");
