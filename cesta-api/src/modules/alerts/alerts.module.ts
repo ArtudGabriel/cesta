@@ -6,6 +6,10 @@ import {
   ALERT_PRICE_CHECK_QUEUE,
   AlertPriceCheckProcessor,
 } from './alert-price-check.processor';
+import {
+  ALERT_RULE_EVAL_QUEUE,
+  AlertRuleEvaluatorProcessor,
+} from './alert-rule-evaluator.processor';
 import { AlertsController } from './alerts.controller';
 import {
   PRICE_ALERTS_QUEUE,
@@ -19,6 +23,7 @@ import { AlertsService } from './alerts.service';
     BullModule.registerQueue(
       { name: PRICE_ALERTS_QUEUE },
       { name: ALERT_PRICE_CHECK_QUEUE },
+      { name: ALERT_RULE_EVAL_QUEUE },
     ),
     NotificationsModule,
   ],
@@ -28,6 +33,7 @@ import { AlertsService } from './alerts.service';
     AlertsRepository,
     PriceAlertsProcessor,
     AlertPriceCheckProcessor,
+    AlertRuleEvaluatorProcessor,
     ProductsRepository,
   ],
   exports: [AlertsRepository],

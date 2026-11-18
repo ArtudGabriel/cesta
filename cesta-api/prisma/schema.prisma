@@ -16,13 +16,13 @@ datasource db {
 // ──────────────────────────────────────────────
 
 model User {
-  id           String    @id @default(cuid())
-  email        String?   @unique
-  phone        String?   @unique
-  passwordHash String    @map("password_hash")
+  id           String   @id @default(cuid())
+  email        String?  @unique
+  phone        String?  @unique
+  passwordHash String   @map("password_hash")
   name         String?
-  locale       String    @default("es") // "es" | "pt-BR"
-  roles        String[]  @default(["user"])
+  locale       String   @default("es") // "es" | "pt-BR"
+  roles        String[] @default(["user"])
 
   // Preferências dietéticas (Sprint 18)
   prefersVegan       Boolean @default(false) @map("prefers_vegan")
@@ -61,9 +61,9 @@ model User {
   twoFactorSecret      String?  @map("two_factor_secret")
   twoFactorBackupCodes String[] @default([]) @map("two_factor_backup_codes")
 
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  deletedAt    DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
 
   refreshTokens      RefreshToken[]
   emailVerifications EmailVerificationToken[]
@@ -75,12 +75,13 @@ model User {
   receipts           Receipt[]
   priceDiscrepancies PriceDiscrepancy[]
   alerts             Alert[]
+  alertRules         AlertRule[]
   pushSubscriptions  PushSubscription[]
   favorites          Favorite[]
   searchHistory      SearchHistory[]
   imports            Import[]
-  auditLogs          AuditLog[] @relation("auditUser")
-  auditActions       AuditLog[] @relation("auditActor")
+  auditLogs          AuditLog[]               @relation("auditUser")
+  auditActions       AuditLog[]               @relation("auditActor")
 
   @@index([deletedAt])
   @@map("users")
@@ -100,14 +101,14 @@ model SearchHistory {
 }
 
 model RefreshToken {
-  id         String    @id @default(cuid())
-  userId     String    @map("user_id")
-  tokenHash  String    @unique @map("token_hash")
-  expiresAt  DateTime  @map("expires_at")
-  revokedAt  DateTime? @map("revoked_at")
-  userAgent  String?   @map("user_agent")
-  ipAddress  String?   @map("ip_address")
-  createdAt  DateTime  @default(now()) @map("created_at")
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  userAgent String?   @map("user_agent")
+  ipAddress String?   @map("ip_address")
+  createdAt DateTime  @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -136,11 +137,11 @@ model EmailVerificationToken {
 // ──────────────────────────────────────────────
 
 enum MeasureUnit {
-  LITER        @map("liter")
-  MILLILITER   @map("milliliter")
-  KILOGRAM     @map("kilogram")
-  GRAM         @map("gram")
-  UNIT         @map("unit")
+  LITER      @map("liter")
+  MILLILITER @map("milliliter")
+  KILOGRAM   @map("kilogram")
+  GRAM       @map("gram")
+  UNIT       @map("unit")
 
   @@map("measure_unit")
 }
@@ -149,7 +150,7 @@ model Supermarket {
   id        String   @id @default(cuid())
   slug      String   @unique
   name      String
-  color     String?  // hex da marca para badges
+  color     String? // hex da marca para badges
   logoUrl   String?  @map("logo_url")
   website   String?
   isActive  Boolean  @default(true) @map("is_active")
@@ -165,14 +166,14 @@ model Supermarket {
 }
 
 model Category {
-  id        String    @id @default(cuid())
-  slug      String    @unique
-  nameEs    String    @map("name_es")
-  namePt    String    @map("name_pt")
-  parentId  String?   @map("parent_id")
-  order     Int       @default(0)
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  nameEs    String   @map("name_es")
+  namePt    String   @map("name_pt")
+  parentId  String?  @map("parent_id")
+  order     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   parent   Category?  @relation("CategoryParent", fields: [parentId], references: [id])
   children Category[] @relation("CategoryParent")
@@ -183,29 +184,29 @@ model Category {
 }
 
 model Product {
-  id             String   @id @default(cuid())
+  id             String  @id @default(cuid())
   name           String
-  normalizedName String   @unique @map("normalized_name") // slug para matching crowdsourced
+  normalizedName String  @unique @map("normalized_name") // slug para matching crowdsourced
   brand          String?
   description    String?
-  imageUrl       String?  @map("image_url")
-  ean            String?  @unique
+  imageUrl       String? @map("image_url")
+  ean            String? @unique
 
   // Embalagem
-  packageSize   Decimal     @db.Decimal(10, 3) @map("package_size")
-  packageUnit   MeasureUnit @map("package_unit")
+  packageSize Decimal     @map("package_size") @db.Decimal(10, 3)
+  packageUnit MeasureUnit @map("package_unit")
 
   // Unidade de comparação (ex: azeite vendido em 0.75L → compara por LITER)
   comparisonUnit MeasureUnit @map("comparison_unit")
 
   // Nutrição (por 100g ou 100ml, ou por unidade)
-  nutritionPer Decimal? @db.Decimal(6, 2) @map("nutrition_per")
+  nutritionPer Decimal? @map("nutrition_per") @db.Decimal(6, 2)
   calories     Decimal? @db.Decimal(7, 2)
   protein      Decimal? @db.Decimal(6, 2)
   carbs        Decimal? @db.Decimal(6, 2)
   sugar        Decimal? @db.Decimal(6, 2)
   fat          Decimal? @db.Decimal(6, 2)
-  saturatedFat Decimal? @db.Decimal(6, 2) @map("saturated_fat")
+  saturatedFat Decimal? @map("saturated_fat") @db.Decimal(6, 2)
   fiber        Decimal? @db.Decimal(6, 2)
   salt         Decimal? @db.Decimal(6, 2)
 
@@ -254,11 +255,11 @@ model ProductPrice {
   id              String    @id @default(cuid())
   productId       String    @map("product_id")
   supermarketId   String    @map("supermarket_id")
-  currentPrice    Decimal   @db.Decimal(10, 2) @map("current_price")
-  previousPrice   Decimal?  @db.Decimal(10, 2) @map("previous_price")
+  currentPrice    Decimal   @map("current_price") @db.Decimal(10, 2)
+  previousPrice   Decimal?  @map("previous_price") @db.Decimal(10, 2)
   onPromotion     Boolean   @default(false) @map("on_promotion")
   promotionEnds   DateTime? @map("promotion_ends")
-  confidenceScore Decimal   @db.Decimal(3, 2) @default(1.00) @map("confidence_score")
+  confidenceScore Decimal   @default(1.00) @map("confidence_score") @db.Decimal(3, 2)
   source          String    @default("seed") // official_api|scraper|crowdsourced|folleto_ocr|seed
   isStale         Boolean   @default(false) @map("is_stale")
   isAvailable     Boolean   @default(true) @map("is_available")
@@ -314,7 +315,7 @@ model ShoppingListItem {
   id        String   @id @default(cuid())
   listId    String   @map("list_id")
   productId String   @map("product_id")
-  quantity  Decimal  @db.Decimal(10, 3) @default(1)
+  quantity  Decimal  @default(1) @db.Decimal(10, 3)
   position  Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -332,16 +333,16 @@ model ShoppingListItem {
 // ──────────────────────────────────────────────
 
 model Review {
-  id             String    @id @default(cuid())
-  userId         String    @map("user_id")
-  productId      String    @map("product_id")
-  rating         Int       // 1..5
-  comment        String?   @db.VarChar(1000)
-  helpfulCount   Int       @default(0) @map("helpful_count")
-  reportedCount  Int       @default(0) @map("reported_count")
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
-  deletedAt      DateTime? @map("deleted_at")
+  id            String    @id @default(cuid())
+  userId        String    @map("user_id")
+  productId     String    @map("product_id")
+  rating        Int // 1..5
+  comment       String?   @db.VarChar(1000)
+  helpfulCount  Int       @default(0) @map("helpful_count")
+  reportedCount Int       @default(0) @map("reported_count")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
 
   user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   product  Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -375,8 +376,8 @@ model DietaryQuestion {
   key      String  @unique
   labelEs  String  @map("label_es")
   labelPt  String  @map("label_pt")
-  type     String  // "boolean" | "choice"
-  options  Json?   // [{ value, labelEs, labelPt }] quando type=choice
+  type     String // "boolean" | "choice"
+  options  Json? // [{ value, labelEs, labelPt }] quando type=choice
   category String?
   order    Int     @default(0)
 
@@ -386,12 +387,12 @@ model DietaryQuestion {
 model FamilyProfile {
   id                 String   @id @default(cuid())
   userId             String   @unique @map("user_id")
-  members            Json     // { babies, kids, children, teens, adults, seniors }
-  answers            Json     // { eats_meat: true, eats_bread: true, ... }
+  members            Json // { babies, kids, children, teens, adults, seniors }
+  answers            Json // { eats_meat: true, eats_bread: true, ... }
   restrictions       String[] @default([])
   blockedCategories  String[] @default([]) @map("blocked_categories")
   requiredProductIds String[] @default([]) @map("required_product_ids")
-  monthlyBudget      Decimal? @db.Decimal(10, 2) @map("monthly_budget")
+  monthlyBudget      Decimal? @map("monthly_budget") @db.Decimal(10, 2)
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
@@ -405,7 +406,7 @@ model FamilyBasket {
   id              String    @id @default(cuid())
   userId          String    @map("user_id")
   familyProfileId String    @map("family_profile_id")
-  estimatedCost   Decimal   @db.Decimal(10, 2) @default(0) @map("estimated_cost")
+  estimatedCost   Decimal   @default(0) @map("estimated_cost") @db.Decimal(10, 2)
   status          String    @default("pending") // pending | ready | failed
   errorMessage    String?   @map("error_message")
   generatedAt     DateTime  @default(now()) @map("generated_at")
@@ -427,7 +428,7 @@ model FamilyBasketItem {
   quantity   Decimal @db.Decimal(10, 3)
   isRequired Boolean @default(false) @map("is_required")
   isLocked   Boolean @default(false) @map("is_locked")
-  unitPrice  Decimal @db.Decimal(10, 2) @map("unit_price")
+  unitPrice  Decimal @map("unit_price") @db.Decimal(10, 2)
   position   Int     @default(0)
 
   basket  FamilyBasket @relation(fields: [basketId], references: [id], onDelete: Cascade)
@@ -449,7 +450,7 @@ model ProductCandidate {
   brand           String?
   ean             String?
   supermarketSlug String   @map("supermarket_slug")
-  reportedPrice   Decimal  @db.Decimal(10, 2) @map("reported_price")
+  reportedPrice   Decimal  @map("reported_price") @db.Decimal(10, 2)
   packageHint     String?  @map("package_hint")
   categoryHint    String?  @map("category_hint")
   confirmations   Int      @default(1)
@@ -482,9 +483,9 @@ model Receipt {
   updatedAt       DateTime  @updatedAt @map("updated_at")
   deletedAt       DateTime? @map("deleted_at")
 
-  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  supermarket Supermarket?       @relation(fields: [supermarketId], references: [id])
-  items       ReceiptItem[]
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  supermarket   Supermarket?       @relation(fields: [supermarketId], references: [id])
+  items         ReceiptItem[]
   discrepancies PriceDiscrepancy[]
 
   @@index([userId, purchaseDate])
@@ -494,16 +495,16 @@ model Receipt {
 }
 
 model ReceiptItem {
-  id             String   @id @default(cuid())
-  receiptId      String   @map("receipt_id")
-  rawText        String   @map("raw_text")
-  normalizedName String   @map("normalized_name")
-  quantity       Decimal  @db.Decimal(10, 3) @default(1)
-  unitPrice      Decimal  @db.Decimal(10, 2) @map("unit_price")
-  total          Decimal  @db.Decimal(10, 2)
-  productId      String?  @map("product_id")
-  categoryHint   String?  @map("category_hint")
-  position       Int      @default(0)
+  id             String  @id @default(cuid())
+  receiptId      String  @map("receipt_id")
+  rawText        String  @map("raw_text")
+  normalizedName String  @map("normalized_name")
+  quantity       Decimal @default(1) @db.Decimal(10, 3)
+  unitPrice      Decimal @map("unit_price") @db.Decimal(10, 2)
+  total          Decimal @db.Decimal(10, 2)
+  productId      String? @map("product_id")
+  categoryHint   String? @map("category_hint")
+  position       Int     @default(0)
 
   receipt Receipt  @relation(fields: [receiptId], references: [id], onDelete: Cascade)
   product Product? @relation(fields: [productId], references: [id])
@@ -516,7 +517,7 @@ model ReceiptItem {
 model PriceDiscrepancy {
   id               String   @id @default(cuid())
   productPriceId   String   @map("product_price_id")
-  reportedPrice    Decimal  @db.Decimal(10, 2) @map("reported_price")
+  reportedPrice    Decimal  @map("reported_price") @db.Decimal(10, 2)
   reportedByUserId String   @map("reported_by_user_id")
   receiptId        String?  @map("receipt_id")
   resolved         Boolean  @default(false)
@@ -539,19 +540,19 @@ model Alert {
   userId          String    @map("user_id")
   productId       String    @map("product_id")
   supermarketId   String?   @map("supermarket_id")
-  type            String    // "promotion" | "target_price" | "promotion_ending" | "back_in_stock"
-  targetPrice     Decimal?  @db.Decimal(10, 2) @map("target_price")
+  type            String // "promotion" | "target_price" | "promotion_ending" | "back_in_stock"
+  targetPrice     Decimal?  @map("target_price") @db.Decimal(10, 2)
   isActive        Boolean   @default(true) @map("is_active")
   lastTriggeredAt DateTime? @map("last_triggered_at")
 
   // Sprint 96 idempotência push notifications. Cron 2h compara currentPrice com
   // lastNotifiedPrice; só dispara push se mudou (ou subiu depois caiu de novo).
   lastNotifiedAt    DateTime? @map("last_notified_at")
-  lastNotifiedPrice Decimal?  @db.Decimal(10, 2) @map("last_notified_price")
+  lastNotifiedPrice Decimal?  @map("last_notified_price") @db.Decimal(10, 2)
 
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-  deletedAt       DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
 
   user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   product     Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -566,8 +567,8 @@ model Alert {
 model AlertTrigger {
   id            String    @id @default(cuid())
   alertId       String    @map("alert_id")
-  reason        String    // "price_drop" | "promotion_started" | "target_reached" | ...
-  priceSnapshot Decimal   @db.Decimal(10, 2) @map("price_snapshot")
+  reason        String // "price_drop" | "promotion_started" | "target_reached" | ...
+  priceSnapshot Decimal   @map("price_snapshot") @db.Decimal(10, 2)
   notifiedAt    DateTime? @map("notified_at")
   createdAt     DateTime  @default(now()) @map("created_at")
 
@@ -593,6 +594,33 @@ model PushSubscription {
   @@map("push_subscriptions")
 }
 
+// Sprint 105 — alert rules compostas (combo/trend/bundle). Separado de Alert
+// legado (S60) pra evitar productId nullable + manter S96 push pipeline
+// intocado. Payload polimórfico em `rules Json` validado por Zod no boundary.
+// Idempotência push via `lastNotifiedHash` (sha256 do estado avaliado).
+// Ver ADR-0005.
+model AlertRule {
+  id       String  @id @default(cuid())
+  userId   String  @map("user_id")
+  type     String // "combo" | "trend" | "bundle"
+  rules    Json
+  isActive Boolean @default(true) @map("is_active")
+
+  lastNotifiedAt   DateTime? @map("last_notified_at")
+  lastNotifiedHash String?   @map("last_notified_hash")
+  lastTriggeredAt  DateTime? @map("last_triggered_at")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive, deletedAt])
+  @@index([type, isActive, deletedAt])
+  @@map("alert_rules")
+}
+
 // ──────────────────────────────────────────────
 // Imports (Sprint 102 — user CSV import GDPR Art. 20 symmetric)
 // ──────────────────────────────────────────────
@@ -603,16 +631,16 @@ model PushSubscription {
 // no finish. summary é JSON { added, skipped, errors[] } com contagens
 // (sem PII — só numbers).
 model Import {
-  id           String    @id @default(cuid())
-  userId       String    @map("user_id")
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
   // pending | parsing | ready_to_apply | applying | complete | failed
-  status       String    @default("pending")
-  dryRun       Boolean   @default(true) @map("dry_run")
-  zipPath      String?   @map("zip_path")
+  status       String   @default("pending")
+  dryRun       Boolean  @default(true) @map("dry_run")
+  zipPath      String?  @map("zip_path")
   summary      Json?
-  errorMessage String?   @map("error_message")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  errorMessage String?  @map("error_message")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

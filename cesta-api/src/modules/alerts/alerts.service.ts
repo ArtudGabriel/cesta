@@ -1,17 +1,34 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { AlertRule, Prisma } from '@prisma/client';
+import { z } from 'zod';
 import { AppException } from '../../common/exceptions/app-exception';
 import { ProductsRepository } from '../products/products.repository';
 import { AlertsRepository } from './alerts.repository';
+import {
+  ALERT_RULE_TYPES,
+  AlertRulePayload,
+  AlertRuleResponseDto,
+  AlertRuleType,
+  canonicalKey,
+  schemaFor,
+} from './dtos/alert-rule.dto';
 import { AlertResponseDto } from './dtos/alert-response.dto';
 import { CreateAlertDto, UpdateAlertDto } from './dtos/create-alert.dto';
 
 @Injectable()
 export class AlertsService {
+  private readonly logger = new Logger(AlertsService.name);
+
   constructor(
     private readonly repo: AlertsRepository,
     private readonly productsRepo: ProductsRepository,
+    private readonly config: ConfigService,
   ) {}
+
+  private get trialCap(): number {
+    return this.config.get<number>('ALERT_RULES_TRIAL_CAP', 5);
+  }
 
   async list(userId: string): Promise<AlertResponseDto[]> {
     const items = await this.repo.findAllByUser(userId);
@@ -88,4 +105,106 @@ export class AlertsService {
         { alertId: id },
       );
   }
+
+  // ──────────────────────────────────────────────────────────────
+  // Sprint 105 — AlertRule (combo / trend / bundle)
+  // ──────────────────────────────────────────────────────────────
+
+  async createRule(
+    userId: string,
+    type: AlertRuleType,
+    rawBody: unknown,
+  ): Promise<AlertRuleResponseDto> {
+    const schema = schemaFor(type);
+    const parsed = schema.safeParse(rawBody);
+    if (!parsed.success) {
+      throw new AppException(
+        'ALERTS_RULES.INVALID_PAYLOAD',
+        'Payload inválido para regra de alerta',
+        HttpStatus.BAD_REQUEST,
+        { type, issues: parsed.error.issues },
+      );
+    }
+    const rules = parsed.data as AlertRulePayload;
+
+    await this.assertProductsExist(this.extractProductIds(type, rules));
+
+    const activeCount = await this.repo.countActiveRulesByUser(userId);
+    if (activeCount >= this.trialCap) {
+      throw new AppException(
+        'ALERTS_RULES.TRIAL_CAP',
+        `Limite de ${this.trialCap} regras ativas atingido`,
+        HttpStatus.FORBIDDEN,
+        { cap: this.trialCap },
+      );
+    }
+
+    const key = canonicalKey(type, rules);
+    const existing = await this.repo.findActiveRulesByUserAndType(userId, type);
+    const dup = existing.find(
+      (r) => canonicalKey(type, r.rules as unknown as AlertRulePayload) === key,
+    );
+    if (dup) {
+      throw new AppException(
+        'ALERTS_RULES.DUPLICATE',
+        'Já existe uma regra ativa com os mesmos parâmetros',
+        HttpStatus.CONFLICT,
+        { ruleId: dup.id, type },
+      );
+    }
+
+    const created = await this.repo.createRule({
+      userId,
+      type,
+      rules: rules as unknown as Prisma.InputJsonValue,
+    });
+    this.logger.log(`[audit] AlertRuleCreated user=${userId} type=${type} id=${created.id}`);
+    return AlertRuleResponseDto.fromEntity(created);
+  }
+
+  async listRules(
+    userId: string,
+    type?: string,
+  ): Promise<AlertRuleResponseDto[]> {
+    if (type && !ALERT_RULE_TYPES.includes(type as AlertRuleType)) {
+      throw new AppException(
+        'ALERTS_RULES.INVALID_TYPE',
+        `type deve ser um de: ${ALERT_RULE_TYPES.join(', ')}`,
+        HttpStatus.BAD_REQUEST,
+        { type },
+      );
+    }
+    const rows = await this.repo.findRulesByUser(userId, type);
+    return rows.map(AlertRuleResponseDto.fromEntity);
+  }
+
+  private extractProductIds(
+    type: AlertRuleType,
+    rules: AlertRulePayload,
+  ): string[] {
+    if (type === 'trend') {
+      return [(rules as { productId: string }).productId];
+    }
+    return [...(rules as { productIds: string[] }).productIds];
+  }
+
+  private async assertProductsExist(ids: string[]): Promise<void> {
+    const unique = [...new Set(ids)];
+    for (const id of unique) {
+      const product = await this.productsRepo.findById(id);
+      if (!product) {
+        throw new AppException(
+          'ALERTS_RULES.PRODUCT_NOT_FOUND',
+          'Produto não encontrado',
+          HttpStatus.NOT_FOUND,
+          { productId: id },
+        );
+      }
+    }
+  }
+}
+
+// Zod error → structured payload (type guard pra uso em handler se precisar)
+export function isZodError(err: unknown): err is z.ZodError {
+  return err instanceof z.ZodError;
 }

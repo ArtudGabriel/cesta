@@ -33,3 +33,38 @@ export interface CreateAlertPayload {
   type: AlertType;
   targetPrice?: number;
 }
+
+// ──────────────────────────────────────────────────────────────
+// Sprint 105 — alert rules compostas
+// ──────────────────────────────────────────────────────────────
+
+export type AlertRuleType = "combo" | "trend" | "bundle";
+
+export interface ComboRulePayload {
+  productIds: string[];
+  targetTotal: number;
+}
+
+export interface TrendRulePayload {
+  productId: string;
+  consecutiveWeeks: number;
+}
+
+export interface BundleRulePayload {
+  productIds: string[];
+  targetSavings: number;
+}
+
+export type AlertRulesPayload =
+  | ComboRulePayload
+  | TrendRulePayload
+  | BundleRulePayload;
+
+export interface AlertRule {
+  id: string;
+  type: AlertRuleType;
+  isActive: boolean;
+  rules: AlertRulesPayload;
+  lastTriggeredAt: string | null;
+  createdAt: string;
+}
