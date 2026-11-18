@@ -1,0 +1,240 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { FieldError } from "@/components/ui/field-error";
+import { alertsService } from "@/features/alerts/services/alerts.service";
+import type { AlertRuleType } from "@/features/alerts/types/alert.types";
+import { translateError } from "@/lib/translate-error";
+
+type WizardStep = "pick-type" | "configure";
+
+const CUID_RE = /^c[a-z0-9]{24}$/;
+
+export function AlertRuleWizard() {
+  const t = useTranslations("alerts.rules");
+  const tErrors = useTranslations("errors");
+  const router = useRouter();
+
+  const [step, setStep] = useState<WizardStep>("pick-type");
+  const [type, setType] = useState<AlertRuleType | null>(null);
+  const [productIdsInput, setProductIdsInput] = useState("");
+  const [targetTotal, setTargetTotal] = useState("");
+  const [consecutiveWeeks, setConsecutiveWeeks] = useState("2");
+  const [targetSavings, setTargetSavings] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  function pickType(t: AlertRuleType) {
+    setType(t);
+    setStep("configure");
+    setError(null);
+  }
+
+  function parseProductIds(): string[] {
+    return productIdsInput
+      .split(/[\s,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
+  function validate(): string | null {
+    if (!type) return t("errors.typeRequired");
+    if (type === "trend") {
+      const ids = parseProductIds();
+      if (ids.length !== 1 || !CUID_RE.test(ids[0]))
+        return t("errors.trendProductIdRequired");
+      const weeks = Number(consecutiveWeeks);
+      if (!Number.isInteger(weeks) || weeks < 2 || weeks > 12)
+        return t("errors.weeksRange");
+      return null;
+    }
+    const ids = parseProductIds();
+    if (ids.length < 2) return t("errors.minTwoProducts");
+    if (ids.length > 20) return t("errors.maxTwentyProducts");
+    if (!ids.every((id) => CUID_RE.test(id)))
+      return t("errors.invalidProductId");
+    if (type === "combo") {
+      const v = Number(targetTotal);
+      if (!Number.isFinite(v) || v < 0.01) return t("errors.targetTotalRange");
+    }
+    if (type === "bundle") {
+      const v = Number(targetSavings);
+      if (!Number.isFinite(v) || v < 0.01)
+        return t("errors.targetSavingsRange");
+    }
+    return null;
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const err = validate();
+    if (err) {
+      setError(err);
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const ids = parseProductIds();
+      if (type === "combo") {
+        await alertsService.createCombo({
+          productIds: ids,
+          targetTotal: Number(targetTotal),
+        });
+      } else if (type === "trend") {
+        await alertsService.createTrend({
+          productId: ids[0],
+          consecutiveWeeks: Number(consecutiveWeeks),
+        });
+      } else if (type === "bundle") {
+        await alertsService.createBundle({
+          productIds: ids,
+          targetSavings: Number(targetSavings),
+        });
+      }
+      router.push("/alertas");
+    } catch (e2) {
+      setError(translateError(e2, tErrors));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (step === "pick-type") {
+    return (
+      <div
+        className="flex flex-col gap-3"
+        data-testid="rule-wizard-type-picker"
+      >
+        <h2 className="text-lg font-semibold">{t("typePickerTitle")}</h2>
+        <div className="grid gap-2">
+          {(["combo", "trend", "bundle"] as const).map((rt) => (
+            <button
+              key={rt}
+              type="button"
+              className="rounded-lg border p-4 text-left hover:bg-muted"
+              onClick={() => pickType(rt)}
+              data-testid={`rule-type-${rt}`}
+            >
+              <div className="font-medium">{t(`types.${rt}.label`)}</div>
+              <div className="text-sm text-muted-foreground">
+                {t(`types.${rt}.description`)}
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className="flex flex-col gap-4"
+      data-testid="rule-wizard-form"
+      data-sentry-mask
+    >
+      <div className="text-sm text-muted-foreground">
+        {t(`types.${type}.label`)}
+      </div>
+
+      {type === "trend" ? (
+        <>
+          <div>
+            <Label htmlFor="productId">{t("fields.productId")}</Label>
+            <Input
+              id="productId"
+              value={productIdsInput}
+              onChange={(e) => setProductIdsInput(e.target.value)}
+              placeholder="c…"
+              autoComplete="off"
+              data-testid="rule-input-product-ids"
+            />
+          </div>
+          <div>
+            <Label htmlFor="weeks">{t("fields.consecutiveWeeks")}</Label>
+            <Input
+              id="weeks"
+              type="number"
+              min={2}
+              max={12}
+              step={1}
+              value={consecutiveWeeks}
+              onChange={(e) => setConsecutiveWeeks(e.target.value)}
+              data-testid="rule-input-weeks"
+            />
+          </div>
+        </>
+      ) : (
+        <>
+          <div>
+            <Label htmlFor="productIds">{t("fields.productIds")}</Label>
+            <Input
+              id="productIds"
+              value={productIdsInput}
+              onChange={(e) => setProductIdsInput(e.target.value)}
+              placeholder={t("fields.productIdsPlaceholder")}
+              autoComplete="off"
+              data-testid="rule-input-product-ids"
+            />
+          </div>
+          {type === "combo" && (
+            <div>
+              <Label htmlFor="targetTotal">{t("fields.targetTotal")}</Label>
+              <Input
+                id="targetTotal"
+                type="number"
+                min={0.01}
+                step={0.01}
+                value={targetTotal}
+                onChange={(e) => setTargetTotal(e.target.value)}
+                placeholder="10.00"
+                data-testid="rule-input-target-total"
+              />
+            </div>
+          )}
+          {type === "bundle" && (
+            <div>
+              <Label htmlFor="targetSavings">
+                {t("fields.targetSavings")}
+              </Label>
+              <Input
+                id="targetSavings"
+                type="number"
+                min={0.01}
+                step={0.01}
+                value={targetSavings}
+                onChange={(e) => setTargetSavings(e.target.value)}
+                placeholder="5.00"
+                data-testid="rule-input-target-savings"
+              />
+            </div>
+          )}
+        </>
+      )}
+
+      {error && <FieldError>{error}</FieldError>}
+
+      <div className="flex justify-between gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => setStep("pick-type")}
+          disabled={submitting}
+        >
+          {t("backCta")}
+        </Button>
+        <Button type="submit" disabled={submitting} data-testid="rule-submit">
+          {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+          {t("submitCta")}
+        </Button>
+      </div>
+    </form>
+  );
+}

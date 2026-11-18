@@ -1,0 +1,275 @@
+openapi: 3.0.3
+info:
+  title: Cesta Alert Rules API
+  description: >
+    Sprint 105 — SDD-lite spec. Estende /alerts (S60 price alerts + S96 push
+    notifications) com 3 novos tipos de regra composta:
+
+    - **combo**: array de productIds + targetTotal. Dispara push quando a soma
+      dos preços atuais (menor preço por produto across mercados) <= target.
+    - **trend**: productId único + consecutiveWeeks. Dispara quando o preço
+      cair N semanas consecutivas (comparando PriceSnapshot weekly minima).
+    - **bundle**: array de productIds + targetSavings. Compara soma total em
+      cada supermercado; dispara quando a diferença entre o mais caro e o
+      mais barato >= targetSavings.
+
+    Novo model `AlertRule` separado do `Alert` legado (S60 target_price/
+    promotion/back_in_stock/promotion_ending). Evaluator cron 2h
+    (`alert-rule-evaluator` queue) varre regras ativas, reusa S96
+    NotificationsService pra push idempotent (dedupe por lastNotifiedHash).
+
+    Trial users cap: máximo 5 regras ativas (403 ALERTS_RULES.TRIAL_CAP);
+    duplicate same type+params retorna 409 ALERTS_RULES.DUPLICATE.
+
+    Validação Zod no boundary (rules JSON field + body). Rate limit named
+    "write" (10 req / 60s) via Throttler. Auth required (JwtAuthGuard global).
+  version: "1.0.0"
+servers:
+  - url: https://cesta-gsvc.onrender.com/api/v1
+    description: Production
+  - url: http://localhost:3001/api/v1
+    description: Local dev
+
+tags:
+  - name: Alert Rules
+    description: Combo / trend / bundle alert rules
+
+paths:
+  /alerts/combo:
+    post:
+      tags: [Alert Rules]
+      operationId: createComboRule
+      summary: Criar regra combo (soma de preços <= target)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateComboRuleRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertRuleResponse"
+        "400":
+          description: Invalid payload (Zod)
+        "401":
+          description: Unauthenticated
+        "403":
+          description: Trial cap exceeded (5 active rules)
+        "409":
+          description: Duplicate rule (same type + params)
+        "429":
+          description: Rate limited
+
+  /alerts/trend:
+    post:
+      tags: [Alert Rules]
+      operationId: createTrendRule
+      summary: Criar regra trend (queda em N semanas consecutivas)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTrendRuleRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertRuleResponse"
+        "400":
+          description: Invalid payload
+        "401":
+          description: Unauthenticated
+        "403":
+          description: Trial cap exceeded
+        "409":
+          description: Duplicate rule
+        "429":
+          description: Rate limited
+
+  /alerts/bundle:
+    post:
+      tags: [Alert Rules]
+      operationId: createBundleRule
+      summary: Criar regra bundle (economia comparada entre mercados)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBundleRuleRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertRuleResponse"
+        "400":
+          description: Invalid payload
+        "401":
+          description: Unauthenticated
+        "403":
+          description: Trial cap exceeded
+        "409":
+          description: Duplicate rule
+        "429":
+          description: Rate limited
+
+  /alerts/rules:
+    get:
+      tags: [Alert Rules]
+      operationId: listAlertRules
+      summary: Lista regras do user (filtrável por type)
+      description: >
+        Retorna AlertRule do user autenticado, ordenado createdAt DESC.
+        Filtro `type` opcional: whitelist combo|trend|bundle. Sem filtro
+        retorna todas.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: type
+          required: false
+          description: Filtrar por tipo específico
+          schema:
+            type: string
+            enum: [combo, trend, bundle]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AlertRuleResponse"
+        "400":
+          description: Invalid type filter
+        "401":
+          description: Unauthenticated
+        "429":
+          description: Rate limited
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    CreateComboRuleRequest:
+      type: object
+      required: [productIds, targetTotal]
+      properties:
+        productIds:
+          type: array
+          minItems: 2
+          maxItems: 20
+          items:
+            type: string
+            description: cuid
+        targetTotal:
+          type: number
+          minimum: 0.01
+          multipleOf: 0.01
+          description: Soma máxima em € (quando total <= target, dispara)
+
+    CreateTrendRuleRequest:
+      type: object
+      required: [productId, consecutiveWeeks]
+      properties:
+        productId:
+          type: string
+          description: cuid
+        consecutiveWeeks:
+          type: integer
+          minimum: 2
+          maximum: 12
+          description: Quantas semanas de queda consecutiva disparam a push
+
+    CreateBundleRuleRequest:
+      type: object
+      required: [productIds, targetSavings]
+      properties:
+        productIds:
+          type: array
+          minItems: 2
+          maxItems: 20
+          items:
+            type: string
+            description: cuid
+        targetSavings:
+          type: number
+          minimum: 0.01
+          multipleOf: 0.01
+          description: Economia mínima (€) comparando pior vs melhor mercado
+
+    AlertRuleResponse:
+      type: object
+      required: [id, type, isActive, rules, createdAt]
+      properties:
+        id:
+          type: string
+          description: cuid
+        type:
+          type: string
+          enum: [combo, trend, bundle]
+        isActive:
+          type: boolean
+        rules:
+          oneOf:
+            - $ref: "#/components/schemas/ComboRulesPayload"
+            - $ref: "#/components/schemas/TrendRulesPayload"
+            - $ref: "#/components/schemas/BundleRulesPayload"
+        lastTriggeredAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    ComboRulesPayload:
+      type: object
+      required: [productIds, targetTotal]
+      properties:
+        productIds:
+          type: array
+          items:
+            type: string
+        targetTotal:
+          type: number
+
+    TrendRulesPayload:
+      type: object
+      required: [productId, consecutiveWeeks]
+      properties:
+        productId:
+          type: string
+        consecutiveWeeks:
+          type: integer
+
+    BundleRulesPayload:
+      type: object
+      required: [productIds, targetSavings]
+      properties:
+        productIds:
+          type: array
+          items:
+            type: string
+        targetSavings:
+          type: number

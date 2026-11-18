@@ -155,6 +155,13 @@
       "title": "Algo deu errado",
       "body": "Ocorreu um erro inesperado. Nossa equipe já foi notificada.",
       "retry": "Tentar novamente"
+    },
+    "alertsRules": {
+      "invalidPayload": "Dados da regra inválidos",
+      "trialCap": "Você atingiu o limite de regras ativas do plano grátis",
+      "duplicate": "Você já tem uma regra igual ativa",
+      "productNotFound": "Produto não encontrado",
+      "invalidType": "Tipo de regra inválido"
     }
   },
   "meta": {
@@ -718,6 +725,45 @@
           "label": "Promoção terminando",
           "hint": "Quando estiver prestes a acabar"
         }
+      }
+    },
+    "rules": {
+      "newTitle": "Nova regra de alerta",
+      "newSubtitle": "Alertas combo, trend ou bundle",
+      "typePickerTitle": "O que você quer monitorar?",
+      "backCta": "Voltar",
+      "submitCta": "Criar regra",
+      "types": {
+        "combo": {
+          "label": "Combo dentro do orçamento",
+          "description": "Vários produtos, soma ≤ alvo (qualquer mercado)"
+        },
+        "trend": {
+          "label": "Tendência de queda",
+          "description": "Um produto, N semanas seguidas em queda"
+        },
+        "bundle": {
+          "label": "Economia entre mercados",
+          "description": "Mesmo carrinho, escolhe o mercado mais barato"
+        }
+      },
+      "fields": {
+        "productId": "ID do produto (cuid)",
+        "productIds": "IDs dos produtos (vírgula ou espaço)",
+        "productIdsPlaceholder": "cuid1, cuid2, cuid3",
+        "consecutiveWeeks": "Semanas consecutivas (2–12)",
+        "targetTotal": "Total alvo (€)",
+        "targetSavings": "Economia mínima (€)"
+      },
+      "errors": {
+        "typeRequired": "Escolha um tipo de regra",
+        "trendProductIdRequired": "ID de produto inválido",
+        "weeksRange": "Semanas entre 2 e 12",
+        "minTwoProducts": "Mínimo de 2 produtos",
+        "maxTwentyProducts": "Máximo de 20 produtos",
+        "invalidProductId": "Algum ID de produto inválido",
+        "targetTotalRange": "Total deve ser > 0.01 €",
+        "targetSavingsRange": "Economia deve ser > 0.01 €"
       }
     }
   },

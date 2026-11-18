@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   Alert,
+  AlertRule,
   AlertTrigger,
   Prisma,
   Product,
@@ -115,6 +116,68 @@ export class AlertsRepository {
     return this.prisma.alert.update({
       where: { id: alertId },
       data: { lastNotifiedAt: when, lastNotifiedPrice: price },
+    });
+  }
+
+  // ──────────────────────────────────────────────────────────────
+  // Sprint 105 — AlertRule (combo/trend/bundle)
+  // ──────────────────────────────────────────────────────────────
+
+  countActiveRulesByUser(userId: string): Promise<number> {
+    return this.prisma.alertRule.count({
+      where: { userId, isActive: true, deletedAt: null },
+    });
+  }
+
+  findActiveRulesByUserAndType(
+    userId: string,
+    type: string,
+  ): Promise<AlertRule[]> {
+    return this.prisma.alertRule.findMany({
+      where: { userId, type, isActive: true, deletedAt: null },
+    });
+  }
+
+  findRulesByUser(
+    userId: string,
+    type?: string,
+  ): Promise<AlertRule[]> {
+    return this.prisma.alertRule.findMany({
+      where: {
+        userId,
+        deletedAt: null,
+        ...(type ? { type } : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  createRule(data: {
+    userId: string;
+    type: string;
+    rules: Prisma.InputJsonValue;
+  }): Promise<AlertRule> {
+    return this.prisma.alertRule.create({ data });
+  }
+
+  findAllActiveRules(): Promise<AlertRule[]> {
+    return this.prisma.alertRule.findMany({
+      where: { isActive: true, deletedAt: null },
+    });
+  }
+
+  markRuleNotified(
+    ruleId: string,
+    hash: string,
+    when: Date,
+  ): Promise<AlertRule> {
+    return this.prisma.alertRule.update({
+      where: { id: ruleId },
+      data: {
+        lastNotifiedAt: when,
+        lastNotifiedHash: hash,
+        lastTriggeredAt: when,
+      },
     });
   }
 }

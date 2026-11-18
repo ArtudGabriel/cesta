@@ -1,5 +1,13 @@
 import { api } from "@/lib/api";
-import type { Alert, CreateAlertPayload } from "../types/alert.types";
+import type {
+  Alert,
+  AlertRule,
+  AlertRuleType,
+  BundleRulePayload,
+  ComboRulePayload,
+  CreateAlertPayload,
+  TrendRulePayload,
+} from "../types/alert.types";
 
 interface Envelope<T> {
   data: T;
@@ -25,6 +33,38 @@ export const alertsService = {
 
   async remove(id: string): Promise<void> {
     await api.delete(`/alerts/${id}`);
+  },
+
+  // Sprint 105 — alert rules compostas
+  async listRules(type?: AlertRuleType): Promise<AlertRule[]> {
+    const { data } = await api.get<Envelope<AlertRule[]>>("/alerts/rules", {
+      params: type ? { type } : undefined,
+    });
+    return data.data;
+  },
+
+  async createCombo(payload: ComboRulePayload): Promise<AlertRule> {
+    const { data } = await api.post<Envelope<AlertRule>>(
+      "/alerts/combo",
+      payload,
+    );
+    return data.data;
+  },
+
+  async createTrend(payload: TrendRulePayload): Promise<AlertRule> {
+    const { data } = await api.post<Envelope<AlertRule>>(
+      "/alerts/trend",
+      payload,
+    );
+    return data.data;
+  },
+
+  async createBundle(payload: BundleRulePayload): Promise<AlertRule> {
+    const { data } = await api.post<Envelope<AlertRule>>(
+      "/alerts/bundle",
+      payload,
+    );
+    return data.data;
   },
 };
 
