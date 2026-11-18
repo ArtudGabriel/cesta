@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { FieldError } from "@/components/ui/field-error";
 import { alertsService } from "@/features/alerts/services/alerts.service";
 import type { AlertRuleType } from "@/features/alerts/types/alert.types";
+import { ProductPicker } from "@/features/products/components/product-picker";
+import type { ProductSearchItem } from "@/features/products/services/products.service";
 import { translateError } from "@/lib/translate-error";
 
 type WizardStep = "pick-type" | "configure";
@@ -23,7 +25,10 @@ export function AlertRuleWizard() {
 
   const [step, setStep] = useState<WizardStep>("pick-type");
   const [type, setType] = useState<AlertRuleType | null>(null);
+  // trend usa productIdsInput (1 cuid cru, pattern S105 preservado); combo/
+  // bundle migraram pra ProductPicker (S106) com estado multi-select.
   const [productIdsInput, setProductIdsInput] = useState("");
+  const [pickedProducts, setPickedProducts] = useState<ProductSearchItem[]>([]);
   const [targetTotal, setTargetTotal] = useState("");
   const [consecutiveWeeks, setConsecutiveWeeks] = useState("2");
   const [targetSavings, setTargetSavings] = useState("");
@@ -54,11 +59,10 @@ export function AlertRuleWizard() {
         return t("errors.weeksRange");
       return null;
     }
-    const ids = parseProductIds();
+    // combo/bundle: ids vêm do ProductPicker (já validados CUID na origem).
+    const ids = pickedProducts.map((p) => p.id);
     if (ids.length < 2) return t("errors.minTwoProducts");
     if (ids.length > 20) return t("errors.maxTwentyProducts");
-    if (!ids.every((id) => CUID_RE.test(id)))
-      return t("errors.invalidProductId");
     if (type === "combo") {
       const v = Number(targetTotal);
       if (!Number.isFinite(v) || v < 0.01) return t("errors.targetTotalRange");
@@ -81,7 +85,8 @@ export function AlertRuleWizard() {
     setSubmitting(true);
     setError(null);
     try {
-      const ids = parseProductIds();
+      const ids =
+        type === "trend" ? parseProductIds() : pickedProducts.map((p) => p.id);
       if (type === "combo") {
         await alertsService.createCombo({
           productIds: ids,
@@ -174,16 +179,11 @@ export function AlertRuleWizard() {
       ) : (
         <>
           <div>
-            <Label htmlFor="productIds">{t("fields.productIds")}</Label>
-            {/* TODO(S106): swap for ProductPicker/autocomplete (backend needs
-                GET /products/search endpoint + Combobox UI). Raw cuid input
-                shipped in S105 scope. */}
-            <Input
-              id="productIds"
-              value={productIdsInput}
-              onChange={(e) => setProductIdsInput(e.target.value)}
-              placeholder={t("fields.productIdsPlaceholder")}
-              autoComplete="off"
+            <Label>{t("fields.productIds")}</Label>
+            <ProductPicker
+              value={pickedProducts}
+              onChange={setPickedProducts}
+              max={20}
               data-testid="rule-input-product-ids"
             />
           </div>

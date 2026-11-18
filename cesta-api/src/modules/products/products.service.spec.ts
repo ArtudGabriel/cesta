@@ -4,7 +4,7 @@ import { ProductsRepository } from './products.repository';
 
 describe('ProductsService.suggest', () => {
   let service: ProductsService;
-  let repoMock: { findSuggestions: jest.Mock };
+  let repoMock: { findSuggestions: jest.Mock; findForSearch: jest.Mock };
 
   const fakeSupermarket = (slug: string, name: string) => ({
     id: slug,
@@ -19,7 +19,7 @@ describe('ProductsService.suggest', () => {
   });
 
   beforeEach(async () => {
-    repoMock = { findSuggestions: jest.fn() };
+    repoMock = { findSuggestions: jest.fn(), findForSearch: jest.fn() } as any;
     const module = await Test.createTestingModule({
       providers: [
         ProductsService,
@@ -86,5 +86,55 @@ describe('ProductsService.suggest', () => {
     repoMock.findSuggestions.mockResolvedValue([]);
     await service.suggest('  ace  ', 5);
     expect(repoMock.findSuggestions).toHaveBeenCalledWith('ace', 5);
+  });
+});
+
+describe('ProductsService.search (S106)', () => {
+  let service: ProductsService;
+  let repoMock: { findSuggestions: jest.Mock; findForSearch: jest.Mock };
+
+  beforeEach(async () => {
+    repoMock = { findSuggestions: jest.fn(), findForSearch: jest.fn() };
+    const module = await Test.createTestingModule({
+      providers: [
+        ProductsService,
+        { provide: ProductsRepository, useValue: repoMock },
+      ],
+    }).compile();
+    service = module.get(ProductsService);
+  });
+
+  it('retorna items + total do repo sem transformar shape', async () => {
+    repoMock.findForSearch.mockResolvedValue({
+      items: [
+        { id: 'c1', name: 'Leche entera', imageUrl: null, cheapestUnitPrice: 0.95 },
+        { id: 'c2', name: 'Leche desnatada', imageUrl: 'https://cdn/img.jpg', cheapestUnitPrice: 1.1 },
+      ],
+      total: 42,
+    });
+
+    const result = await service.search({ q: 'leche', limit: 10 });
+    expect(result.total).toBe(42);
+    expect(result.items).toHaveLength(2);
+    expect(result.items[0]).toEqual({
+      id: 'c1',
+      name: 'Leche entera',
+      imageUrl: null,
+      cheapestUnitPrice: 0.95,
+    });
+    expect(repoMock.findForSearch).toHaveBeenCalledWith('leche', 10);
+  });
+
+  it('propaga cheapestUnitPrice null (produto sem oferta ativa)', async () => {
+    repoMock.findForSearch.mockResolvedValue({
+      items: [
+        { id: 'c9', name: 'Producto raro', imageUrl: null, cheapestUnitPrice: null },
+      ],
+      total: 1,
+    });
+
+    const result = await service.search({ q: 'raro', limit: 10 });
+    expect(result.items[0].cheapestUnitPrice).toBeNull();
+    expect(result.total).toBe(1);
   });
 });

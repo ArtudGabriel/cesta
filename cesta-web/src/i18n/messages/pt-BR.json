@@ -930,5 +930,13 @@
         "UserReminderSent": "Lembrete enviado"
       }
     }
+  },
+  "components": {
+    "productPicker": {
+      "placeholder": "Buscar produto…",
+      "noResults": "Nenhum resultado",
+      "noPrice": "Sem oferta",
+      "removeAria": "Remover {name}"
+    }
   }
 }
