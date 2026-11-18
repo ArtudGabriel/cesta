@@ -28,7 +28,15 @@ export class ProductsController {
   }
 
   @Public()
-  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  // Named throttlers (default/strict/write) aplicam todos simultaneamente;
+  // @Throttle override apenas a key passada. Precisamos sobrescrever os 3
+  // pra evitar que `strict: 5/60s` global corte autocomplete (bug cascata
+  // documentado em S98 — memory feedback-throttler-named-global).
+  @Throttle({
+    default: { limit: 20, ttl: 60_000 },
+    strict: { limit: 20, ttl: 60_000 },
+    write: { limit: 20, ttl: 60_000 },
+  })
   @Get('search')
   @ApiOperation({
     summary:

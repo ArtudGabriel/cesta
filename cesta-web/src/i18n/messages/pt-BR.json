@@ -749,8 +749,7 @@
       },
       "fields": {
         "productId": "ID do produto (cuid)",
-        "productIds": "IDs dos produtos (vírgula ou espaço)",
-        "productIdsPlaceholder": "cuid1, cuid2, cuid3",
+        "productIds": "Produtos",
         "consecutiveWeeks": "Semanas consecutivas (2–12)",
         "targetTotal": "Total alvo (€)",
         "targetSavings": "Economia mínima (€)"
