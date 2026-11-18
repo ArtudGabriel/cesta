@@ -1,56 +1,40 @@
 import { Test } from '@nestjs/testing';
-import { PrismaService } from '../../database/prisma.service';
+import { AuditRepository } from './audit.repository';
 import { AuditService } from './audit.service';
 
 describe('AuditService (Sprint 104)', () => {
   let service: AuditService;
-  let prismaMock: {
-    auditLog: {
-      create: jest.Mock;
-      findMany: jest.Mock;
-      count: jest.Mock;
-    };
-    $transaction: jest.Mock;
-  };
+  let repoMock: { create: jest.Mock; listAndCount: jest.Mock };
 
   beforeEach(async () => {
-    prismaMock = {
-      auditLog: {
-        create: jest.fn(),
-        findMany: jest.fn(),
-        count: jest.fn(),
-      },
-      $transaction: jest.fn(),
-    };
+    repoMock = { create: jest.fn(), listAndCount: jest.fn() };
     const module = await Test.createTestingModule({
       providers: [
         AuditService,
-        { provide: PrismaService, useValue: prismaMock },
+        { provide: AuditRepository, useValue: repoMock },
       ],
     }).compile();
     service = module.get(AuditService);
   });
 
   describe('record', () => {
-    it('cria row com type/userId/actorId/metadata', async () => {
-      prismaMock.auditLog.create.mockResolvedValue({ id: 'x' });
+    it('chama repo.create com type/userId/actorId/metadata', async () => {
+      repoMock.create.mockResolvedValue(undefined);
       await service.record({
         type: 'UserDataExported',
         userId: 'u1',
         metadata: { bytes: 42 },
       });
-      expect(prismaMock.auditLog.create).toHaveBeenCalledWith({
-        data: {
-          type: 'UserDataExported',
-          userId: 'u1',
-          actorId: null,
-          metadata: { bytes: 42 },
-        },
+      expect(repoMock.create).toHaveBeenCalledWith({
+        type: 'UserDataExported',
+        userId: 'u1',
+        actorId: null,
+        metadata: { bytes: 42 },
       });
     });
 
-    it('swallow error de DB (não bloqueia fluxo principal)', async () => {
-      prismaMock.auditLog.create.mockRejectedValue(new Error('db down'));
+    it('swallow error do repo (não bloqueia fluxo principal)', async () => {
+      repoMock.create.mockRejectedValue(new Error('db down'));
       await expect(
         service.record({ type: 'SecretRotated' }),
       ).resolves.toBeUndefined();
@@ -85,33 +69,19 @@ describe('AuditService (Sprint 104)', () => {
 
   describe('list', () => {
     it('sem type filter → where vazio', async () => {
-      prismaMock.$transaction.mockResolvedValue([[], 0]);
-      prismaMock.auditLog.findMany.mockReturnValue('findMany-stub');
-      prismaMock.auditLog.count.mockReturnValue('count-stub');
+      repoMock.listAndCount.mockResolvedValue({ items: [], total: 0 });
       await service.list(50, 0);
-      expect(prismaMock.auditLog.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {},
-          take: 50,
-          skip: 0,
-          orderBy: { createdAt: 'desc' },
-        }),
-      );
-      expect(prismaMock.auditLog.count).toHaveBeenCalledWith({ where: {} });
+      expect(repoMock.listAndCount).toHaveBeenCalledWith({}, 50, 0);
     });
 
     it('com type filter → where { type: { in: [...] } }', async () => {
-      prismaMock.$transaction.mockResolvedValue([[], 0]);
+      repoMock.listAndCount.mockResolvedValue({ items: [], total: 0 });
       await service.list(10, 20, 'UserReactivated,SecretRotated');
-      const expectedWhere = {
-        type: { in: ['UserReactivated', 'SecretRotated'] },
-      };
-      expect(prismaMock.auditLog.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expectedWhere, take: 10, skip: 20 }),
+      expect(repoMock.listAndCount).toHaveBeenCalledWith(
+        { type: { in: ['UserReactivated', 'SecretRotated'] } },
+        10,
+        20,
       );
-      expect(prismaMock.auditLog.count).toHaveBeenCalledWith({
-        where: expectedWhere,
-      });
     });
 
     it('propaga erro do parseTypes em type inválido', async () => {

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaService } from '../../database/prisma.service';
+import { AuditRepository } from './audit.repository';
 
 export const AUDIT_LOG_TYPES = [
   'UserReactivated',
@@ -38,23 +38,22 @@ export interface AuditLogListResult {
  * de emissão existentes (auth.service, jwt-rotation, users.service,
  * imports.processor, two-factor.service, grace-reminder.processor) alongside
  * dos log statements `[audit] …` já existentes. Falha de DB nunca bloqueia
- * fluxo principal — audit é observabilidade. Ver ADR-0004.
+ * fluxo principal — audit é observabilidade. Ver ADR-0004. Persistência via
+ * AuditRepository (regra #6: zero prisma direto no service).
  */
 @Injectable()
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly repo: AuditRepository) {}
 
   async record(input: AuditRecordInput): Promise<void> {
     try {
-      await this.prisma.auditLog.create({
-        data: {
-          type: input.type,
-          userId: input.userId ?? null,
-          actorId: input.actorId ?? null,
-          metadata: (input.metadata ?? null) as never,
-        },
+      await this.repo.create({
+        type: input.type,
+        userId: input.userId ?? null,
+        actorId: input.actorId ?? null,
+        metadata: input.metadata ?? null,
       });
     } catch (err) {
       this.logger.error(
@@ -70,24 +69,7 @@ export class AuditService {
   ): Promise<AuditLogListResult> {
     const types = this.parseTypes(typesCsv);
     const where = types.length > 0 ? { type: { in: types } } : {};
-    const [items, total] = await this.prisma.$transaction([
-      this.prisma.auditLog.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-        skip: offset,
-        select: {
-          id: true,
-          userId: true,
-          actorId: true,
-          type: true,
-          metadata: true,
-          createdAt: true,
-        },
-      }),
-      this.prisma.auditLog.count({ where }),
-    ]);
-    return { items, total };
+    return this.repo.listAndCount(where, limit, offset);
   }
 
   /**
