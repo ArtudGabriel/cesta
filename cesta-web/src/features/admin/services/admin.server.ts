@@ -128,3 +128,42 @@ export async function fetchAuditLogsSSR(params: {
   const json = (await res.json()) as Envelope<AuditLogsPage>;
   return json.data;
 }
+
+export interface AdminMetricsSnapshot {
+  usersTotal: number;
+  usersActive7d: number;
+  alertsActiveByType: {
+    simple: number;
+    combo: number;
+    trend: number;
+    bundle: number;
+  };
+  receipts30d: { parsed: number; failed: number };
+  pushNotifications7d: number;
+  familyBasketsGenerated7d: number;
+  generatedAt: string;
+  cached: boolean;
+}
+
+/**
+ * Sprint 107: snapshot agregado pro dashboard /admin/metrics. Cache 5min
+ * server-side (NestJS service). SSR fetcher usa `cache: "no-store"` porque
+ * Authorization header user-scoped não entra no cache key do Next. AdminGuard
+ * é fonte da verdade — page faz gate de UI apenas pra UX.
+ */
+export async function fetchAdminMetricsSSR(): Promise<AdminMetricsSnapshot | null> {
+  const token = (await cookies()).get(ACCESS_TOKEN_COOKIE)?.value;
+  if (!token) return null;
+  const res = await fetch(`${resolveBaseUrl()}/admin/metrics`, {
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+    },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch admin metrics: ${res.status}`);
+  }
+  const json = (await res.json()) as Envelope<AdminMetricsSnapshot>;
+  return json.data;
+}

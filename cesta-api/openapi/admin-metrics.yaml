@@ -1,0 +1,139 @@
+openapi: 3.0.3
+info:
+  title: Cesta Admin Metrics API
+  description: >
+    Sprint 107 — SDD-lite spec. Dashboard interno de health checks: contagem
+    de users, atividade recente, alertas ativos por tipo, OCR de notas 30d,
+    push notifications 7d e cestas familiares geradas 7d.
+
+    Gated por AdminGuard (role=admin). JwtAuthGuard global aplica antes:
+    anon → 401, user autenticado sem role=admin → 403.
+
+    Rate limit named "default" sobrescrito inline para 10 req/60s via
+    `@Throttle({default:{limit:10,ttl:60_000}})` (padrão global = 120/60s).
+
+    Cache in-memory 5min TTL dentro do service (Map<string, {value, expiresAt}>)
+    — dashboard não é real-time, agregações são caras (COUNT distinct + GROUP BY
+    em user_id). TTL é ajustável via METRICS_CACHE_TTL_MS env var.
+
+    GDPR: payload é agregado puro, sem userIds nem emails. "usersActive7d" usa
+    `COUNT(DISTINCT user_id) FROM refresh_tokens WHERE created_at >= now()-7d`
+    como proxy de "sessão recente" sem expor identidades.
+  version: "1.0.0"
+servers:
+  - url: https://cesta-gsvc.onrender.com/api/v1
+    description: Production
+  - url: http://localhost:3001/api/v1
+    description: Local dev
+
+tags:
+  - name: Admin
+    description: Console administrativo (role=admin only)
+
+paths:
+  /admin/metrics:
+    get:
+      tags: [Admin]
+      operationId: getAdminMetrics
+      summary: Dashboard de métricas agregadas (cache 5min)
+      description: >
+        Retorna snapshot agregado de 6 famílias de métricas. Payload é cacheado
+        in-memory 5min — duas chamadas no mesmo TTL retornam bytes idênticos
+        incluindo o campo `generatedAt`.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK (payload cacheado ou fresh)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMetricsEnvelope"
+        "401":
+          description: Anon (JwtAuthGuard global falhou)
+        "403":
+          description: Autenticado mas sem role=admin (AdminGuard)
+        "429":
+          description: Rate limited (10/60s por user)
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    AdminMetricsEnvelope:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/AdminMetrics"
+    AdminMetrics:
+      type: object
+      required:
+        - usersTotal
+        - usersActive7d
+        - alertsActiveByType
+        - receipts30d
+        - pushNotifications7d
+        - familyBasketsGenerated7d
+        - generatedAt
+        - cached
+      properties:
+        usersTotal:
+          type: integer
+          minimum: 0
+          description: COUNT users WHERE deletedAt IS NULL
+        usersActive7d:
+          type: integer
+          minimum: 0
+          description: >
+            COUNT DISTINCT user_id em refresh_tokens com createdAt >= now()-7d.
+            Proxy de "sessão iniciada / login recente" sem expor identidades.
+        alertsActiveByType:
+          type: object
+          required: [simple, combo, trend, bundle]
+          properties:
+            simple:
+              type: integer
+              minimum: 0
+              description: Alert legacy (S60) ativo e não soft-deleted
+            combo:
+              type: integer
+              minimum: 0
+            trend:
+              type: integer
+              minimum: 0
+            bundle:
+              type: integer
+              minimum: 0
+        receipts30d:
+          type: object
+          required: [parsed, failed]
+          properties:
+            parsed:
+              type: integer
+              minimum: 0
+              description: status='ready' nos últimos 30d
+            failed:
+              type: integer
+              minimum: 0
+              description: status='failed' nos últimos 30d
+        pushNotifications7d:
+          type: integer
+          minimum: 0
+          description: >
+            COUNT alerts/alert_rules com lastNotifiedAt >= now()-7d. Mede
+            volume de pushes disparados pela pipeline S96.
+        familyBasketsGenerated7d:
+          type: integer
+          minimum: 0
+          description: COUNT family_baskets status='ready' nos últimos 7d
+        generatedAt:
+          type: string
+          format: date-time
+          description: Timestamp do cálculo (idêntico em hits cacheados)
+        cached:
+          type: boolean
+          description: true se veio do TTL cache in-memory
