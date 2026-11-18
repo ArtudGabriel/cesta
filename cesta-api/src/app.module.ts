@@ -20,6 +20,7 @@ import { FavoritesModule } from './modules/favorites/favorites.module';
 import { SearchHistoryModule } from './modules/search-history/search-history.module';
 import { FamilyProfilesModule } from './modules/family-profiles/family-profiles.module';
 import { HealthModule } from './modules/health/health.module';
+import { ImportsModule } from './modules/imports/imports.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ProductsModule } from './modules/products/products.module';
 import { ReceiptsModule } from './modules/receipts/receipts.module';
@@ -74,6 +75,7 @@ import { UsersModule } from './modules/users/users.module';
     ExpensesModule,
     FavoritesModule,
     SearchHistoryModule,
+    ImportsModule,
     HealthModule,
     TelemetryModule,
   ],

@@ -423,6 +423,41 @@
       "errorRateLimit": "Você só pode exportar uma vez por hora. Tente mais tarde.",
       "errorGeneric": "Não foi possível preparar sua exportação. Tente de novo."
     },
+    "import": {
+      "title": "Importar dados",
+      "description": "Envie um ZIP exportado antes da Cesta (favoritos, listas, alertas, avaliações e gastos). Vamos mostrar uma pré-visualização antes de aplicar. Máx. 5 MB, 1 importação por hora.",
+      "button": "Importar CSV",
+      "loading": "Enviando…",
+      "status": {
+        "pending": "Na fila…",
+        "parsing": "Analisando arquivos…",
+        "applying": "Aplicando mudanças…"
+      },
+      "previewTitle": "Pré-visualização da importação",
+      "previewBody": "Revise os dados antes de aplicar. Linhas duplicadas são ignoradas automaticamente.",
+      "previewConfirm": "Aplicar",
+      "previewCancel": "Cancelar",
+      "preview": {
+        "favoritos": "Favoritos",
+        "listas": "Listas",
+        "alertas": "Alertas",
+        "reviews": "Avaliações",
+        "expenses": "Gastos",
+        "items": "itens",
+        "added": "{count} novos",
+        "skipped": "{count} já existentes",
+        "productsNotFound": "{count} produtos não encontrados no catálogo (ignorados)",
+        "errors": "{count} linhas com erros de validação"
+      },
+      "applySuccess": "Importação aplicada",
+      "successTitle": "{count} dados novos importados",
+      "errorTitle": "Não foi possível importar o arquivo",
+      "errorRateLimit": "Você só pode importar uma vez por hora. Tente mais tarde.",
+      "errorTooLarge": "Arquivo excede 5 MB.",
+      "errorInvalidState": "Essa importação não pode mais ser aplicada.",
+      "errorGeneric": "Não foi possível processar o arquivo. Verifique o formato ZIP.",
+      "close": "Fechar"
+    },
     "security": {
       "title": "Segurança",
       "statusEnabled": "Verificação em duas etapas ativada",

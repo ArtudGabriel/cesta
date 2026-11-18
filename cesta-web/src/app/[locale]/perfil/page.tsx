@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { useLogout } from "@/features/auth/hooks/use-auth";
 import { DisplayPreferencesSection } from "@/features/profile/components/display-preferences-section";
 import { DsrSection } from "@/features/profile/components/dsr-section";
+import { ImportSection } from "@/features/profile/components/import-section";
 import { TwoFactorSection } from "@/features/profile/components/two-factor-section";
 import {
   useProfile,
@@ -224,6 +225,9 @@ export default function PerfilPage() {
 
       {/* Mis datos — GDPR DSR (Sprint 63) */}
       <DsrSection />
+
+      {/* Importar CSV — GDPR Art. 20 inverso (Sprint 102) */}
+      <ImportSection />
 
       {/* Atajos */}
       <section className="px-4 pt-4">

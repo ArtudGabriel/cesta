@@ -78,6 +78,7 @@ model User {
   pushSubscriptions  PushSubscription[]
   favorites          Favorite[]
   searchHistory      SearchHistory[]
+  imports            Import[]
 
   @@index([deletedAt])
   @@map("users")
@@ -588,6 +589,33 @@ model PushSubscription {
 
   @@index([userId])
   @@map("push_subscriptions")
+}
+
+// ──────────────────────────────────────────────
+// Imports (Sprint 102 — user CSV import GDPR Art. 20 symmetric)
+// ──────────────────────────────────────────────
+
+// User-uploaded ZIP com 5 CSVs (favoritos/listas/alertas/reviews/expenses).
+// Two-step: dry-run (parse+preview) → apply (write idempotent com dedupe por
+// chave natural). zipPath mantido em disco entre dry-run e apply; cleanup
+// no finish. summary é JSON { added, skipped, errors[] } com contagens
+// (sem PII — só numbers).
+model Import {
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  // pending | parsing | ready_to_apply | applying | complete | failed
+  status       String    @default("pending")
+  dryRun       Boolean   @default(true) @map("dry_run")
+  zipPath      String?   @map("zip_path")
+  summary      Json?
+  errorMessage String?   @map("error_message")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("imports")
 }
 
 model SyncRun {
