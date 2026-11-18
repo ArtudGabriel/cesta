@@ -764,6 +764,15 @@
         "invalidProductId": "Algum ID de produto inválido",
         "targetTotalRange": "Total deve ser > 0.01 €",
         "targetSavingsRange": "Economia deve ser > 0.01 €"
+      },
+      "newCta": "Nova regra",
+      "sectionHeader": "Regras combo / trend / bundle",
+      "empty": "Você ainda não tem regras. Crie uma nova acima.",
+      "lastTriggered": "Último disparo:",
+      "summary": {
+        "combo": "{count} produtos · total ≤ {total}",
+        "trend": "Queda {weeks} semanas seguidas",
+        "bundle": "{count} produtos · economia ≥ {savings}"
       }
     }
   },
