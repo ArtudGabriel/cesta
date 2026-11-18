@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { fireEvent } from "@testing-library/react";
 import { renderWithProviders } from "@/test-utils";
 import { AuditLogCard } from "./audit-log-card";
-import type { AuditLogItem } from "../services/admin.server";
+import type { AuditLogItem } from "../types/audit";
 
 function makeItem(overrides: Partial<AuditLogItem> = {}): AuditLogItem {
   return {

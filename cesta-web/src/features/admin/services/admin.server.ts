@@ -22,32 +22,15 @@ export interface SoftDeletedPage {
   total: number;
 }
 
-export const AUDIT_LOG_TYPES = [
-  "UserReactivated",
-  "UserDataExported",
-  "SecretRotated",
-  "AdminCancelledDelete",
-  "TwoFactorEnabled",
-  "TwoFactorDisabled",
-  "UserDataImported",
-  "UserReminderSent",
-] as const;
-
-export type AuditLogType = (typeof AUDIT_LOG_TYPES)[number];
-
-export interface AuditLogItem {
-  id: string;
-  userId: string | null;
-  actorId: string | null;
-  type: AuditLogType;
-  metadata: unknown;
-  createdAt: string;
-}
-
-export interface AuditLogsPage {
-  items: AuditLogItem[];
-  total: number;
-}
+// Re-export shared audit types (sem server-only dep) pros SSR fetchers.
+// Client components devem importar direto de `../types/audit`.
+export {
+  AUDIT_LOG_TYPES,
+  type AuditLogType,
+  type AuditLogItem,
+  type AuditLogsPage,
+} from "../types/audit";
+import type { AuditLogType, AuditLogsPage } from "../types/audit";
 
 const ACCESS_TOKEN_COOKIE = "cesta_access_token";
 

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { AuditLogItem, AuditLogType } from "../services/admin.server";
+import type { AuditLogItem, AuditLogType } from "../types/audit";
 
 const TYPE_COLOR: Record<AuditLogType, string> = {
   UserReactivated: "bg-mint/15 text-mint",

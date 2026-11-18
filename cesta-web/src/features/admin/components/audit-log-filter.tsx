@@ -5,10 +5,7 @@ import { useCallback, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Filter, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  AUDIT_LOG_TYPES,
-  type AuditLogType,
-} from "../services/admin.server";
+import { AUDIT_LOG_TYPES, type AuditLogType } from "../types/audit";
 
 /**
  * Sprint 104: filtro multi-select (toggle chip). URL query `type` CSV; `type`
