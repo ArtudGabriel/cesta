@@ -219,7 +219,7 @@ export function AlertRuleWizard() {
         </>
       )}
 
-      {error && <FieldError>{error}</FieldError>}
+      {error && <FieldError message={error} />}
 
       <div className="flex justify-between gap-2">
         <Button

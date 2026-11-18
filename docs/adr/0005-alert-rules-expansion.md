@@ -84,6 +84,20 @@ model AlertRule {
 - **(−)** Validação forte só no boundary (Zod); DB aceita qualquer JSON. Mitigado por testes do evaluator que cobrem shape malformado (skip + log vs crash).
 - **(−)** GDPR: `rules` contém `productIds` (não é PII direto, catálogo público). Mas combinação `(userId, productIds)` é padrão de consumo pessoal → tratar como quasi-PII. Frontend mascara `rules.productIds` display com `data-sentry-mask`; backend não loga `rules` em stdout fora de audit log admin.
 
+## OpenAPI spec — source of truth manual (não codegen)
+
+`cesta-api/openapi/alert-rules.yaml` é a **fonte canônica do contract** API↔Frontend mas **não há codegen `openapi-typescript`** pra S105. Tipos TS em `cesta-web/src/features/alerts/types/alert.types.ts` são escritos à mão espelhando o yaml.
+
+**Rationale:**
+- Zero setup de pipeline nova (sem novo script npm, sem nova dep, sem step CI).
+- Volume baixo (3 DTOs request + 1 response com 3 oneOf variants). Codegen pra isso = ergonomia de linha, overhead de ferramenta.
+- Zod schemas no backend (`alert-rule.dto.ts`) + TS types no frontend são o enforcement duplo; divergência só surge em runtime → test suite cobre (`alerts.service.spec.ts` + `alert-rule-wizard.test.tsx`).
+
+**Enforcement manual:**
+- Toda mudança no `alert-rules.yaml` exige patch simultâneo em (a) Zod schema backend, (b) types frontend, (c) ADR se semântica mudar.
+- Review gate 3 valida presença do yaml + match com Zod shape (regra existente SDD-lite).
+- Sprint futura que **crescer o surface** (ex: 4º tipo de regra, campos novos, paginação em `/alerts/rules`) deve avaliar migração pra `openapi-typescript` codegen. Trigger: 2+ bugs de divergência yaml↔types no histórico, OU surface > 10 endpoints agrupados.
+
 ## Fontes
 
 - `cesta-api/openapi/alert-rules.yaml` — contract completo
