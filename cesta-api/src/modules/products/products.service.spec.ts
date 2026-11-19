@@ -138,3 +138,31 @@ describe('ProductsService.search (S106)', () => {
     expect(result.total).toBe(1);
   });
 });
+
+describe('ProductsService.listCategories (S118)', () => {
+  let service: ProductsService;
+  let repoMock: { findCategories: jest.Mock };
+
+  beforeEach(async () => {
+    repoMock = { findCategories: jest.fn() };
+    const module = await Test.createTestingModule({
+      providers: [
+        ProductsService,
+        { provide: ProductsRepository, useValue: repoMock },
+      ],
+    }).compile();
+    service = module.get(ProductsService);
+  });
+
+  it('delega direto no repo (hierarquia parent → children)', async () => {
+    const tree = [
+      { id: 'c1', slug: 'leche', nameEs: 'Leche', children: [] },
+      { id: 'c2', slug: 'carnes', nameEs: 'Carnes', children: [{ id: 'c2a', slug: 'bovino', nameEs: 'Bovino' }] },
+    ];
+    repoMock.findCategories.mockResolvedValue(tree);
+
+    const result = await service.listCategories();
+    expect(result).toBe(tree);
+    expect(repoMock.findCategories).toHaveBeenCalledTimes(1);
+  });
+});

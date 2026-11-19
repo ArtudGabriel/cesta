@@ -66,6 +66,10 @@ export class ProductsService {
     return { items, total };
   }
 
+  listCategories() {
+    return this.repo.findCategories();
+  }
+
   async suggest(q: string, limit: number): Promise<SuggestResponseDto> {
     const rows = await this.repo.findSuggestions(q.trim(), limit);
     const suggestions: SuggestionDto[] = rows.map((r) => {
