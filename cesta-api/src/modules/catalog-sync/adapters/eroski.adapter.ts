@@ -91,17 +91,75 @@ export class EroskiAdapter implements SupermarketAdapter {
   }
 
   private async loadCategoryUrls(): Promise<string[]> {
-    const html = await this.fetchHtml(SITEMAP_URL, 'application/xml');
-    if (!html) return [];
-    const locs = [...html.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
-    // Categorias folha têm padrão /es/supermercado/<id>-<slug>/<id>-<slug>/<id>-<slug>/
-    // Filtra URLs com pelo menos 3 segmentos após supermercado.
-    return locs.filter((u) => {
+    // Sprint 125: prod log S124 revelou "0 categorias no sitemap" apesar
+    // probe dev local retornar 1819 <loc>. Diagnóstico: politeFetchRaw envia
+    // Sec-Fetch-Site=same-origin + Accept-Encoding=gzip,deflate,br + outros
+    // headers XHR-like que Eroski CDN pode rejeitar silenciosamente de IPs
+    // datacenter (Render us-east). Usamos bareFetch bare-bones (UA + Accept)
+    // pra mimetizar browser direto. Fallback: parse robots.txt Sitemap:
+    // directive se sitemap.xml vazio/falhar.
+    let xml = await this.bareFetch(SITEMAP_URL, 'application/xml, text/xml');
+    let source = SITEMAP_URL;
+    if (!xml || !xml.includes('<loc>')) {
+      this.logger.warn(
+        `Eroski sitemap.xml inválido (len=${xml?.length ?? 0}, preview="${(xml ?? '').slice(0, 200).replace(/\s+/g, ' ')}"), tentando fallback robots.txt`,
+      );
+      const robots = await this.bareFetch(`${ROOT}/robots.txt`, 'text/plain');
+      if (robots) {
+        const m = robots.match(/^Sitemap:\s*(\S+)/im);
+        if (m && m[1] !== SITEMAP_URL) {
+          source = m[1];
+          this.logger.log(`Eroski fallback sitemap: ${source}`);
+          xml = await this.bareFetch(source, 'application/xml, text/xml');
+        }
+      }
+    }
+    if (!xml) {
+      this.logger.warn('Eroski: sitemap body null após fallback');
+      return [];
+    }
+
+    const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    this.logger.log(
+      `Eroski sitemap source=${source} xmlLen=${xml.length} totalLocs=${locs.length}`,
+    );
+    // Categorias folha têm padrão /es/supermercado/<id>-<slug>/<id>-<slug>/.../
+    // Filtra URLs com pelo menos 2 segmentos após prefix (categoria de 2+ níveis).
+    const filtered = locs.filter((u) => {
       if (!u.includes(CATEGORY_PATH_PREFIX)) return false;
       const tail = u.split(CATEGORY_PATH_PREFIX)[1] || '';
       const segments = tail.split('/').filter(Boolean);
       return segments.length >= 2;
     });
+    this.logger.log(`Eroski categorias folha: ${filtered.length}`);
+    return filtered;
+  }
+
+  /**
+   * Fetch minimalista pra sitemap/robots.txt — só UA + Accept. politeFetchRaw
+   * default manda Sec-Fetch-* + Accept-Encoding que Eroski CDN pode filtrar
+   * de IPs datacenter.
+   */
+  private async bareFetch(url: string, accept: string): Promise<string | null> {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': this.ua,
+          Accept: accept,
+          'Accept-Language': 'es-ES,es;q=0.9',
+        },
+      });
+      if (!response.ok) {
+        this.logger.warn(`Eroski bareFetch ${url} status=${response.status}`);
+        return null;
+      }
+      const text = await response.text();
+      return text;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Eroski bareFetch ${url} erro: ${msg}`);
+      return null;
+    }
   }
 
   private async fetchHtml(
