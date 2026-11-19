@@ -100,6 +100,12 @@ export class EnvironmentVariables {
   @IsString()
   @MinLength(16)
   TWO_FACTOR_ENC_KEY: string;
+
+  // Sprint 109: enfileira 1 bootstrap-sync mercadona no onApplicationBootstrap.
+  // Setar 'true' só durante janela de populate inicial — Manager remove depois.
+  @IsOptional()
+  @IsString()
+  AUTO_SYNC_ON_BOOT?: string;
 }
 
 export function validateEnv(raw: Record<string, unknown>) {
