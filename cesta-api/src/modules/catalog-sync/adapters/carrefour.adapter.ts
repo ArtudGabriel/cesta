@@ -1,76 +1,47 @@
 import { Injectable, Logger } from '@nestjs/common';
-import {
-  politeFetch,
-  politeFetchRaw,
-  serializeCookieJar,
-} from '../utils/polite-fetch';
 import { pickUserAgent } from '../utils/user-agents';
+import {
+  closePuppeteerBrowser,
+  puppeteerFetch,
+} from '../utils/puppeteer-fetch';
 import type {
   RawPackageUnit,
   RawProduct,
   SupermarketAdapter,
 } from './supermarket-adapter.interface';
 
-// Carrefour Espanha não expõe API pública. Este adapter usa a search-api
-// interna. O site tem Akamai Bot Manager; estratégia polite-fetch:
-//  - UA rotativo (pool de navegadores atuais)
-//  - Jitter aleatório 3-7s entre queries
-//  - Backoff exponencial em 429/403/503 respeitando Retry-After
-//  - Referer + Sec-Fetch-* humanizados
-//  - Falha de query não aborta o run (defensivo)
+// Carrefour (www.carrefour.es) — S118/S119/S120 tentativas raw fetch retornaram
+// 403 Akamai persistente. S128 pivot pra Puppeteer headless: renderiza páginas
+// de resultado via Chromium, Akamai _abck challenge executa, HTML real volta.
 //
-// Se Akamai bloquear, o adapter retorna [] e o run termina como "failed" ou
-// "partial" sem quebrar o sistema. Preços oficiais do Carrefour vêm por aqui;
-// caso bloqueie em produção, considerar scraping via Puppeteer com proxy.
+// Estratégia:
+//  1. Puppeteer navigate `https://www.carrefour.es/search?q=<query>` (SSR Next.js)
+//  2. Aguarda JS hydration (networkidle2 + extraWaitMs)
+//  3. Extrai produtos de `__NEXT_DATA__` script (SSR Next.js embed inicial)
+//  4. Fallback: scan DOM via Cheerio se __NEXT_DATA__ ausente
+const BASE_URL = 'https://www.carrefour.es/search';
+const MAX_QUERIES = 20;
 
-const BASE_URL = 'https://www.carrefour.es/search-api/query/v1/products';
-const HOMEPAGE_URL = 'https://www.carrefour.es/';
-const MAX_PER_QUERY = 50;
-
-// Queries base para varredura — cobre maioria das categorias
 const SEED_QUERIES = [
-  'leche',
-  'yogur',
-  'queso',
-  'huevos',
-  'pan',
-  'cereales',
-  'pollo',
-  'carne picada',
-  'jamon',
-  'salmon',
-  'atun',
-  'platano',
-  'tomate',
-  'patatas',
-  'manzana',
-  'agua',
-  'coca cola',
-  'cerveza',
-  'aceite oliva',
-  'arroz',
-  'pasta',
-  'azucar',
-  'pizza congelada',
-  'detergente',
-  'papel higienico',
-  'champu',
-  'pasta dentifrica',
+  'leche', 'yogur', 'queso', 'huevos',
+  'pan', 'cereales',
+  'pollo', 'carne picada', 'jamon',
+  'salmon', 'atun',
+  'platano', 'tomate', 'patatas', 'manzana',
+  'agua', 'coca cola', 'aceite oliva', 'arroz', 'pasta',
 ];
 
-interface CarrefourProduct {
-  id: string;
+interface CarrefourNextProduct {
+  id?: string | number;
   display_name?: string;
   title?: string;
   brand?: string | null;
   ean?: string | null;
   image_path?: string | null;
-  images?: Array<{ url?: string }>;
   price?: number | string | null;
   price_info?: {
     current_price?: number | string | null;
     previous_price?: number | string | null;
-    price_per_unit?: string | null;
     on_promotion?: boolean | null;
   };
   availability?: { is_available?: boolean } | null;
@@ -81,129 +52,123 @@ interface CarrefourProduct {
   category_names?: string[];
 }
 
-interface CarrefourSearchResponse {
-  results?: CarrefourProduct[];
-  content?: CarrefourProduct[];
-  items?: CarrefourProduct[];
-  total?: number;
-}
-
 @Injectable()
 export class CarrefourAdapter implements SupermarketAdapter {
   readonly slug = 'carrefour';
   private readonly logger = new Logger(CarrefourAdapter.name);
-  // Sprint 120: UA fixado durante todo o run — rotacionar UA entre queries
-  // dentro da mesma sessão derruba cookies Akamai (bm_sv é UA-bound).
-  private sessionUserAgent = pickUserAgent();
-  private sessionCookie: string | null = null;
+  private readonly ua = pickUserAgent();
 
   async fetchProducts(): Promise<RawProduct[]> {
-    this.sessionUserAgent = pickUserAgent();
-    this.sessionCookie = await this.warmupSession();
-
     const seen = new Set<string>();
     const products: RawProduct[] = [];
+    const queries = SEED_QUERIES.slice(0, MAX_QUERIES);
 
-    for (const query of SEED_QUERIES) {
-      try {
-        const data = await this.search(query);
-        const raws = this.extractProducts(data);
-        for (const raw of raws) {
-          if (seen.has(raw.id)) continue;
-          const normalized = this.normalize(raw);
-          if (!normalized) continue;
-          seen.add(raw.id);
-          products.push(normalized);
+    try {
+      for (const query of queries) {
+        try {
+          const raws = await this.searchViaPuppeteer(query);
+          for (const raw of raws) {
+            const id = raw.id != null ? String(raw.id) : null;
+            if (!id || seen.has(id)) continue;
+            const normalized = this.normalize(raw, id);
+            if (!normalized) continue;
+            seen.add(id);
+            products.push(normalized);
+          }
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          this.logger.warn(`Carrefour query "${query}" falhou: ${msg}`);
         }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        this.logger.warn(`Carrefour query "${query}" falhou: ${message}`);
       }
+    } finally {
+      // Sempre fechar browser para liberar memória antes do próximo job
+      // (Render free tier 512MB — Chromium ~200MB + Node ~150MB).
+      await closePuppeteerBrowser();
     }
 
-    this.logger.log(`Carrefour: ${products.length} produtos coletados`);
+    this.logger.log(
+      `Carrefour: ${products.length} produtos coletados (${queries.length} queries via Puppeteer)`,
+    );
     return products;
   }
 
+  private async searchViaPuppeteer(
+    query: string,
+  ): Promise<CarrefourNextProduct[]> {
+    const url = `${BASE_URL}?q=${encodeURIComponent(query)}`;
+    const result = await puppeteerFetch(url, {
+      userAgent: this.ua,
+      timeoutMs: 35_000,
+      waitForSelector: 'script#__NEXT_DATA__',
+      extraWaitMs: 2000,
+    });
+    if (!result.html) return [];
+
+    const nextDataMatch = result.html.match(
+      /<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/,
+    );
+    if (!nextDataMatch) {
+      this.logger.warn(`Carrefour "${query}": __NEXT_DATA__ ausente`);
+      return [];
+    }
+    try {
+      const parsed = JSON.parse(nextDataMatch[1]) as Record<string, unknown>;
+      return this.scanForProducts(parsed);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Carrefour "${query}": parse __NEXT_DATA__ falhou ${msg}`);
+      return [];
+    }
+  }
+
   /**
-   * Sprint 120: warmup de sessão — GET homepage antes das queries de API.
-   * Akamai Bot Manager emite ak_bmsc + bm_sv cookies no primeiro acesso
-   * HTML; re-usar esses cookies em XHR subsequentes reduz 403. Falha de
-   * warmup não aborta: search() segue sem Cookie header (comportamento S119).
+   * Walk recursive em __NEXT_DATA__ procurando arrays com objetos que têm
+   * forma de produto (id + display_name OR title + price/price_info).
    */
-  private async warmupSession(): Promise<string | null> {
-    try {
-      const result = await politeFetchRaw<string>(HOMEPAGE_URL, {
-        userAgent: this.sessionUserAgent,
-        accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        minJitterMs: 500,
-        maxJitterMs: 1500,
-      });
-      if (result.setCookie.length === 0) {
-        this.logger.warn(
-          `Carrefour warmup: 0 cookies (status=${result.status}); seguindo sem sessão`,
-        );
-        return null;
+  private scanForProducts(obj: unknown, depth = 0): CarrefourNextProduct[] {
+    if (depth > 8 || !obj || typeof obj !== 'object') return [];
+    const asRecord = obj as Record<string, unknown>;
+    for (const value of Object.values(asRecord)) {
+      if (Array.isArray(value) && value.length > 0) {
+        const sample = value[0];
+        if (
+          sample &&
+          typeof sample === 'object' &&
+          this.looksLikeProduct(sample as Record<string, unknown>)
+        ) {
+          return value as CarrefourNextProduct[];
+        }
       }
-      const cookie = serializeCookieJar(result.setCookie);
-      this.logger.log(
-        `Carrefour warmup: ${result.setCookie.length} cookies (status=${result.status})`,
-      );
-      return cookie;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Carrefour warmup falhou: ${message}`);
-      return null;
+      if (value && typeof value === 'object') {
+        const found = this.scanForProducts(value, depth + 1);
+        if (found.length > 0) return found;
+      }
     }
+    return [];
   }
 
-  private async search(query: string): Promise<CarrefourSearchResponse | null> {
-    const url = `${BASE_URL}?query=${encodeURIComponent(query)}&offset=0&limit=${MAX_PER_QUERY}`;
-    try {
-      return await politeFetch<CarrefourSearchResponse>(url, {
-        userAgent: this.sessionUserAgent,
-        referer: HOMEPAGE_URL,
-        accept: 'application/json, text/plain, */*',
-        cookie: this.sessionCookie ?? undefined,
-        minJitterMs: 3000,
-        maxJitterMs: 7000,
-        maxRetries: 5,
-        initialBackoffMs: 4000,
-        minWaitOnBlockMs: 30_000,
-        onRetry: (attempt, status) => {
-          this.logger.warn(
-            `Carrefour retry ${attempt} (status=${status ?? 'network'}) query=${query}`,
-          );
-        },
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Carrefour fetch "${query}" falhou: ${message}`);
-      return null;
-    }
+  private looksLikeProduct(sample: Record<string, unknown>): boolean {
+    const hasId = sample.id != null;
+    const hasName = sample.display_name != null || sample.title != null;
+    const hasPrice = sample.price != null || sample.price_info != null;
+    return hasId && hasName && hasPrice;
   }
 
-  private extractProducts(
-    data: CarrefourSearchResponse | null,
-  ): CarrefourProduct[] {
-    if (!data) return [];
-    return data.results ?? data.content ?? data.items ?? [];
-  }
-
-  private normalize(raw: CarrefourProduct): RawProduct | null {
+  private normalize(raw: CarrefourNextProduct, id: string): RawProduct | null {
     const name = raw.display_name ?? raw.title;
     if (!name) return null;
 
     const priceRaw =
       raw.price_info?.current_price ?? raw.price ?? null;
     if (priceRaw == null) return null;
-    const price = typeof priceRaw === 'string' ? parseFloat(priceRaw) : Number(priceRaw);
+    const price =
+      typeof priceRaw === 'string' ? parseFloat(priceRaw) : Number(priceRaw);
     if (!Number.isFinite(price) || price <= 0) return null;
 
-    const previousRaw = raw.price_info?.previous_price ?? null;
+    const prevRaw = raw.price_info?.previous_price ?? null;
     const previousPrice =
-      previousRaw != null && previousRaw !== ''
-        ? parseFloat(String(previousRaw))
+      prevRaw != null && prevRaw !== ''
+        ? parseFloat(String(prevRaw))
         : null;
 
     const { packageSize, packageUnit, comparisonUnit } = this.parsePackage(
@@ -212,16 +177,13 @@ export class CarrefourAdapter implements SupermarketAdapter {
       name,
     );
 
-    const imageUrl =
-      raw.image_path ?? raw.images?.[0]?.url ?? null;
-
     return {
-      externalId: raw.id,
+      externalId: id,
       name,
       brand: raw.brand ?? null,
       ean: raw.ean ?? null,
       categoryHint: raw.category_names?.[0] ?? null,
-      imageUrl,
+      imageUrl: raw.image_path ?? null,
       packageSize,
       packageUnit,
       comparisonUnit,
@@ -263,22 +225,18 @@ export class CarrefourAdapter implements SupermarketAdapter {
           ? 'KILOGRAM'
           : 'UNIT';
 
-    return {
-      packageSize: qty > 0 ? qty : 1,
-      packageUnit,
-      comparisonUnit,
-    };
+    return { packageSize: qty > 0 ? qty : 1, packageUnit, comparisonUnit };
   }
 
   private extractQuantityFromName(name: string): number {
-    const match = name.match(/(\d+(?:[.,]\d+)?)\s*(l|ml|kg|g|gr|ud|un)/i);
-    if (!match) return 1;
-    const value = parseFloat(match[1].replace(',', '.'));
-    return Number.isFinite(value) && value > 0 ? value : 1;
+    const m = name.match(/(\d+(?:[.,]\d+)?)\s*(l|ml|kg|g|gr|ud|un)/i);
+    if (!m) return 1;
+    const v = parseFloat(m[1].replace(',', '.'));
+    return Number.isFinite(v) && v > 0 ? v : 1;
   }
 
   private extractUnitFromName(name: string): string | null {
-    const match = name.match(/\b(l|ml|kg|g|gr|ud|un)\b/i);
-    return match ? match[1] : null;
+    const m = name.match(/\b(l|ml|kg|g|gr|ud|un)\b/i);
+    return m ? m[1] : null;
   }
 }
