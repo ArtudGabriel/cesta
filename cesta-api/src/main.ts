@@ -106,9 +106,12 @@ async function bootstrap(): Promise<void> {
   // warn e SKIP enqueue (app segue em listening).
   if (process.env.AUTO_SYNC_ON_BOOT === 'true') {
     const REDIS_READY_TIMEOUT_MS = 30_000;
-    // Sprint 119: expande bootstrap pra múltiplos adapters (Mercadona + Carrefour).
-    // AUTO_SYNC_ON_BOOT_SLUGS CSV env com fallback 'mercadona,carrefour'.
-    const slugs = (process.env.AUTO_SYNC_ON_BOOT_SLUGS ?? 'mercadona,carrefour')
+    // Sprint 119: expande bootstrap pra múltiplos adapters.
+    // Sprint 121: pivot default para 'mercadona,dia' — Carrefour removido do
+    // default por Akamai 403 persistente (S120 warmup+cookie não bypass JS
+    // challenge). Carrefour volta via Puppeteer em sprint futuro. DIA tem
+    // menos proteção anti-bot. Env `AUTO_SYNC_ON_BOOT_SLUGS` override opcional.
+    const slugs = (process.env.AUTO_SYNC_ON_BOOT_SLUGS ?? 'mercadona,dia')
       .split(',')
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
