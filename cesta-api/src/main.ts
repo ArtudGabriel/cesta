@@ -106,7 +106,15 @@ async function bootstrap(): Promise<void> {
   // warn e SKIP enqueue (app segue em listening).
   if (process.env.AUTO_SYNC_ON_BOOT === 'true') {
     const REDIS_READY_TIMEOUT_MS = 30_000;
-    logger.log('AUTO_SYNC_ON_BOOT=true → waiting Redis ready (timeout 30s)...');
+    // Sprint 119: expande bootstrap pra múltiplos adapters (Mercadona + Carrefour).
+    // AUTO_SYNC_ON_BOOT_SLUGS CSV env com fallback 'mercadona,carrefour'.
+    const slugs = (process.env.AUTO_SYNC_ON_BOOT_SLUGS ?? 'mercadona,carrefour')
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    logger.log(
+      `AUTO_SYNC_ON_BOOT=true → waiting Redis ready (timeout 30s) for slugs=[${slugs.join(',')}]...`,
+    );
     try {
       const queue = app.get<Queue>(getQueueToken(CATALOG_SYNC_QUEUE));
       await Promise.race([
@@ -123,17 +131,21 @@ async function bootstrap(): Promise<void> {
           ),
         ),
       ]);
-      logger.log('Redis ready, enqueueing bootstrap-sync mercadona...');
-      await queue.add(
-        'bootstrap-sync',
-        { supermarketSlug: 'mercadona' },
-        // Sprint 115: sem jobId. queue.add com jobId existente é no-op
-        // silencioso em BullMQ; o job 'bootstrap-mercadona' do deploy
-        // anterior ficava stuck em completed/stale e rejeitava reruns.
-        // removeOnComplete:10 mantém backlog enxuto.
-        { removeOnComplete: 10, removeOnFail: 10 },
-      );
-      logger.log('bootstrap-sync mercadona enqueued');
+      for (const slug of slugs) {
+        try {
+          await queue.add(
+            'bootstrap-sync',
+            { supermarketSlug: slug },
+            // Sprint 115: sem jobId (dedup silencioso BullMQ bloqueava reruns).
+            // removeOnComplete:10 mantém backlog enxuto.
+            { removeOnComplete: 10, removeOnFail: 10 },
+          );
+          logger.log(`bootstrap-sync ${slug} enqueued`);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          logger.warn(`bootstrap-sync ${slug} skip: ${message}`);
+        }
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       logger.warn(`AUTO_SYNC_ON_BOOT skip enqueue: ${message}`);
