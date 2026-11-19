@@ -1,234 +1,281 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { politeFetch } from '../utils/polite-fetch';
+import * as cheerio from 'cheerio';
+import { politeFetchRaw } from '../utils/polite-fetch';
 import { pickUserAgent } from '../utils/user-agents';
+import {
+  closePuppeteerBrowser,
+  puppeteerFetch,
+} from '../utils/puppeteer-fetch';
 import type {
   RawPackageUnit,
   RawProduct,
   SupermarketAdapter,
 } from './supermarket-adapter.interface';
 
-// Alcampo (grupo Auchan) — protegido por CDN. Estratégia polite-fetch:
-// UA rotativo, jitter 3-7s, backoff em 429/403, defensivo.
-const BASE_URL = 'https://www.alcampo.es/api/v1/search';
-const MAX_PER_QUERY = 50;
-
-const SEED_QUERIES = [
-  'leche', 'yogur', 'queso', 'huevos',
-  'pan', 'cereales',
-  'pollo', 'carne picada', 'jamon',
-  'salmon', 'atun',
-  'platano', 'tomate', 'patatas', 'manzana',
-  'agua', 'coca cola', 'cerveza',
-  'aceite oliva', 'arroz', 'pasta', 'azucar',
-  'pizza congelada',
-  'detergente', 'papel higienico',
-  'champu', 'pasta dentifrica',
-];
-
-interface AlcampoProduct {
-  id?: string | number;
-  sku?: string;
-  name?: string;
-  display_name?: string;
-  brand?: string | null;
-  ean?: string | null;
-  image?: string | null;
-  images?: Array<{ url?: string }>;
-  price?: number | string | { current?: number | string; previous?: number | string } | null;
-  promotion?: { active?: boolean } | null;
-  is_promotion?: boolean | null;
-  availability?: string | { available?: boolean } | null;
-  package?: { size?: number | string; unit?: string } | null;
-  categories?: string[] | Array<{ name?: string }>;
-}
-
-interface AlcampoResponse {
-  products?: AlcampoProduct[];
-  results?: AlcampoProduct[];
-  items?: AlcampoProduct[];
-}
+// Alcampo (compraonline.alcampo.es) — S123 bloqueado AWS WAF JS challenge
+// (jsapi.js awswaf.com) em raw fetch. S128 pivot pra Puppeteer que executa
+// JS challenge e recebe HTML real.
+//
+// Estratégia:
+//  1. Sitemap via politeFetchRaw (não protegido WAF): extrai produto URLs
+//     /products/<slug>/<id> do sitemap-products-part*.xml
+//  2. Para N páginas de produto: puppeteerFetch renderiza → extrai JSON-LD
+//     Product schema → mapeia pra RawProduct
+//  3. Rate limit: 2s inter-page (Puppeteer já tem overhead ~1s)
+const SITEMAP_INDEX = 'https://compraonline.alcampo.es/sitemaps/sitemap_index.xml';
+const MAX_PRODUCTS = 120;
 
 @Injectable()
 export class AlcampoAdapter implements SupermarketAdapter {
   readonly slug = 'alcampo';
   private readonly logger = new Logger(AlcampoAdapter.name);
+  private readonly ua = pickUserAgent();
 
   async fetchProducts(): Promise<RawProduct[]> {
+    const urls = await this.loadProductUrls();
+    if (urls.length === 0) {
+      this.logger.warn('Alcampo: 0 product URLs no sitemap');
+      return [];
+    }
+    const slice = urls.slice(0, MAX_PRODUCTS);
     const seen = new Set<string>();
     const products: RawProduct[] = [];
 
-    for (const query of SEED_QUERIES) {
-      try {
-        const data = await this.search(query);
-        const raws = this.extract(data);
-        for (const raw of raws) {
-          const id = this.resolveId(raw);
-          if (!id || seen.has(id)) continue;
-          const normalized = this.normalize(raw, id);
-          if (!normalized) continue;
-          seen.add(id);
-          products.push(normalized);
+    try {
+      for (const url of slice) {
+        try {
+          const raw = await this.fetchProductPage(url);
+          if (!raw) continue;
+          if (seen.has(raw.externalId)) continue;
+          seen.add(raw.externalId);
+          products.push(raw);
+          await new Promise((r) => setTimeout(r, 2000));
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          this.logger.warn(`Alcampo page "${url}" falhou: ${msg}`);
         }
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        this.logger.warn(`Alcampo query "${query}" falhou: ${msg}`);
       }
+    } finally {
+      await closePuppeteerBrowser();
     }
 
-    this.logger.log(`Alcampo: ${products.length} produtos coletados`);
+    this.logger.log(
+      `Alcampo: ${products.length} produtos coletados (${slice.length}/${urls.length} via Puppeteer)`,
+    );
     return products;
   }
 
-  private async search(query: string): Promise<AlcampoResponse | null> {
-    const url = `${BASE_URL}?q=${encodeURIComponent(query)}&limit=${MAX_PER_QUERY}`;
+  private async loadProductUrls(): Promise<string[]> {
+    const index = await this.fetchXml(SITEMAP_INDEX);
+    if (!index) return [];
+    const nested = [...index.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    const productSitemaps = nested.filter((u) =>
+      /sitemap-products(-part\d+)?\.xml/.test(u),
+    );
+    const urls: string[] = [];
+    for (const sm of productSitemaps.slice(0, 2)) {
+      const xml = await this.fetchXml(sm);
+      if (!xml) continue;
+      const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+      urls.push(...locs);
+    }
+    return urls;
+  }
+
+  private async fetchXml(url: string): Promise<string | null> {
     try {
-      return await politeFetch<AlcampoResponse>(url, {
-        userAgent: pickUserAgent(),
-        referer: 'https://www.alcampo.es/',
-        minJitterMs: 3000,
-        maxJitterMs: 7000,
-        maxRetries: 3,
-        initialBackoffMs: 4000,
-        onRetry: (attempt, status) => {
-          this.logger.warn(
-            `Alcampo retry ${attempt} (status=${status ?? 'network'}) query=${query}`,
-          );
-        },
+      const result = await politeFetchRaw<string>(url, {
+        userAgent: this.ua,
+        accept: 'application/xml, text/xml',
+        minJitterMs: 500,
+        maxJitterMs: 1500,
       });
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Alcampo fetch "${query}" falhou: ${msg}`);
+      if (result.status !== 200 || typeof result.body !== 'string') {
+        return null;
+      }
+      return result.body;
+    } catch {
       return null;
     }
   }
 
-  private extract(data: AlcampoResponse | null): AlcampoProduct[] {
-    if (!data) return [];
-    return data.products ?? data.results ?? data.items ?? [];
+  private async fetchProductPage(url: string): Promise<RawProduct | null> {
+    const result = await puppeteerFetch(url, {
+      userAgent: this.ua,
+      timeoutMs: 35_000,
+      waitForSelector:
+        'script[type="application/ld+json"], [data-test="product-price"]',
+      extraWaitMs: 1500,
+    });
+    if (!result.html) return null;
+    return this.extractProduct(result.html, url);
   }
 
-  private resolveId(raw: AlcampoProduct): string | null {
-    const id = raw.id ?? raw.sku;
-    return id != null ? String(id) : null;
+  private extractProduct(html: string, url: string): RawProduct | null {
+    const $ = cheerio.load(html);
+    const scripts = $('script[type="application/ld+json"]').toArray();
+    for (const script of scripts) {
+      try {
+        const json = JSON.parse($(script).text());
+        const product = this.findProductSchema(json);
+        if (product) return this.normalizeSchema(product, url);
+      } catch {
+        continue;
+      }
+    }
+    return null;
   }
 
-  private normalize(raw: AlcampoProduct, id: string): RawProduct | null {
-    const name = raw.display_name ?? raw.name;
+  private findProductSchema(obj: unknown): Record<string, unknown> | null {
+    if (!obj || typeof obj !== 'object') return null;
+    const asArr = Array.isArray(obj) ? obj : [obj];
+    for (const entry of asArr) {
+      if (entry && typeof entry === 'object') {
+        const rec = entry as Record<string, unknown>;
+        if (rec['@type'] === 'Product') return rec;
+        const graph = rec['@graph'];
+        if (Array.isArray(graph)) {
+          const found = this.findProductSchema(graph);
+          if (found) return found;
+        }
+      }
+    }
+    return null;
+  }
+
+  private normalizeSchema(
+    product: Record<string, unknown>,
+    url: string,
+  ): RawProduct | null {
+    const name = this.asString(product.name);
     if (!name) return null;
 
-    const { price, previousPrice } = this.extractPrices(raw.price);
+    const sku = this.asString(product.sku);
+    const idFromUrl = this.extractIdFromUrl(url);
+    const externalId = sku ?? idFromUrl;
+    if (!externalId) return null;
+
+    const brand = this.asString(
+      (product.brand as Record<string, unknown>)?.name ?? product.brand,
+    );
+    const ean = this.asString(product.gtin13 ?? product.gtin ?? product.gtin8);
+    const imageUrl = this.extractImage(product.image);
+
+    const offers = this.asOfferArray(product.offers);
+    const offer = offers[0];
+    if (!offer) return null;
+    const priceRaw = offer.price ?? offer.lowPrice;
+    const price =
+      typeof priceRaw === 'string' ? parseFloat(priceRaw) : Number(priceRaw);
     if (!Number.isFinite(price) || price <= 0) return null;
 
-    const onPromotion =
-      raw.promotion?.active === true || raw.is_promotion === true;
-
-    const isAvailable =
-      typeof raw.availability === 'string'
-        ? raw.availability.toLowerCase() !== 'out_of_stock'
-        : raw.availability?.available !== false;
-
-    const { packageSize, packageUnit, comparisonUnit } = this.parsePackage(
-      raw.package?.size,
-      raw.package?.unit,
-      name,
-    );
-
-    const imageUrl =
-      raw.image ??
-      (Array.isArray(raw.images) ? raw.images[0]?.url ?? null : null) ??
-      null;
-
-    const categoryHint = Array.isArray(raw.categories)
-      ? typeof raw.categories[0] === 'string'
-        ? (raw.categories[0] as string)
-        : (raw.categories[0] as { name?: string })?.name ?? null
-      : null;
+    const { packageSize, packageUnit, comparisonUnit } = this.extractPackage(name);
+    const availability = this.asString(offer.availability) ?? '';
+    const isAvailable = availability.includes('InStock');
 
     return {
-      externalId: id,
+      externalId,
       name,
-      brand: raw.brand ?? null,
-      ean: raw.ean ?? null,
-      categoryHint,
+      brand: brand ?? null,
+      ean: ean ?? null,
+      categoryHint: this.asString(product.category) ?? null,
       imageUrl,
       packageSize,
       packageUnit,
       comparisonUnit,
       price: Math.round(price * 100) / 100,
-      onPromotion,
-      previousPrice:
-        previousPrice && Number.isFinite(previousPrice) ? previousPrice : null,
-      isAvailable,
+      onPromotion: false,
+      previousPrice: null,
+      isAvailable: availability === '' ? true : isAvailable,
     };
   }
 
-  private extractPrices(
-    priceField: AlcampoProduct['price'],
-  ): { price: number; previousPrice: number | null } {
-    if (priceField == null) return { price: NaN, previousPrice: null };
-    if (typeof priceField === 'number') {
-      return { price: priceField, previousPrice: null };
-    }
-    if (typeof priceField === 'string') {
-      return { price: parseFloat(priceField), previousPrice: null };
-    }
-    const current = priceField.current;
-    const previous = priceField.previous;
-    return {
-      price: typeof current === 'string' ? parseFloat(current) : Number(current),
-      previousPrice:
-        previous != null
-          ? typeof previous === 'string'
-            ? parseFloat(previous)
-            : Number(previous)
-          : null,
-    };
+  private asString(v: unknown): string | null {
+    if (typeof v === 'string') return v.trim() || null;
+    if (typeof v === 'number') return String(v);
+    return null;
   }
 
-  private parsePackage(
-    size: number | string | undefined,
-    unit: string | undefined,
-    fallback: string,
-  ): {
+  private asOfferArray(v: unknown): Array<Record<string, unknown>> {
+    if (!v) return [];
+    if (Array.isArray(v)) return v as Array<Record<string, unknown>>;
+    if (typeof v === 'object') return [v as Record<string, unknown>];
+    return [];
+  }
+
+  private extractImage(v: unknown): string | null {
+    if (!v) return null;
+    if (typeof v === 'string') return v;
+    if (Array.isArray(v) && v.length > 0) {
+      const first = v[0];
+      return typeof first === 'string' ? first : null;
+    }
+    if (typeof v === 'object') {
+      const url = (v as Record<string, unknown>).url;
+      return typeof url === 'string' ? url : null;
+    }
+    return null;
+  }
+
+  private extractIdFromUrl(url: string): string | null {
+    const m = url.match(/\/products\/[^/]+\/(\d+)/);
+    return m ? m[1] : null;
+  }
+
+  private extractPackage(name: string): {
     packageSize: number;
     packageUnit: RawPackageUnit;
     comparisonUnit: RawPackageUnit;
   } {
-    const qty =
-      size != null && Number.isFinite(Number(size))
-        ? Number(size)
-        : this.extractQtyFromName(fallback);
-    const unitStr = (unit ?? this.extractUnitFromName(fallback) ?? '').toLowerCase();
-
-    let packageUnit: RawPackageUnit = 'UNIT';
-    if (/\bl\b|litro/.test(unitStr)) packageUnit = 'LITER';
-    else if (/\bml\b/.test(unitStr)) packageUnit = 'MILLILITER';
-    else if (/\bkg\b|kilo/.test(unitStr)) packageUnit = 'KILOGRAM';
-    else if (/\bg\b|\bgr\b/.test(unitStr)) packageUnit = 'GRAM';
-
-    const comparisonUnit: RawPackageUnit =
-      packageUnit === 'LITER' || packageUnit === 'MILLILITER'
-        ? 'LITER'
-        : packageUnit === 'KILOGRAM' || packageUnit === 'GRAM'
-          ? 'KILOGRAM'
-          : 'UNIT';
-
-    return {
-      packageSize: qty > 0 ? qty : 1,
-      packageUnit,
-      comparisonUnit,
-    };
+    const packMatch = name.match(
+      /(\d+)\s*(?:x|×)\s*(\d+(?:[.,]\d+)?)\s*(l|ml|kg|g|gr)\b/i,
+    );
+    if (packMatch) {
+      const count = parseInt(packMatch[1], 10);
+      const each = parseFloat(packMatch[2].replace(',', '.'));
+      const unit = this.unitFromToken(packMatch[3]);
+      if (count > 0 && Number.isFinite(each) && each > 0 && unit) {
+        return {
+          packageSize: Math.round(count * each * 1000) / 1000,
+          packageUnit: unit,
+          comparisonUnit: this.toComparison(unit),
+        };
+      }
+    }
+    const single = name.match(/(\d+(?:[.,]\d+)?)\s*(l|ml|kg|g|gr)\b/i);
+    if (single) {
+      const value = parseFloat(single[1].replace(',', '.'));
+      const unit = this.unitFromToken(single[2]);
+      if (Number.isFinite(value) && value > 0 && unit) {
+        return {
+          packageSize: value,
+          packageUnit: unit,
+          comparisonUnit: this.toComparison(unit),
+        };
+      }
+    }
+    return { packageSize: 1, packageUnit: 'UNIT', comparisonUnit: 'UNIT' };
   }
 
-  private extractQtyFromName(name: string): number {
-    const m = name.match(/(\d+(?:[.,]\d+)?)\s*(l|ml|kg|g|gr|ud|un)/i);
-    if (!m) return 1;
-    const v = parseFloat(m[1].replace(',', '.'));
-    return Number.isFinite(v) && v > 0 ? v : 1;
+  private unitFromToken(token: string): RawPackageUnit | null {
+    switch (token.toLowerCase()) {
+      case 'l':
+        return 'LITER';
+      case 'ml':
+        return 'MILLILITER';
+      case 'kg':
+        return 'KILOGRAM';
+      case 'g':
+      case 'gr':
+        return 'GRAM';
+      default:
+        return null;
+    }
   }
 
-  private extractUnitFromName(name: string): string | null {
-    const m = name.match(/\b(l|ml|kg|g|gr|ud|un)\b/i);
-    return m ? m[1] : null;
+  private toComparison(unit: RawPackageUnit): RawPackageUnit {
+    if (unit === 'LITER' || unit === 'MILLILITER') return 'LITER';
+    if (unit === 'KILOGRAM' || unit === 'GRAM') return 'KILOGRAM';
+    return 'UNIT';
   }
 }
