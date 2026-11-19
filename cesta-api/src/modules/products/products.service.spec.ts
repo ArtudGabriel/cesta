@@ -138,3 +138,43 @@ describe('ProductsService.search (S106)', () => {
     expect(result.total).toBe(1);
   });
 });
+
+// Sprint 131: compare multi-super matrix
+describe('ProductsService.compare', () => {
+  let service: ProductsService;
+  let repoMock: { findManyByIds: jest.Mock };
+
+  beforeEach(async () => {
+    repoMock = { findManyByIds: jest.fn() };
+    const module = await Test.createTestingModule({
+      providers: [
+        ProductsService,
+        { provide: ProductsRepository, useValue: repoMock as unknown },
+      ],
+    }).compile();
+    service = module.get(ProductsService);
+  });
+
+  it('retorna produtos mapeados para ids válidos', async () => {
+    repoMock.findManyByIds.mockResolvedValue([
+      { id: 'p1', name: 'Leche 1L', prices: [] },
+      { id: 'p2', name: 'Leche 6x1L', prices: [] },
+    ]);
+    const result = await service.compare(['p1', 'p2']);
+    expect(result).toHaveLength(2);
+    expect(repoMock.findManyByIds).toHaveBeenCalledWith(['p1', 'p2']);
+  });
+
+  it('rejeita lista vazia com COMPARE_EMPTY', async () => {
+    await expect(service.compare([])).rejects.toMatchObject({
+      message: expect.stringContaining('ao menos 1 id'),
+    });
+  });
+
+  it('rejeita > 20 ids com COMPARE_LIMIT_EXCEEDED', async () => {
+    const ids = Array.from({ length: 21 }, (_, i) => `p${i}`);
+    await expect(service.compare(ids)).rejects.toMatchObject({
+      message: expect.stringContaining('Máximo 20'),
+    });
+  });
+});
