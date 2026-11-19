@@ -18,7 +18,8 @@ const SCHEDULE: Array<{ slug: string; cron: string }> = [
   { slug: 'carrefour', cron: '30 3 * * *' },
   { slug: 'alcampo', cron: '0 4 * * *' },
   { slug: 'dia', cron: '30 4 * * *' },
-  { slug: 'froiz', cron: '0 5 * * 2' },
+  { slug: 'eroski', cron: '0 5 * * *' },
+  { slug: 'froiz', cron: '0 6 * * 2' },
   { slug: 'lidl', cron: '0 6 * * 2' },
   { slug: 'aldi', cron: '0 7 * * 2' },
 ];

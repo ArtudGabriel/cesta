@@ -21,7 +21,18 @@ export interface RawProduct {
   isAvailable: boolean;
 }
 
+/**
+ * Definição para auto-registro de Supermarket. Adapters introduzidos pós-seed
+ * (ex: Eroski S124) expõem definição → service upserta no DB antes de rodar.
+ */
+export interface SupermarketDefinition {
+  slug: string;
+  name: string;
+  color: string;
+}
+
 export interface SupermarketAdapter {
   readonly slug: string;
+  readonly definition?: SupermarketDefinition;
   fetchProducts(options?: { postalCode?: string }): Promise<RawProduct[]>;
 }

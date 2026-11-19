@@ -111,7 +111,7 @@ async function bootstrap(): Promise<void> {
     // default por Akamai 403 persistente (S120 warmup+cookie não bypass JS
     // challenge). Carrefour volta via Puppeteer em sprint futuro. DIA tem
     // menos proteção anti-bot. Env `AUTO_SYNC_ON_BOOT_SLUGS` override opcional.
-    const slugs = (process.env.AUTO_SYNC_ON_BOOT_SLUGS ?? 'mercadona,dia')
+    const slugs = (process.env.AUTO_SYNC_ON_BOOT_SLUGS ?? 'mercadona,dia,eroski')
       .split(',')
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
