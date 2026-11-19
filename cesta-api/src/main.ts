@@ -112,7 +112,7 @@ async function bootstrap(): Promise<void> {
     // challenge). Carrefour volta via Puppeteer em sprint futuro. DIA tem
     // menos proteção anti-bot. Env `AUTO_SYNC_ON_BOOT_SLUGS` override opcional.
     const slugs = (
-      process.env.AUTO_SYNC_ON_BOOT_SLUGS ?? 'mercadona,dia,eroski,lidl'
+      process.env.AUTO_SYNC_ON_BOOT_SLUGS ?? 'mercadona,dia,eroski,lidl,aldi'
     )
       .split(',')
       .map((s) => s.trim())
