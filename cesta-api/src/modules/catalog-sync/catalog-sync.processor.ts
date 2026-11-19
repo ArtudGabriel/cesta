@@ -44,7 +44,7 @@ export class CatalogSyncProcessor
 
   private async scheduleCrons(): Promise<void> {
     for (const entry of SCHEDULE) {
-      const jobId = `cron:${entry.slug}`;
+      const jobId = `cron-${entry.slug}`;
       try {
         await this.queue.add(
           'scheduled-sync',
@@ -65,7 +65,20 @@ export class CatalogSyncProcessor
 
   async process(job: Job<CatalogSyncJob>): Promise<void> {
     const { supermarketSlug } = job.data;
-    this.logger.log(`Running sync for ${supermarketSlug}`);
-    await this.service.runFor(supermarketSlug);
+    this.logger.log(`Running sync for ${supermarketSlug} (jobId=${job.id ?? '?'})`);
+    try {
+      const result = await this.service.runFor(supermarketSlug);
+      this.logger.log(
+        `Sync ${supermarketSlug} done: ${JSON.stringify(result)}`,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : undefined;
+      this.logger.error(
+        `Sync ${supermarketSlug} failed: ${message}`,
+        stack,
+      );
+      throw err; // Mantém BullMQ marcando como failed pra retry/visibilidade.
+    }
   }
 }

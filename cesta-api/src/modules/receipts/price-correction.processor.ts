@@ -132,7 +132,7 @@ export class PriceCorrectionProcessor extends WorkerHost {
       'check',
       { productId, supermarketId },
       {
-        jobId: `${productId}:${supermarketId}`,
+        jobId: `${productId}-${supermarketId}`,
         removeOnComplete: 100,
         removeOnFail: 50,
       },

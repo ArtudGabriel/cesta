@@ -47,7 +47,7 @@ export class AlertPriceCheckProcessor
         'price-check-scan',
         {},
         {
-          jobId: 'cron:alert-price-check',
+          jobId: 'cron-alert-price-check',
           repeat: { pattern: cron, tz: 'Europe/Madrid' },
           removeOnComplete: 50,
           removeOnFail: 50,

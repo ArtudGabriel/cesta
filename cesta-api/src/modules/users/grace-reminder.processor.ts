@@ -60,7 +60,7 @@ export class GraceReminderProcessor
         'reminder-scan',
         {},
         {
-          jobId: 'cron:grace-reminder',
+          jobId: 'cron-grace-reminder',
           repeat: { pattern: cron, tz: 'UTC' },
           removeOnComplete: 50,
           removeOnFail: 50,
