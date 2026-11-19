@@ -45,6 +45,29 @@ Procedimento (acesso ou refresh; aplica-se igual aos dois):
 Não gire `access` + `refresh` no mesmo deploy; escalone pelo menos um ciclo de
 refresh entre eles pra evitar invalidar todas as sessões ativas.
 
+## Puppeteer disabled em free tier (Sprint 130)
+
+Adapters `carrefour`, `alcampo` e `eroski` dependem de Puppeteer headless Chromium
+(bypass Akamai/AWS WAF/reCAPTCHA). Em Render free tier (512MB RAM) Chromium
+~300MB + Node ~150MB estoura o limite e dispara `oomKilled` (evento
+confirmado 2026-11-19 22:49:24Z).
+
+**Default produção**: 4 adapters leves ativos (Mercadona, DIA, LIDL, Aldi).
+Bootstrap boot enfileira apenas estes 4; cron scheduler pula os Puppeteer.
+Adapters permanecem registrados em DI — podem ser invocados manualmente via
+`POST /admin/catalog-sync/<slug>/run` se necessário (uma única run cabe em
+RAM, risco é cron+bootstrap simultâneo).
+
+**Reabilitar após upgrade para Render Pro (1GB+)**:
+
+```
+AUTO_SYNC_ON_BOOT_SLUGS=mercadona,dia,lidl,aldi,carrefour,alcampo,eroski
+CATALOG_SYNC_PUPPETEER_ENABLED=true
+```
+
+Ou migrar `catalog-sync` worker para serviço separado (bull-worker container
+com RAM dedicada) — padrão recomendado quando tráfego real justificar.
+
 ## Documentação
 
 - [`../README.md`](../README.md) — overview, deploy, CI
