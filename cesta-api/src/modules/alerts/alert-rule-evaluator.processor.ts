@@ -54,7 +54,7 @@ export class AlertRuleEvaluatorProcessor
         'rule-eval-scan',
         {},
         {
-          jobId: 'cron:alert-rule-evaluator',
+          jobId: 'cron-alert-rule-evaluator',
           repeat: { pattern: cron, tz: 'Europe/Madrid' },
           removeOnComplete: 50,
           removeOnFail: 50,

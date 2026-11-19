@@ -96,6 +96,7 @@ export class CatalogSyncService {
     const updatedProductIds = new Set<string>();
 
     try {
+      this.logger.log(`Sync ${supermarketSlug}: run=${run.id} fetching adapter...`);
       const raws = await Sentry.startSpan(
         {
           name: `catalog-sync.${supermarketSlug}`,
@@ -103,6 +104,7 @@ export class CatalogSyncService {
         },
         () => adapter.fetchProducts(),
       );
+      this.logger.log(`Sync ${supermarketSlug}: adapter retornou ${raws.length} raw products`);
 
       for (const raw of raws) {
         stats.itemsProcessed += 1;
@@ -142,7 +144,7 @@ export class CatalogSyncService {
             'check',
             { productId: product.id, supermarketId: supermarket.id },
             {
-              jobId: `${product.id}:${supermarket.id}`,
+              jobId: `${product.id}-${supermarket.id}`,
               removeOnComplete: 100,
               removeOnFail: 50,
             },
