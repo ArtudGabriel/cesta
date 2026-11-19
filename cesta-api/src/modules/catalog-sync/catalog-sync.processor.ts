@@ -13,7 +13,12 @@ export interface CatalogSyncJob {
 // Agendamento — cron em Europe/Madrid. Espaçamento de 30min entre runs pra
 // aliviar DB. Froiz/LIDL/Aldi são semanais (terça) porque dependem de
 // scraping/folleto que não muda diariamente.
-const SCHEDULE: Array<{ slug: string; cron: string }> = [
+// Sprint 130: Puppeteer slugs (carrefour, alcampo, eroski) excluídos do
+// cron por OOM Render free tier 512MB (Chromium +300MB). Reabilitar via
+// `CATALOG_SYNC_PUPPETEER_ENABLED=true` em Pro plan.
+const PUPPETEER_SLUGS = new Set(['carrefour', 'alcampo', 'eroski']);
+
+const FULL_SCHEDULE: Array<{ slug: string; cron: string }> = [
   { slug: 'mercadona', cron: '0 3 * * *' },
   { slug: 'carrefour', cron: '30 3 * * *' },
   { slug: 'alcampo', cron: '0 4 * * *' },
@@ -23,6 +28,13 @@ const SCHEDULE: Array<{ slug: string; cron: string }> = [
   { slug: 'lidl', cron: '0 6 * * 2' },
   { slug: 'aldi', cron: '0 7 * * 2' },
 ];
+
+function activeSchedule(): Array<{ slug: string; cron: string }> {
+  if (process.env.CATALOG_SYNC_PUPPETEER_ENABLED === 'true') {
+    return FULL_SCHEDULE;
+  }
+  return FULL_SCHEDULE.filter((entry) => !PUPPETEER_SLUGS.has(entry.slug));
+}
 
 // Sprint 119 follow-up: concurrency=3 permite adapters distintos rodarem em
 // paralelo (Mercadona + Carrefour + outro). Com concurrency=1 default, cada
@@ -50,7 +62,14 @@ export class CatalogSyncProcessor
   }
 
   private async scheduleCrons(): Promise<void> {
-    for (const entry of SCHEDULE) {
+    const schedule = activeSchedule();
+    const skipped = FULL_SCHEDULE.filter((e) => !schedule.includes(e));
+    if (skipped.length > 0) {
+      this.logger.warn(
+        `Puppeteer disabled (OOM Render free tier) — skipping crons: ${skipped.map((e) => e.slug).join(',')}`,
+      );
+    }
+    for (const entry of schedule) {
       const jobId = `cron-${entry.slug}`;
       try {
         await this.queue.add(
