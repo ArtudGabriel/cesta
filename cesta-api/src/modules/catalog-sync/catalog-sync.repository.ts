@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, Product, SyncRun } from '@prisma/client';
+import { MeasureUnit, Prisma, Product, SyncRun } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
+import type { RawProduct } from './adapters/supermarket-adapter.interface';
 
 interface PersistPriceInput {
   productId: string;
@@ -25,6 +26,25 @@ export class CatalogSyncRepository {
   findProductByNormalizedName(name: string): Promise<Product | null> {
     return this.prisma.product.findFirst({
       where: { normalizedName: name, deletedAt: null },
+    });
+  }
+
+  // Sprint 116: cria Product a partir de raw de adapter oficial quando o
+  // match por EAN/normalizedName falha (catálogo vazio). Mirror do
+  // scripts/sync-mercadona.ts (S108). Mantém candidate pipeline pra
+  // adapters crowdsourced onde confiança é menor.
+  createProductFromRaw(raw: RawProduct, normalizedName: string): Promise<Product> {
+    return this.prisma.product.create({
+      data: {
+        name: raw.name,
+        normalizedName,
+        brand: raw.brand ?? null,
+        ean: raw.ean ?? null,
+        imageUrl: raw.imageUrl ?? null,
+        packageSize: new Prisma.Decimal(raw.packageSize),
+        packageUnit: raw.packageUnit as unknown as MeasureUnit,
+        comparisonUnit: raw.comparisonUnit as unknown as MeasureUnit,
+      },
     });
   }
 

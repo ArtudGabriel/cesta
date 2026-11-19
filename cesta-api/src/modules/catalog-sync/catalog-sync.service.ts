@@ -109,20 +109,16 @@ export class CatalogSyncService {
       for (const raw of raws) {
         stats.itemsProcessed += 1;
         try {
-          const product = await this.matchProduct(raw);
+          let product = await this.matchProduct(raw);
+          // Sprint 116: adapter oficial é fonte confiável → se o Product
+          // não existe no catálogo, criamos em vez de só registrar candidato.
+          // S115 revelou que 100% dos 4620 produtos da Mercadona viravam
+          // candidate porque o catálogo vinha vazio (EAN null + sem match
+          // por slug). Mantemos o pipeline de candidate apenas para
+          // adapters crowdsourced (futuro).
           if (!product) {
-            await this.repo.upsertCandidate({
-              rawName: raw.name,
-              normalizedName: slugifyName(`${raw.brand ?? ''} ${raw.name}`),
-              brand: raw.brand,
-              ean: raw.ean,
-              supermarketSlug,
-              reportedPrice: raw.price,
-              packageHint: `${raw.packageSize} ${raw.packageUnit}`,
-              categoryHint: raw.categoryHint,
-            });
-            stats.itemsCandidate += 1;
-            continue;
+            const normalized = slugifyName(`${raw.brand ?? ''} ${raw.name}`);
+            product = await this.repo.createProductFromRaw(raw, normalized);
           }
 
           const { created } = await this.repo.upsertPrice({
