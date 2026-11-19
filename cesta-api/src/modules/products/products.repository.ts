@@ -62,16 +62,6 @@ export class ProductsRepository {
     });
   }
 
-  findCategories() {
-    return this.prisma.category.findMany({
-      where: { parentId: null },
-      orderBy: [{ order: 'asc' }, { nameEs: 'asc' }],
-      include: {
-        children: { orderBy: [{ order: 'asc' }, { nameEs: 'asc' }] },
-      },
-    });
-  }
-
   async findForSearch(q: string, limit: number): Promise<{
     items: Array<{
       id: string;
