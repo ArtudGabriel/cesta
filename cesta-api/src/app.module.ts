@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { validateEnv } from './config/env.validation';
+import { buildRedisConnection } from './config/redis-connection';
 import { PrismaModule } from './database/prisma.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AlertsModule } from './modules/alerts/alerts.module';
@@ -46,16 +47,9 @@ import { UsersModule } from './modules/users/users.module';
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => {
-        const url = new URL(config.getOrThrow<string>('REDIS_URL'));
-        return {
-          connection: {
-            host: url.hostname,
-            port: Number(url.port || 6379),
-            password: url.password || undefined,
-          },
-        };
-      },
+      useFactory: (config: ConfigService) => ({
+        connection: buildRedisConnection(config.getOrThrow<string>('REDIS_URL')),
+      }),
     }),
     PrismaModule,
     AuditModule,
