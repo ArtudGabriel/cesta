@@ -127,7 +127,9 @@ async function bootstrap(): Promise<void> {
       await queue.add(
         'bootstrap-sync',
         { supermarketSlug: 'mercadona' },
-        { jobId: 'bootstrap:mercadona', removeOnComplete: 10, removeOnFail: 10 },
+        // Sprint 113: BullMQ v4+ rejeita ':' em Custom Id ("Custom Id cannot
+        // contain :"). Troca 'bootstrap:mercadona' → 'bootstrap-mercadona'.
+        { jobId: 'bootstrap-mercadona', removeOnComplete: 10, removeOnFail: 10 },
       );
       logger.log('bootstrap-sync mercadona enqueued');
     } catch (err) {
