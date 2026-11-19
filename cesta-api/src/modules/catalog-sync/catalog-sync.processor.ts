@@ -23,7 +23,13 @@ const SCHEDULE: Array<{ slug: string; cron: string }> = [
   { slug: 'aldi', cron: '0 7 * * 2' },
 ];
 
-@Processor(CATALOG_SYNC_QUEUE)
+// Sprint 119 follow-up: concurrency=3 permite adapters distintos rodarem em
+// paralelo (Mercadona + Carrefour + outro). Com concurrency=1 default, cada
+// deploy re-enfileira bootstrap-sync mercadona (S115: sem jobId) e Carrefour
+// ficava stuck atrás de N Mercadona runs de ~24min cada. Adapter cada tem
+// rate-limit interno (politeFetch jitter 1-7s), então paralelizar não causa
+// cross-contamination de HTTP contra um único mercado.
+@Processor(CATALOG_SYNC_QUEUE, { concurrency: 3 })
 export class CatalogSyncProcessor
   extends WorkerHost
   implements OnModuleInit
