@@ -52,6 +52,23 @@ export class CatalogSyncRepository {
     return this.prisma.supermarket.findUnique({ where: { slug } });
   }
 
+  /**
+   * Sprint 124: adapter introduzido pós-seed expõe definition e service
+   * upserta antes de runFor. Idempotente, não sobrescreve nome/color se já
+   * existir (apenas cria se missing).
+   */
+  async ensureSupermarket(def: {
+    slug: string;
+    name: string;
+    color: string;
+  }) {
+    return this.prisma.supermarket.upsert({
+      where: { slug: def.slug },
+      create: { slug: def.slug, name: def.name, color: def.color },
+      update: {},
+    });
+  }
+
   async upsertPrice(input: PersistPriceInput): Promise<{ created: boolean }> {
     const existing = await this.prisma.productPrice.findUnique({
       where: {

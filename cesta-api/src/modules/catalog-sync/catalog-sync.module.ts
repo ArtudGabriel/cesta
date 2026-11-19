@@ -6,6 +6,7 @@ import { AlcampoAdapter } from './adapters/alcampo.adapter';
 import { AldiAdapter } from './adapters/aldi.adapter';
 import { CarrefourAdapter } from './adapters/carrefour.adapter';
 import { DiaAdapter } from './adapters/dia.adapter';
+import { EroskiAdapter } from './adapters/eroski.adapter';
 import { FroizAdapter } from './adapters/froiz.adapter';
 import { LidlAdapter } from './adapters/lidl.adapter';
 import { MercadonaAdapter } from './adapters/mercadona.adapter';
@@ -34,6 +35,7 @@ import { CatalogSyncService } from './catalog-sync.service';
     CarrefourAdapter,
     AlcampoAdapter,
     DiaAdapter,
+    EroskiAdapter,
     FroizAdapter,
     LidlAdapter,
     AldiAdapter,

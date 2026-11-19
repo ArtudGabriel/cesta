@@ -16,6 +16,7 @@ const SUPERMARKETS = [
   { slug: 'lidl',      name: 'LIDL',      color: '#FFD100' },
   { slug: 'froiz',     name: 'Froiz',     color: '#4BA82E' },
   { slug: 'dia',       name: 'DIA',       color: '#D0021B' },
+  { slug: 'eroski',    name: 'Eroski',    color: '#E30613' },
   { slug: 'aldi',      name: 'Aldi',      color: '#003087' },
 ];
 

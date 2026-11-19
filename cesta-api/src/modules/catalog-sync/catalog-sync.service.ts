@@ -13,6 +13,7 @@ import { AlcampoAdapter } from './adapters/alcampo.adapter';
 import { AldiAdapter } from './adapters/aldi.adapter';
 import { CarrefourAdapter } from './adapters/carrefour.adapter';
 import { DiaAdapter } from './adapters/dia.adapter';
+import { EroskiAdapter } from './adapters/eroski.adapter';
 import { FroizAdapter } from './adapters/froiz.adapter';
 import { LidlAdapter } from './adapters/lidl.adapter';
 import { MercadonaAdapter } from './adapters/mercadona.adapter';
@@ -45,6 +46,7 @@ export class CatalogSyncService {
     carrefour: CarrefourAdapter,
     alcampo: AlcampoAdapter,
     dia: DiaAdapter,
+    eroski: EroskiAdapter,
     froiz: FroizAdapter,
     lidl: LidlAdapter,
     aldi: AldiAdapter,
@@ -56,6 +58,7 @@ export class CatalogSyncService {
       [carrefour.slug, carrefour],
       [alcampo.slug, alcampo],
       [dia.slug, dia],
+      [eroski.slug, eroski],
       [froiz.slug, froiz],
       [lidl.slug, lidl],
       [aldi.slug, aldi],
@@ -75,6 +78,12 @@ export class CatalogSyncService {
         HttpStatus.NOT_FOUND,
         { supermarketSlug },
       );
+
+    // Sprint 124: adapters pós-seed expõem definition → auto-upsert Supermarket
+    // antes de validar existência (Eroski entrou em S124 sem re-rodar seed prod).
+    if (adapter.definition) {
+      await this.repo.ensureSupermarket(adapter.definition);
+    }
 
     const supermarket = await this.repo.findSupermarketBySlug(supermarketSlug);
     if (!supermarket)
