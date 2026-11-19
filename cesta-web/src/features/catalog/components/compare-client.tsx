@@ -14,6 +14,7 @@ import { useCompare } from "../hooks/use-compare";
 import type { Product } from "../types/catalog.types";
 import { CompareAddSheet } from "./compare-add-sheet";
 import { CompareGrid, type ViewMode } from "./compare-grid";
+import { CompareMatrix } from "./compare-matrix";
 import { NutriFilters } from "./nutri-filters";
 
 const MAX = 4;
@@ -112,10 +113,16 @@ export function CompareClient({ initialIds, initialData }: CompareClientProps) {
             <div
               className="mb-3 flex gap-2"
               role="radiogroup"
-              aria-label={t("viewPrices") + " / " + t("viewNutrition")}
+              aria-label={t("viewPrices") + " / " + t("viewMatrix") + " / " + t("viewNutrition")}
             >
-              {(["prices", "nutrition"] as const).map((mode) => {
+              {(["prices", "matrix", "nutrition"] as const).map((mode) => {
                 const active = viewMode === mode;
+                const label =
+                  mode === "prices"
+                    ? t("viewPrices")
+                    : mode === "matrix"
+                      ? t("viewMatrix")
+                      : t("viewNutrition");
                 return (
                   <button
                     key={mode}
@@ -130,7 +137,7 @@ export function CompareClient({ initialIds, initialData }: CompareClientProps) {
                         : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200",
                     )}
                   >
-                    {mode === "prices" ? t("viewPrices") : t("viewNutrition")}
+                    {label}
                   </button>
                 );
               })}
@@ -165,7 +172,7 @@ export function CompareClient({ initialIds, initialData }: CompareClientProps) {
                 })}
               </div>
             )}
-            <div className="mb-3">
+            <div className={cn("mb-3", viewMode === "matrix" && "hidden")}>
               <NutriFilters
                 sortByNutri={sortByNutri}
                 onSortByNutriChange={setSortByNutri}
@@ -173,15 +180,19 @@ export function CompareClient({ initialIds, initialData }: CompareClientProps) {
                 onOnlyHealthyChange={setOnlyHealthy}
               />
             </div>
-            <CompareGrid
-              products={data ?? []}
-              onRemove={remove}
-              sortMode={sortMode}
-              viewMode={viewMode}
-              onSwitchToPrices={() => setViewMode("prices")}
-              sortByNutri={sortByNutri}
-              onlyHealthy={onlyHealthy}
-            />
+            {viewMode === "matrix" ? (
+              <CompareMatrix products={data ?? []} onRemove={remove} />
+            ) : (
+              <CompareGrid
+                products={data ?? []}
+                onRemove={remove}
+                sortMode={sortMode}
+                viewMode={viewMode}
+                onSwitchToPrices={() => setViewMode("prices")}
+                sortByNutri={sortByNutri}
+                onlyHealthy={onlyHealthy}
+              />
+            )}
             {ids.length < MAX && (
               <div className="mt-4 flex justify-center">
                 <Button

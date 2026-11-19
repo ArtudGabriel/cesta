@@ -17,7 +17,7 @@ import { useDietaryPreferences } from "@/features/profile/hooks/use-dietary-pref
 import type { Product } from "../types/catalog.types";
 
 export type SortMode = "absolute" | "unit";
-export type ViewMode = "prices" | "nutrition";
+export type ViewMode = "prices" | "matrix" | "nutrition";
 
 interface CompareGridProps {
   products: Product[];
