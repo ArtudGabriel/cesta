@@ -80,16 +80,6 @@ export class ProductsController {
     return this.productsService.compare(parsed);
   }
 
-  // Sprint 118 — route `categories` ANTES de `:id`. NestJS resolve matches na
-  // ordem de declaração; sem este handler, `/products/categories` cai em
-  // `:id` e a validação CUID devolve 400.
-  @Public()
-  @Get('categories')
-  @ApiOperation({ summary: 'Listar categorias de produtos (raiz + filhos)' })
-  listCategories() {
-    return this.productsService.listCategories();
-  }
-
   @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Detalhe do produto com preços em todos os mercados' })
