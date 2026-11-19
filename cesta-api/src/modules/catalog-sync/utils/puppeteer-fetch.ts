@@ -1,10 +1,36 @@
 import { Logger } from '@nestjs/common';
-import chromium from '@sparticuz/chromium-min';
-import puppeteer, {
-  Browser,
-  LaunchOptions,
-  Page,
-} from 'puppeteer-core';
+import puppeteer, { Browser, LaunchOptions } from 'puppeteer-core';
+
+// Sprint 129 fix: @sparticuz/chromium-min usa `module.exports = Chromium`
+// em CJS (plain default), mas .d.ts ESM declara `export default Chromium`.
+// Projeto NÃO tem esModuleInterop → TS `import chromium from '...'` compila
+// pra `require('...').default`, que é undefined em runtime CJS. Prod S128
+// crashou com "Cannot read properties of undefined (reading executablePath)".
+//
+// Fix: require() dinâmico + unwrap .default se presente. Cobre ambos CJS
+// (direct Chromium class) e ESM (.default = Chromium).
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const rawChromium = require('@sparticuz/chromium-min') as unknown;
+interface ChromiumApi {
+  args: string[];
+  executablePath(input?: string): Promise<string>;
+}
+function resolveChromium(raw: unknown): ChromiumApi {
+  if (raw && typeof (raw as ChromiumApi).executablePath === 'function') {
+    return raw as ChromiumApi;
+  }
+  const withDefault = raw as { default?: ChromiumApi } | null;
+  if (
+    withDefault?.default &&
+    typeof withDefault.default.executablePath === 'function'
+  ) {
+    return withDefault.default;
+  }
+  throw new Error(
+    `@sparticuz/chromium-min não expõe executablePath (raw=${typeof raw}, default=${typeof withDefault?.default})`,
+  );
+}
+const chromium = resolveChromium(rawChromium);
 
 /**
  * Sprint 128: Puppeteer fetch helper para bypass anti-bot (Akamai, AWS WAF,
@@ -62,6 +88,12 @@ async function getBrowser(): Promise<Browser> {
     const executablePath =
       process.env.PUPPETEER_EXECUTABLE_PATH ??
       (await chromium.executablePath(CHROMIUM_PACK_URL));
+
+    if (!executablePath) {
+      throw new Error(
+        `Chromium executablePath vazio (CHROMIUM_PACK_URL=${CHROMIUM_PACK_URL})`,
+      );
+    }
 
     const launchOptions: LaunchOptions = {
       args: [
