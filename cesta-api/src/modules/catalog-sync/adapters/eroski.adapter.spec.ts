@@ -11,6 +11,16 @@ jest.mock('../utils/polite-fetch', () => {
 jest.mock('../utils/user-agents', () => ({ pickUserAgent: () => 'test-ua' }));
 
 const mockedPoliteFetchRaw = politeFetchRaw as jest.MockedFunction<typeof politeFetchRaw>;
+const originalFetch = global.fetch;
+
+function mockBareResponse(body: string, status = 200): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: new Headers(),
+    text: async () => body,
+  } as unknown as Response;
+}
 
 // Fixture reduzido mimetizando HTML real Eroski — <a class="product-title-link"
 // data-metrics="...ecommerce JSON..."> capturado em S124.
@@ -109,6 +119,11 @@ describe('EroskiAdapter', () => {
     mockedPoliteFetchRaw.mockReset();
   });
 
+  afterEach(() => {
+    global.fetch = originalFetch;
+    jest.restoreAllMocks();
+  });
+
   it('expõe definition com slug/name/color para auto-register', () => {
     expect(adapter.definition).toEqual({
       slug: 'eroski',
@@ -118,9 +133,13 @@ describe('EroskiAdapter', () => {
   });
 
   it('carrega sitemap + categoria HTML + extrai ecommerce JSON do data-metrics', async () => {
-    mockedPoliteFetchRaw.mockImplementation((url: string) => {
+    const fetchMock = jest.fn((url: string) => {
       if (url.endsWith('/sitemap.xml'))
-        return Promise.resolve({ body: SITEMAP_XML, status: 200, setCookie: [] }) as any;
+        return Promise.resolve(mockBareResponse(SITEMAP_XML));
+      return Promise.resolve(mockBareResponse('', 404));
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+    mockedPoliteFetchRaw.mockImplementation((url: string) => {
       if (url.includes('naranjas'))
         return Promise.resolve({ body: NARANJAS_HTML, status: 200, setCookie: [] }) as any;
       if (url.includes('leches'))
@@ -170,27 +189,30 @@ describe('EroskiAdapter', () => {
   });
 
   it('retorna [] quando sitemap vazio', async () => {
-    mockedPoliteFetchRaw.mockResolvedValue({
-      body: '<?xml version="1.0"?><urlset></urlset>',
-      status: 200,
-      setCookie: [],
-    });
+    const fetchMock = jest.fn(() =>
+      Promise.resolve(
+        mockBareResponse('<?xml version="1.0"?><urlset></urlset>'),
+      ),
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
     const products = await adapter.fetchProducts();
     expect(products).toEqual([]);
   });
 
   it('filtra URLs não-categorias do sitemap', async () => {
-    mockedPoliteFetchRaw.mockImplementation((url: string) => {
+    const fetchMock = jest.fn((url: string) => {
       if (url.endsWith('/sitemap.xml'))
-        return Promise.resolve({
-          body: `<?xml version="1.0"?><urlset>
+        return Promise.resolve(
+          mockBareResponse(`<?xml version="1.0"?><urlset>
             <url><loc>https://supermercado.eroski.es/es/login/</loc></url>
             <url><loc>https://supermercado.eroski.es/es/supermercado/2059698-frescos/</loc></url>
             <url><loc>https://supermercado.eroski.es/es/supermercado/2059698-frescos/2059700-naranjas/</loc></url>
-          </urlset>`,
-          status: 200,
-          setCookie: [],
-        }) as any;
+          </urlset>`),
+        );
+      return Promise.resolve(mockBareResponse('', 404));
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+    mockedPoliteFetchRaw.mockImplementation((url: string) => {
       if (url.includes('naranjas'))
         return Promise.resolve({ body: NARANJAS_HTML, status: 200, setCookie: [] }) as any;
       return Promise.resolve({ body: '', status: 404, setCookie: [] }) as any;
@@ -198,18 +220,26 @@ describe('EroskiAdapter', () => {
 
     await adapter.fetchProducts();
 
-    const calls = mockedPoliteFetchRaw.mock.calls.map((c) => c[0]);
-    // URLs chamadas: sitemap + apenas /supermercado/ com >= 2 segmentos após prefix
-    expect(calls).toContain('https://supermercado.eroski.es/sitemap.xml');
-    expect(calls.some((u) => u.includes('/login/'))).toBe(false);
-    // Nota: /supermercado/<x>/ tem 1 segmento → filtrada; /supermercado/<x>/<y>/ tem 2 → incluída
-    expect(calls.some((u) => u.includes('2059700-naranjas'))).toBe(true);
+    const politeFetchCalls = mockedPoliteFetchRaw.mock.calls.map((c) => c[0]);
+    // politeFetchRaw só chamado pra páginas de categoria (não sitemap)
+    expect(politeFetchCalls.some((u) => u.includes('/login/'))).toBe(false);
+    expect(politeFetchCalls.some((u) => u.includes('2059700-naranjas'))).toBe(
+      true,
+    );
+    // sitemap via bareFetch (global.fetch)
+    expect(
+      fetchMock.mock.calls.some((c) =>
+        (c[0] as string).endsWith('/sitemap.xml'),
+      ),
+    ).toBe(true);
   });
 
   it('não aborta quando categoria HTML retorna 404', async () => {
+    const fetchMock = jest.fn(() =>
+      Promise.resolve(mockBareResponse(SITEMAP_XML)),
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
     mockedPoliteFetchRaw.mockImplementation((url: string) => {
-      if (url.endsWith('/sitemap.xml'))
-        return Promise.resolve({ body: SITEMAP_XML, status: 200, setCookie: [] }) as any;
       if (url.includes('naranjas'))
         return Promise.resolve({ body: '', status: 404, setCookie: [] }) as any;
       if (url.includes('leches'))
@@ -219,5 +249,36 @@ describe('EroskiAdapter', () => {
 
     const products = await adapter.fetchProducts();
     expect(products.find((p) => p.externalId === '11111')).toBeDefined();
+  });
+
+  // Sprint 125: fallback robots.txt quando sitemap.xml inválido
+  it('fallback robots.txt quando sitemap.xml retorna body vazio', async () => {
+    const altSitemap = 'https://supermercado.eroski.es/sitemaps/products.xml';
+    const fetchMock = jest.fn((url: string) => {
+      if (url === 'https://supermercado.eroski.es/sitemap.xml') {
+        return Promise.resolve(mockBareResponse(''));
+      }
+      if (url.endsWith('/robots.txt')) {
+        return Promise.resolve(
+          mockBareResponse(`User-agent: *\nSitemap: ${altSitemap}\n`),
+        );
+      }
+      if (url === altSitemap) {
+        return Promise.resolve(mockBareResponse(SITEMAP_XML));
+      }
+      return Promise.resolve(mockBareResponse('', 404));
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+    mockedPoliteFetchRaw.mockResolvedValue({
+      body: NARANJAS_HTML,
+      status: 200,
+      setCookie: [],
+    } as any);
+
+    const products = await adapter.fetchProducts();
+    const urls = fetchMock.mock.calls.map((c) => c[0] as string);
+    expect(urls).toContain('https://supermercado.eroski.es/robots.txt');
+    expect(urls).toContain(altSitemap);
+    expect(products.length).toBeGreaterThan(0);
   });
 });
