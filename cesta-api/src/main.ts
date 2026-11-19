@@ -1,14 +1,17 @@
+import { getQueueToken } from '@nestjs/bullmq';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { Queue } from 'bullmq';
 import * as compression from 'compression';
 import * as cookieParser from 'cookie-parser';
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { join } from 'path';
 import { AppModule } from './app.module';
+import { CATALOG_SYNC_QUEUE } from './modules/catalog-sync/catalog-sync.processor';
 import {
   buildVercelPreviewRegex,
   isAllowedOrigin,
@@ -91,7 +94,32 @@ async function bootstrap(): Promise<void> {
 
   const port = config.get<number>('PORT', 3001);
   await app.listen(port, '0.0.0.0');
-  new Logger('Bootstrap').log(`Cesta API rodando em porta ${port}`);
+  const logger = new Logger('Bootstrap');
+  logger.log(`Cesta API rodando em porta ${port}`);
+
+  // Sprint 110: populate inicial do catálogo via queue, pós-listen() pra
+  // nunca travar port scan do Render. OnApplicationBootstrap (S109) rodava
+  // antes de listen() e BullMQ.queue.add ficava pending indefinido no cold
+  // start do Upstash Redis. Agora: aguardamos Redis ready explicitamente,
+  // logamos cada passo, e try/catch garante que falha de populate não
+  // derruba o server já em listening.
+  if (process.env.AUTO_SYNC_ON_BOOT === 'true') {
+    try {
+      logger.log('AUTO_SYNC_ON_BOOT=true → waiting Redis ready...');
+      const queue = app.get<Queue>(getQueueToken(CATALOG_SYNC_QUEUE));
+      await queue.waitUntilReady();
+      logger.log('Redis ready, enqueueing bootstrap-sync mercadona...');
+      await queue.add(
+        'bootstrap-sync',
+        { supermarketSlug: 'mercadona' },
+        { jobId: 'bootstrap:mercadona', removeOnComplete: 10, removeOnFail: 10 },
+      );
+      logger.log('bootstrap-sync mercadona enqueued');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error(`AUTO_SYNC_ON_BOOT enqueue failed: ${message}`);
+    }
+  }
 }
 
 bootstrap();
