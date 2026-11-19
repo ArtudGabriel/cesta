@@ -1,12 +1,24 @@
 import { CarrefourAdapter } from './carrefour.adapter';
-import { politeFetch } from '../utils/polite-fetch';
+import {
+  politeFetch,
+  politeFetchRaw,
+  serializeCookieJar,
+} from '../utils/polite-fetch';
 
-jest.mock('../utils/polite-fetch');
+jest.mock('../utils/polite-fetch', () => {
+  const actual = jest.requireActual('../utils/polite-fetch');
+  return {
+    ...actual,
+    politeFetch: jest.fn(),
+    politeFetchRaw: jest.fn().mockResolvedValue({ body: '', status: 200, setCookie: [] }),
+  };
+});
 jest.mock('../utils/user-agents', () => ({
   pickUserAgent: () => 'test-ua',
 }));
 
 const mockedPoliteFetch = politeFetch as jest.MockedFunction<typeof politeFetch>;
+const mockedPoliteFetchRaw = politeFetchRaw as jest.MockedFunction<typeof politeFetchRaw>;
 
 const LECHE_FIXTURE = {
   results: [
@@ -68,6 +80,12 @@ describe('CarrefourAdapter', () => {
   beforeEach(() => {
     adapter = new CarrefourAdapter();
     mockedPoliteFetch.mockReset();
+    mockedPoliteFetchRaw.mockReset();
+    mockedPoliteFetchRaw.mockResolvedValue({
+      body: '',
+      status: 200,
+      setCookie: [],
+    });
   });
 
   it('normaliza produtos oficiais em RawProduct[]', async () => {
@@ -183,5 +201,67 @@ describe('CarrefourAdapter', () => {
     const products = await adapter.fetchProducts();
 
     expect(products).toEqual([]);
+  });
+
+  // Sprint 120 — warmup + cookie session
+  it('warmup extrai Set-Cookie e passa Cookie header nas queries', async () => {
+    const setCookie = [
+      'ak_bmsc=abc123; Path=/; Max-Age=3600',
+      'bm_sv=xyz456; Path=/; Max-Age=1800',
+    ];
+    mockedPoliteFetchRaw.mockResolvedValueOnce({
+      body: '<html></html>',
+      status: 200,
+      setCookie,
+    });
+    mockedPoliteFetch.mockResolvedValue({ results: [] } as any);
+
+    await adapter.fetchProducts();
+
+    const expectedCookie = serializeCookieJar(setCookie);
+    expect(expectedCookie).toBe('ak_bmsc=abc123; bm_sv=xyz456');
+
+    // Primeira chamada de search (query=leche) deve conter cookie.
+    const firstSearchCall = mockedPoliteFetch.mock.calls[0];
+    expect(firstSearchCall[1]).toMatchObject({
+      cookie: expectedCookie,
+      referer: 'https://www.carrefour.es/',
+      maxRetries: 5,
+      minWaitOnBlockMs: 30_000,
+    });
+  });
+
+  it('warmup sem cookies ainda roda queries (fallback graceful)', async () => {
+    mockedPoliteFetchRaw.mockResolvedValueOnce({
+      body: '<html></html>',
+      status: 200,
+      setCookie: [],
+    });
+    mockedPoliteFetch.mockResolvedValue(YOGUR_FIXTURE as any);
+
+    const products = await adapter.fetchProducts();
+
+    const firstSearchCall = mockedPoliteFetch.mock.calls[0];
+    expect(firstSearchCall[1]).not.toHaveProperty('cookie', expect.any(String));
+    expect(products.find((p) => p.externalId === 'C-010')).toBeDefined();
+  });
+
+  it('search eventualmente resolve após 403 inicial (politeFetch handles retry)', async () => {
+    // politeFetch é mockado; teste valida que adapter.search não trata 403
+    // como fatal — passa thru pra politeFetch que internamente retry (coberto
+    // em polite-fetch.spec). Aqui simulamos retry bem-sucedido retornando
+    // produto válido em uma query e null em outras (403 swallowed internamente).
+    let call = 0;
+    mockedPoliteFetch.mockImplementation(() => {
+      call += 1;
+      // Primeira query retorna null (403 after retry exhausted by politeFetch),
+      // segunda retorna YOGUR_FIXTURE (politeFetch internamente recuperou).
+      if (call === 1) return Promise.resolve(null) as any;
+      return Promise.resolve(YOGUR_FIXTURE) as any;
+    });
+
+    const products = await adapter.fetchProducts();
+
+    expect(products.find((p) => p.externalId === 'C-010')).toBeDefined();
   });
 });

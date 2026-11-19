@@ -1,5 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { politeFetch } from '../utils/polite-fetch';
+import {
+  politeFetch,
+  politeFetchRaw,
+  serializeCookieJar,
+} from '../utils/polite-fetch';
 import { pickUserAgent } from '../utils/user-agents';
 import type {
   RawPackageUnit,
@@ -20,6 +24,7 @@ import type {
 // caso bloqueie em produção, considerar scraping via Puppeteer com proxy.
 
 const BASE_URL = 'https://www.carrefour.es/search-api/query/v1/products';
+const HOMEPAGE_URL = 'https://www.carrefour.es/';
 const MAX_PER_QUERY = 50;
 
 // Queries base para varredura — cobre maioria das categorias
@@ -87,8 +92,15 @@ interface CarrefourSearchResponse {
 export class CarrefourAdapter implements SupermarketAdapter {
   readonly slug = 'carrefour';
   private readonly logger = new Logger(CarrefourAdapter.name);
+  // Sprint 120: UA fixado durante todo o run — rotacionar UA entre queries
+  // dentro da mesma sessão derruba cookies Akamai (bm_sv é UA-bound).
+  private sessionUserAgent = pickUserAgent();
+  private sessionCookie: string | null = null;
 
   async fetchProducts(): Promise<RawProduct[]> {
+    this.sessionUserAgent = pickUserAgent();
+    this.sessionCookie = await this.warmupSession();
+
     const seen = new Set<string>();
     const products: RawProduct[] = [];
 
@@ -113,16 +125,51 @@ export class CarrefourAdapter implements SupermarketAdapter {
     return products;
   }
 
+  /**
+   * Sprint 120: warmup de sessão — GET homepage antes das queries de API.
+   * Akamai Bot Manager emite ak_bmsc + bm_sv cookies no primeiro acesso
+   * HTML; re-usar esses cookies em XHR subsequentes reduz 403. Falha de
+   * warmup não aborta: search() segue sem Cookie header (comportamento S119).
+   */
+  private async warmupSession(): Promise<string | null> {
+    try {
+      const result = await politeFetchRaw<string>(HOMEPAGE_URL, {
+        userAgent: this.sessionUserAgent,
+        accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        minJitterMs: 500,
+        maxJitterMs: 1500,
+      });
+      if (result.setCookie.length === 0) {
+        this.logger.warn(
+          `Carrefour warmup: 0 cookies (status=${result.status}); seguindo sem sessão`,
+        );
+        return null;
+      }
+      const cookie = serializeCookieJar(result.setCookie);
+      this.logger.log(
+        `Carrefour warmup: ${result.setCookie.length} cookies (status=${result.status})`,
+      );
+      return cookie;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Carrefour warmup falhou: ${message}`);
+      return null;
+    }
+  }
+
   private async search(query: string): Promise<CarrefourSearchResponse | null> {
     const url = `${BASE_URL}?query=${encodeURIComponent(query)}&offset=0&limit=${MAX_PER_QUERY}`;
     try {
       return await politeFetch<CarrefourSearchResponse>(url, {
-        userAgent: pickUserAgent(),
-        referer: 'https://www.carrefour.es/',
+        userAgent: this.sessionUserAgent,
+        referer: HOMEPAGE_URL,
+        accept: 'application/json, text/plain, */*',
+        cookie: this.sessionCookie ?? undefined,
         minJitterMs: 3000,
         maxJitterMs: 7000,
-        maxRetries: 3,
+        maxRetries: 5,
         initialBackoffMs: 4000,
+        minWaitOnBlockMs: 30_000,
         onRetry: (attempt, status) => {
           this.logger.warn(
             `Carrefour retry ${attempt} (status=${status ?? 'network'}) query=${query}`,
