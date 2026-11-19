@@ -50,13 +50,25 @@ export class CatalogSyncModule implements OnApplicationBootstrap {
     private readonly queue: Queue<CatalogSyncJob>,
   ) {}
 
-  async onApplicationBootstrap(): Promise<void> {
+  onApplicationBootstrap(): void {
     if (process.env.AUTO_SYNC_ON_BOOT !== 'true') return;
-    await this.queue.add(
-      'bootstrap-sync',
-      { supermarketSlug: 'mercadona' },
-      { jobId: 'bootstrap:mercadona', removeOnComplete: 10, removeOnFail: 10 },
-    );
-    this.logger.log('AUTO_SYNC_ON_BOOT=true → enqueued bootstrap-sync mercadona');
+    // Fire-and-forget: await bloqueia app.listen() se Redis estiver latente
+    // na boot window (S109 hotfix — Render port scan timeout após 5min).
+    this.queue
+      .add(
+        'bootstrap-sync',
+        { supermarketSlug: 'mercadona' },
+        { jobId: 'bootstrap:mercadona', removeOnComplete: 10, removeOnFail: 10 },
+      )
+      .then(() =>
+        this.logger.log(
+          'AUTO_SYNC_ON_BOOT=true → enqueued bootstrap-sync mercadona',
+        ),
+      )
+      .catch((err: unknown) =>
+        this.logger.error(
+          `AUTO_SYNC_ON_BOOT enqueue failed: ${(err as Error).message}`,
+        ),
+      );
   }
 }
