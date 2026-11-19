@@ -98,16 +98,31 @@ async function bootstrap(): Promise<void> {
   logger.log(`Cesta API rodando em porta ${port}`);
 
   // Sprint 110: populate inicial do catálogo via queue, pós-listen() pra
-  // nunca travar port scan do Render. OnApplicationBootstrap (S109) rodava
-  // antes de listen() e BullMQ.queue.add ficava pending indefinido no cold
-  // start do Upstash Redis. Agora: aguardamos Redis ready explicitamente,
-  // logamos cada passo, e try/catch garante que falha de populate não
-  // derruba o server já em listening.
+  // nunca travar port scan do Render.
+  // Sprint 111: queue.waitUntilReady() do BullMQ não tem timeout nativo; no
+  // cold start do Upstash Redis a Promise ficava pending indefinido e o
+  // Render matava o container por healthcheck timeout → restart loop. Agora
+  // envolvemos em Promise.race com 30s timeout; se Redis não liga, logamos
+  // warn e SKIP enqueue (app segue em listening).
   if (process.env.AUTO_SYNC_ON_BOOT === 'true') {
+    const REDIS_READY_TIMEOUT_MS = 30_000;
+    logger.log('AUTO_SYNC_ON_BOOT=true → waiting Redis ready (timeout 30s)...');
     try {
-      logger.log('AUTO_SYNC_ON_BOOT=true → waiting Redis ready...');
       const queue = app.get<Queue>(getQueueToken(CATALOG_SYNC_QUEUE));
-      await queue.waitUntilReady();
+      await Promise.race([
+        queue.waitUntilReady(),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () =>
+              reject(
+                new Error(
+                  `Redis waitUntilReady timeout ${REDIS_READY_TIMEOUT_MS}ms`,
+                ),
+              ),
+            REDIS_READY_TIMEOUT_MS,
+          ),
+        ),
+      ]);
       logger.log('Redis ready, enqueueing bootstrap-sync mercadona...');
       await queue.add(
         'bootstrap-sync',
@@ -117,7 +132,7 @@ async function bootstrap(): Promise<void> {
       logger.log('bootstrap-sync mercadona enqueued');
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      logger.error(`AUTO_SYNC_ON_BOOT enqueue failed: ${message}`);
+      logger.warn(`AUTO_SYNC_ON_BOOT skip enqueue: ${message}`);
     }
   }
 }
