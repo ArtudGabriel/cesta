@@ -12,7 +12,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Queue } from 'bullmq';
 import { Roles } from '../../common/decorators/roles.decorator';
 import {
-  CATALOG_SYNC_QUEUE,
+  CATALOG_SYNC_MANUAL_QUEUE,
   CatalogSyncJob,
 } from './catalog-sync.processor';
 import { CatalogSyncService } from './catalog-sync.service';
@@ -23,7 +23,7 @@ import { CatalogSyncService } from './catalog-sync.service';
 export class CatalogSyncController {
   constructor(
     private readonly service: CatalogSyncService,
-    @InjectQueue(CATALOG_SYNC_QUEUE)
+    @InjectQueue(CATALOG_SYNC_MANUAL_QUEUE)
     private readonly queue: Queue<CatalogSyncJob>,
   ) {}
 
@@ -39,14 +39,12 @@ export class CatalogSyncController {
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: 'Dispara sync manual (async)' })
   async runNow(@Param('slug') slug: string) {
-    // Sprint 134-r P1: priority 1 (BullMQ highest) → manual triggers passam
-    // à frente dos repeats de cron (que não setam priority = FIFO normal).
-    // QA observou manual stuck 23min+ atrás de cron enfileirado.
-    const job = await this.queue.add(
-      'manual-sync',
-      { supermarketSlug: slug },
-      { priority: 1 },
-    );
+    // Sprint 134-r (2ª iteração): queue dedicada CATALOG_SYNC_MANUAL_QUEUE
+    // com worker próprio concurrency=2. Priority=1 em cima do cron queue
+    // (1ª iteração) não resolveu: workers ficavam saturados por repeats
+    // long-running (Mercadona ~24min) e priority só muda ordem, não
+    // preempta slot. Queue separada = slot sempre livre pra admin trigger.
+    const job = await this.queue.add('manual-sync', { supermarketSlug: slug });
     return { jobId: job.id, status: 'queued', supermarketSlug: slug };
   }
 

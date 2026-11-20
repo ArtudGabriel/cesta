@@ -5,6 +5,11 @@ import { Job, Queue } from 'bullmq';
 import { CatalogSyncService } from './catalog-sync.service';
 
 export const CATALOG_SYNC_QUEUE = 'catalog-sync';
+// Sprint 134-r (2ª iteração): queue separada para manual triggers via
+// POST /admin/catalog-sync/:slug/run. Priority=1 em cima do cron queue
+// não resolveu porque concurrency=3 ficava saturada por repeats
+// long-running (Mercadona ~24min). Queue dedicada = slot sempre livre.
+export const CATALOG_SYNC_MANUAL_QUEUE = 'catalog-sync-manual';
 
 export interface CatalogSyncJob {
   supermarketSlug: string;
@@ -75,7 +80,9 @@ export class CatalogSyncProcessor
 
   async process(job: Job<CatalogSyncJob>): Promise<void> {
     const { supermarketSlug } = job.data;
-    this.logger.log(`Running sync for ${supermarketSlug} (jobId=${job.id ?? '?'})`);
+    this.logger.log(
+      `Running cron sync for ${supermarketSlug} (jobId=${job.id ?? '?'} priority=${job.opts?.priority ?? 0})`,
+    );
     try {
       const result = await this.service.runFor(supermarketSlug);
       this.logger.log(
@@ -89,6 +96,39 @@ export class CatalogSyncProcessor
         stack,
       );
       throw err; // Mantém BullMQ marcando como failed pra retry/visibilidade.
+    }
+  }
+}
+
+// Worker dedicado pra manual-sync: queue separada = zero contenção com
+// repeat crons. concurrency=2 permite dois triggers paralelos mas não
+// mais (ScrapingBee rate limit + DB upsert).
+@Processor(CATALOG_SYNC_MANUAL_QUEUE, { concurrency: 2 })
+export class CatalogSyncManualProcessor extends WorkerHost {
+  private readonly logger = new Logger(CatalogSyncManualProcessor.name);
+
+  constructor(private readonly service: CatalogSyncService) {
+    super();
+  }
+
+  async process(job: Job<CatalogSyncJob>): Promise<void> {
+    const { supermarketSlug } = job.data;
+    this.logger.log(
+      `Running manual sync for ${supermarketSlug} (jobId=${job.id ?? '?'})`,
+    );
+    try {
+      const result = await this.service.runFor(supermarketSlug);
+      this.logger.log(
+        `Manual sync ${supermarketSlug} done: ${JSON.stringify(result)}`,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : undefined;
+      this.logger.error(
+        `Manual sync ${supermarketSlug} failed: ${message}`,
+        stack,
+      );
+      throw err;
     }
   }
 }
