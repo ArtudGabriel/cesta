@@ -130,6 +130,21 @@ export default async function ProductDetailPage({ params }: PageProps) {
   };
 
   if (hasOffers && lowPrice !== null && highPrice !== null) {
+    // Sprint 132: AggregateOffer agora inclui offers[] array per supermarket
+    // (Google aceita child Offer list dentro de AggregateOffer). Melhora
+    // match em Rich Results com seller discriminado + price individual.
+    const offersArray = product.prices
+      .filter((p) => p.isAvailable)
+      .map((p) => ({
+        "@type": "Offer",
+        priceCurrency: "EUR",
+        price: p.price.toFixed(2),
+        availability: "https://schema.org/InStock",
+        seller: {
+          "@type": "Organization",
+          name: p.supermarketName,
+        },
+      }));
     productJsonLd.offers = {
       "@type": "AggregateOffer",
       priceCurrency: "EUR",
@@ -137,6 +152,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
       highPrice: highPrice.toFixed(2),
       offerCount: availablePrices.length,
       availability: "https://schema.org/InStock",
+      offers: offersArray,
     };
   }
 

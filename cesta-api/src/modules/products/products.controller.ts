@@ -81,6 +81,21 @@ export class ProductsController {
   }
 
   @Public()
+  @Get('featured-deals')
+  @ApiOperation({
+    summary:
+      'Top N produtos com maior gap de preço entre supermarkets (sprint 132). Ordenado por spread DESC.',
+  })
+  @ApiQuery({ name: 'limit', required: false, example: 10 })
+  featuredDeals(@Query('limit') limitRaw?: string) {
+    const parsed = limitRaw != null ? Number.parseInt(limitRaw, 10) : 10;
+    if (!Number.isFinite(parsed) || parsed <= 0 || parsed > 50) {
+      throw new BadRequestException('limit deve estar entre 1 e 50');
+    }
+    return this.productsService.featuredDeals(parsed);
+  }
+
+  @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Detalhe do produto com preços em todos os mercados' })
   findOne(@Param('id') id: string) {

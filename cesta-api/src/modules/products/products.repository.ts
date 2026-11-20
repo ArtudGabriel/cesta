@@ -62,6 +62,26 @@ export class ProductsRepository {
     });
   }
 
+  /**
+   * Sprint 132: produtos com 2+ preços disponíveis (candidatos a featured
+   * deal). Cap no fetch pra evitar carregar catálogo inteiro — service
+   * depois calcula spread + top N. Oversample 10x limit alvo (service pede
+   * limit pequeno, 10-50).
+   */
+  findManyWithPrices(cap = 500): Promise<ProductWithPrices[]> {
+    return this.prisma.product.findMany({
+      where: {
+        deletedAt: null,
+        prices: {
+          some: { isAvailable: true },
+        },
+      },
+      include: PRICE_INCLUDE,
+      take: cap,
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
+
   async findForSearch(q: string, limit: number): Promise<{
     items: Array<{
       id: string;

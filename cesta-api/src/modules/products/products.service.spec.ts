@@ -178,3 +178,116 @@ describe('ProductsService.compare', () => {
     });
   });
 });
+
+// Sprint 132: featured deals (spread ordering)
+describe('ProductsService.featuredDeals', () => {
+  let service: ProductsService;
+  let repoMock: { findManyWithPrices: jest.Mock };
+
+  const makeEntity = (
+    id: string,
+    prices: Array<{ slug: string; price: number; available?: boolean }>,
+  ) => ({
+    id,
+    name: `Prod ${id}`,
+    brand: null,
+    normalizedName: `prod-${id}`,
+    ean: null,
+    imageUrl: null,
+    categoryId: null,
+    packageSize: 1,
+    packageUnit: 'LITER',
+    comparisonUnit: 'LITER',
+    calories: null,
+    protein: null,
+    fat: null,
+    saturatedFat: null,
+    carbs: null,
+    sugar: null,
+    salt: null,
+    fiber: null,
+    nutritionPer: null,
+    nutriScore: null,
+    isVegan: false,
+    isVegetarian: false,
+    isGlutenFree: false,
+    isLactoseFree: false,
+    deletedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    prices: prices.map((pr) => ({
+      id: `price-${id}-${pr.slug}`,
+      productId: id,
+      supermarketId: pr.slug,
+      currentPrice: pr.price,
+      previousPrice: null,
+      onPromotion: false,
+      isAvailable: pr.available !== false,
+      isStale: false,
+      lastSyncedAt: new Date(),
+      confidenceScore: 1,
+      source: 'official_api',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      supermarket: {
+        id: pr.slug,
+        slug: pr.slug,
+        name: pr.slug.toUpperCase(),
+        color: null,
+        logoUrl: null,
+        website: null,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    })),
+  });
+
+  beforeEach(async () => {
+    repoMock = { findManyWithPrices: jest.fn() };
+    const module = await Test.createTestingModule({
+      providers: [
+        ProductsService,
+        { provide: ProductsRepository, useValue: repoMock as unknown },
+      ],
+    }).compile();
+    service = module.get(ProductsService);
+  });
+
+  it('ordena produtos por spread DESC + cap limit', async () => {
+    repoMock.findManyWithPrices.mockResolvedValue([
+      makeEntity('spread-small', [
+        { slug: 'merc', price: 1.0 },
+        { slug: 'dia', price: 1.2 },
+      ]),
+      makeEntity('spread-big', [
+        { slug: 'merc', price: 1.0 },
+        { slug: 'aldi', price: 3.5 },
+      ]),
+      makeEntity('spread-mid', [
+        { slug: 'merc', price: 1.0 },
+        { slug: 'lidl', price: 2.0 },
+      ]),
+    ] as never);
+
+    const result = await service.featuredDeals(2);
+    expect(result.map((p) => p.id)).toEqual(['spread-big', 'spread-mid']);
+  });
+
+  it('filtra produtos com < 2 supermarkets disponíveis', async () => {
+    repoMock.findManyWithPrices.mockResolvedValue([
+      makeEntity('solo', [{ slug: 'merc', price: 1.0 }]),
+      makeEntity('duo', [
+        { slug: 'merc', price: 1.0 },
+        { slug: 'dia', price: 2.0 },
+      ]),
+      makeEntity('duo-mas-1-off', [
+        { slug: 'merc', price: 1.0 },
+        { slug: 'dia', price: 2.0, available: false },
+      ]),
+    ] as never);
+
+    const result = await service.featuredDeals(10);
+    expect(result.map((p) => p.id)).toEqual(['duo']);
+  });
+});
