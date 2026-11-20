@@ -33,6 +33,10 @@ export class CatalogSyncRepository {
   // match por EAN/normalizedName falha (catálogo vazio). Mirror do
   // scripts/sync-mercadona.ts (S108). Mantém candidate pipeline pra
   // adapters crowdsourced onde confiança é menor.
+  //
+  // Sprint 133: imageUrl sempre null na criação. Política Blob-only —
+  // raw.imageUrl vira apenas sourceUrl pro BackfillImagesService.
+  // Ver docs/adr/0008-image-pipeline-blob-only.md.
   createProductFromRaw(raw: RawProduct, normalizedName: string): Promise<Product> {
     return this.prisma.product.create({
       data: {
@@ -40,7 +44,7 @@ export class CatalogSyncRepository {
         normalizedName,
         brand: raw.brand ?? null,
         ean: raw.ean ?? null,
-        imageUrl: raw.imageUrl ?? null,
+        imageUrl: null,
         packageSize: new Prisma.Decimal(raw.packageSize),
         packageUnit: raw.packageUnit as unknown as MeasureUnit,
         comparisonUnit: raw.comparisonUnit as unknown as MeasureUnit,
