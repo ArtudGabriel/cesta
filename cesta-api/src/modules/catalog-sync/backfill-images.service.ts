@@ -1,24 +1,24 @@
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
-import { put } from '@vercel/blob';
-import { AppException } from '../../common/exceptions/app-exception';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  STORAGE_SERVICE,
+  StorageService,
+} from '../storage/storage.service.interface';
 import { BackfillImagesRepository } from './backfill-images.repository';
 import { pickUserAgent, IDENTIFIED_UA } from './utils/user-agents';
 
 // Sprint 133 (consolida S117 + migração imgix→Blob).
-//
-// Única fonte de imagem = Vercel Blob. Adapters nunca persistem URL de
-// terceiro em Product.imageUrl; passam sourceUrl ao job from-source,
-// que baixa + faz put() + atualiza o produto.
+// Sprint 135: storage abstraído via StorageService (R2 em prod; antes Vercel
+// Blob). Adapters nunca persistem URL de terceiro em Product.imageUrl;
+// passam sourceUrl ao job from-source, que baixa + sobe storage + atualiza
+// produto.
 //
 // Fluxos:
 //  - `backfillFromSource({ productId, sourceUrl })`: ad-hoc (enfileirado
 //    pelo CatalogSyncService quando raw.imageUrl vem do adapter e
-//    Product.imageUrl não aponta para Blob). Pula resolução OFF.
+//    Product.imageUrl não aponta para storage gerenciado). Pula OFF.
 //  - `scanAndBackfill(limit)`: cron fallback; resolve EAN via
 //    OpenFoodFacts para produtos sem imagem e sem adapter oficial que
 //    tenha thumbnail.
-
-export const BLOB_HOST_SUFFIX = '.public.blob.vercel-storage.com';
 
 export interface BackfillStats {
   scanned: number;
@@ -64,25 +64,16 @@ function inferExtension(url: string): string {
   return 'jpg';
 }
 
-export function isBlobUrl(url: string | null | undefined): boolean {
-  if (!url) return false;
-  try {
-    const host = new URL(url).hostname;
-    return host.endsWith(BLOB_HOST_SUFFIX);
-  } catch {
-    return false;
-  }
-}
-
 @Injectable()
 export class BackfillImagesService {
   private readonly logger = new Logger(BackfillImagesService.name);
 
-  constructor(private readonly repo: BackfillImagesRepository) {}
+  constructor(
+    private readonly repo: BackfillImagesRepository,
+    @Inject(STORAGE_SERVICE) private readonly storage: StorageService,
+  ) {}
 
   async scanAndBackfill(limit: number): Promise<BackfillStats> {
-    this.assertBlobToken();
-
     const products = await this.repo.findCandidates(limit);
 
     this.logger.log(
@@ -123,30 +114,13 @@ export class BackfillImagesService {
     productId: string;
     sourceUrl: string;
   }): Promise<'uploaded' | 'errored' | 'skipped'> {
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      this.logger.warn(
-        `backfillFromSource: BLOB_READ_WRITE_TOKEN ausente — skip product=${input.productId}`,
-      );
-      return 'skipped';
-    }
-
     const existing = await this.repo.findSnapshot(input.productId);
     if (!existing || existing.deletedAt) return 'skipped';
-    // Race: outra thread já migrou para Blob. imageUrl não-Blob (imgix,
-    // etc.) pode ser substituída → prossegue.
-    if (isBlobUrl(existing.imageUrl)) return 'skipped';
+    // Race: outra thread já migrou para storage (R2). imageUrl de CDN de
+    // terceiro ou Blob legacy continua sendo substituída → prossegue.
+    if (this.storage.isManagedUrl(existing.imageUrl)) return 'skipped';
 
     return this.downloadAndUpload(input.productId, input.sourceUrl);
-  }
-
-  private assertBlobToken(): void {
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      throw new AppException(
-        'BACKFILL_IMAGES.MISSING_BLOB_TOKEN',
-        'BLOB_READ_WRITE_TOKEN ausente — upload de imagem desabilitado',
-        HttpStatus.FAILED_DEPENDENCY,
-      );
-    }
   }
 
   private async resolveOpenFoodFacts(ean: string): Promise<string | null> {
@@ -182,18 +156,16 @@ export class BackfillImagesService {
 
     const ext = inferExtension(sourceUrl);
     const contentType = inferContentType(sourceUrl);
-    const blobKey = `products/${productId}.${ext}`;
 
     try {
-      const result = await put(blobKey, bytes, {
-        access: 'public',
+      const { url } = await this.storage.uploadImage({
+        productId,
+        bytes,
         contentType,
-        addRandomSuffix: false,
-        allowOverwrite: true,
-        cacheControlMaxAge: 31_536_000,
+        extension: ext,
       });
-      await this.repo.updateImageUrl(productId, result.url);
-      this.logger.log(`upload ok → ${productId} url=${result.url}`);
+      await this.repo.updateImageUrl(productId, url);
+      this.logger.log(`upload ok → ${productId} url=${url}`);
       return 'uploaded';
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

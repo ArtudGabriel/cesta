@@ -1,14 +1,7 @@
 import { Logger } from '@nestjs/common';
-import { put } from '@vercel/blob';
-import {
-  BackfillImagesService,
-  isBlobUrl,
-} from './backfill-images.service';
+import { BackfillImagesService } from './backfill-images.service';
 import { BackfillImagesRepository } from './backfill-images.repository';
-
-jest.mock('@vercel/blob');
-
-const mockedPut = put as jest.MockedFunction<typeof put>;
+import type { StorageService } from '../storage/storage.service.interface';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -31,13 +24,20 @@ function buildRepoMock(): RepoMock {
   };
 }
 
+type StorageMock = jest.Mocked<StorageService>;
+
+function buildStorageMock(): StorageMock {
+  return {
+    uploadImage: jest.fn(),
+    getPublicUrl: jest.fn((key) => `https://pub.r2.dev/${key}`),
+    isManagedUrl: jest.fn(),
+  };
+}
+
 describe('BackfillImagesService', () => {
   const originalFetch = globalThis.fetch;
-  const originalToken = process.env.BLOB_READ_WRITE_TOKEN;
 
   beforeEach(() => {
-    process.env.BLOB_READ_WRITE_TOKEN = 'blob_rw_test';
-    mockedPut.mockReset();
     jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
     jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
@@ -45,46 +45,33 @@ describe('BackfillImagesService', () => {
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
-    if (originalToken === undefined) delete process.env.BLOB_READ_WRITE_TOKEN;
-    else process.env.BLOB_READ_WRITE_TOKEN = originalToken;
     jest.restoreAllMocks();
   });
 
-  function buildService(repo: RepoMock): BackfillImagesService {
-    return new BackfillImagesService(repo as unknown as BackfillImagesRepository);
+  function buildService(
+    repo: RepoMock,
+    storage: StorageMock,
+  ): BackfillImagesService {
+    return new BackfillImagesService(
+      repo as unknown as BackfillImagesRepository,
+      storage,
+    );
   }
 
-  describe('isBlobUrl helper', () => {
-    it('reconhece host **.public.blob.vercel-storage.com', () => {
-      expect(
-        isBlobUrl('https://xyz.public.blob.vercel-storage.com/products/p1.jpg'),
-      ).toBe(true);
-    });
-
-    it('rejeita imgix e outros CDNs de terceiros', () => {
-      expect(
-        isBlobUrl('https://prod-mercadona.imgix.net/images/88451.jpg'),
-      ).toBe(false);
-      expect(
-        isBlobUrl('https://cdn.carrefour.es/products/x.jpg'),
-      ).toBe(false);
-    });
-
-    it('rejeita null / undefined / string inválida', () => {
-      expect(isBlobUrl(null)).toBe(false);
-      expect(isBlobUrl(undefined)).toBe(false);
-      expect(isBlobUrl('not a url')).toBe(false);
-    });
-  });
-
-  it('backfillFromSource: baixa bytes de imgix, upload Blob e atualiza Product.imageUrl', async () => {
+  it('backfillFromSource: baixa bytes, upload storage e atualiza Product.imageUrl', async () => {
     const repo = buildRepoMock();
+    const storage = buildStorageMock();
     repo.findSnapshot.mockResolvedValue({
       id: 'p1',
       imageUrl: null,
       deletedAt: null,
     });
     repo.updateImageUrl.mockResolvedValue();
+    storage.isManagedUrl.mockReturnValue(false);
+    storage.uploadImage.mockResolvedValue({
+      url: 'https://pub.r2.dev/products/p1.jpg',
+      key: 'products/p1.jpg',
+    });
 
     globalThis.fetch = mockFetchSequence([
       {
@@ -93,45 +80,40 @@ describe('BackfillImagesService', () => {
       } as Partial<Response>,
     ]) as unknown as Fetch;
 
-    mockedPut.mockResolvedValue({
-      url: 'https://xyz.public.blob.vercel-storage.com/products/p1.jpg',
-      pathname: 'products/p1.jpg',
-      contentType: 'image/jpeg',
-      contentDisposition: 'inline',
-    } as Awaited<ReturnType<typeof put>>);
-
-    const svc = buildService(repo);
+    const svc = buildService(repo, storage);
     const result = await svc.backfillFromSource({
       productId: 'p1',
       sourceUrl: 'https://prod-mercadona.imgix.net/images/88451.jpg',
     });
 
     expect(result).toBe('uploaded');
-    expect(mockedPut).toHaveBeenCalledWith(
-      'products/p1.jpg',
-      expect.any(Buffer),
-      expect.objectContaining({
-        access: 'public',
-        contentType: 'image/jpeg',
-        addRandomSuffix: false,
-        allowOverwrite: true,
-        cacheControlMaxAge: 31_536_000,
-      }),
-    );
+    expect(storage.uploadImage).toHaveBeenCalledWith({
+      productId: 'p1',
+      bytes: expect.any(Buffer),
+      contentType: 'image/jpeg',
+      extension: 'jpg',
+    });
     expect(repo.updateImageUrl).toHaveBeenCalledWith(
       'p1',
-      'https://xyz.public.blob.vercel-storage.com/products/p1.jpg',
+      'https://pub.r2.dev/products/p1.jpg',
     );
   });
 
-  it('backfillFromSource: migra imgix passthrough existente → Blob (sobrescreve)', async () => {
+  it('backfillFromSource: migra legacy Blob → R2 quando storage não reconhece', async () => {
     const repo = buildRepoMock();
+    const storage = buildStorageMock();
     repo.findSnapshot.mockResolvedValue({
       id: 'p2',
-      imageUrl: 'https://prod-mercadona.imgix.net/images/88451.jpg',
+      imageUrl: 'https://xyz.public.blob.vercel-storage.com/products/p2.jpg',
       deletedAt: null,
     });
     repo.updateImageUrl.mockResolvedValue();
+    // storage (R2) não reconhece Blob legacy → prossegue com re-upload
+    storage.isManagedUrl.mockReturnValue(false);
+    storage.uploadImage.mockResolvedValue({
+      url: 'https://pub.r2.dev/products/p2.jpg',
+      key: 'products/p2.jpg',
+    });
 
     globalThis.fetch = mockFetchSequence([
       {
@@ -140,65 +122,53 @@ describe('BackfillImagesService', () => {
       } as Partial<Response>,
     ]) as unknown as Fetch;
 
-    mockedPut.mockResolvedValue({
-      url: 'https://xyz.public.blob.vercel-storage.com/products/p2.jpg',
-      pathname: 'products/p2.jpg',
-      contentType: 'image/jpeg',
-      contentDisposition: 'inline',
-    } as Awaited<ReturnType<typeof put>>);
-
-    const svc = buildService(repo);
+    const svc = buildService(repo, storage);
     const result = await svc.backfillFromSource({
       productId: 'p2',
-      sourceUrl: 'https://prod-mercadona.imgix.net/images/88451.jpg',
+      sourceUrl: 'https://prod-mercadona.imgix.net/images/p2.jpg',
     });
 
     expect(result).toBe('uploaded');
     expect(repo.updateImageUrl).toHaveBeenCalledWith(
       'p2',
-      'https://xyz.public.blob.vercel-storage.com/products/p2.jpg',
+      'https://pub.r2.dev/products/p2.jpg',
     );
   });
 
-  it('backfillFromSource: skipa quando Product já aponta para Blob (race)', async () => {
+  it('backfillFromSource: skipa quando Product já aponta pro storage gerenciado (race)', async () => {
     const repo = buildRepoMock();
+    const storage = buildStorageMock();
     repo.findSnapshot.mockResolvedValue({
       id: 'p3',
-      imageUrl:
-        'https://xyz.public.blob.vercel-storage.com/products/p3.jpg',
+      imageUrl: 'https://pub.r2.dev/products/p3.jpg',
       deletedAt: null,
     });
+    storage.isManagedUrl.mockReturnValue(true);
 
-    const svc = buildService(repo);
+    const svc = buildService(repo, storage);
     const result = await svc.backfillFromSource({
       productId: 'p3',
       sourceUrl: 'https://prod-mercadona.imgix.net/images/p3.jpg',
     });
 
     expect(result).toBe('skipped');
-    expect(mockedPut).not.toHaveBeenCalled();
+    expect(storage.uploadImage).not.toHaveBeenCalled();
     expect(repo.updateImageUrl).not.toHaveBeenCalled();
   });
 
-  it('backfillFromSource: skipa quando BLOB_READ_WRITE_TOKEN ausente', async () => {
-    delete process.env.BLOB_READ_WRITE_TOKEN;
+  it('scanAndBackfill: resolve EAN via OFF, chama storage e conta stats', async () => {
     const repo = buildRepoMock();
-    const svc = buildService(repo);
-    const result = await svc.backfillFromSource({
-      productId: 'px',
-      sourceUrl: 'https://any/x.jpg',
-    });
-    expect(result).toBe('skipped');
-    expect(repo.findSnapshot).not.toHaveBeenCalled();
-  });
-
-  it('scanAndBackfill: resolve EAN via OFF, faz upload e conta stats', async () => {
-    const repo = buildRepoMock();
+    const storage = buildStorageMock();
     repo.findCandidates.mockResolvedValue([
       { id: 'p1', name: 'Leche entera', ean: '8480000181732' },
       { id: 'p2', name: 'Sem EAN', ean: null },
     ]);
     repo.updateImageUrl.mockResolvedValue();
+    storage.isManagedUrl.mockReturnValue(false);
+    storage.uploadImage.mockResolvedValue({
+      url: 'https://pub.r2.dev/products/p1.jpg',
+      key: 'products/p1.jpg',
+    });
 
     globalThis.fetch = mockFetchSequence([
       {
@@ -214,14 +184,7 @@ describe('BackfillImagesService', () => {
       } as Partial<Response>,
     ]) as unknown as Fetch;
 
-    mockedPut.mockResolvedValue({
-      url: 'https://xyz.public.blob.vercel-storage.com/products/p1.jpg',
-      pathname: 'products/p1.jpg',
-      contentType: 'image/jpeg',
-      contentDisposition: 'inline',
-    } as Awaited<ReturnType<typeof put>>);
-
-    const svc = buildService(repo);
+    const svc = buildService(repo, storage);
     const stats = await svc.scanAndBackfill(10);
 
     expect(repo.findCandidates).toHaveBeenCalledWith(10);
@@ -233,17 +196,34 @@ describe('BackfillImagesService', () => {
     });
     expect(repo.updateImageUrl).toHaveBeenCalledWith(
       'p1',
-      'https://xyz.public.blob.vercel-storage.com/products/p1.jpg',
+      'https://pub.r2.dev/products/p1.jpg',
     );
   });
 
-  it('scanAndBackfill: lança AppException quando BLOB_READ_WRITE_TOKEN ausente', async () => {
-    delete process.env.BLOB_READ_WRITE_TOKEN;
+  it('backfillFromSource: errored quando storage.uploadImage throw', async () => {
     const repo = buildRepoMock();
-    const svc = buildService(repo);
-    await expect(svc.scanAndBackfill(10)).rejects.toMatchObject({
-      errorCode: 'BACKFILL_IMAGES.MISSING_BLOB_TOKEN',
+    const storage = buildStorageMock();
+    repo.findSnapshot.mockResolvedValue({
+      id: 'p9',
+      imageUrl: null,
+      deletedAt: null,
     });
-    expect(repo.findCandidates).not.toHaveBeenCalled();
+    storage.isManagedUrl.mockReturnValue(false);
+    storage.uploadImage.mockRejectedValue(new Error('r2 403'));
+
+    globalThis.fetch = mockFetchSequence([
+      {
+        ok: true,
+        arrayBuffer: async () => new Uint8Array([1]).buffer,
+      } as Partial<Response>,
+    ]) as unknown as Fetch;
+
+    const svc = buildService(repo, storage);
+    const result = await svc.backfillFromSource({
+      productId: 'p9',
+      sourceUrl: 'https://any/x.jpg',
+    });
+    expect(result).toBe('errored');
+    expect(repo.updateImageUrl).not.toHaveBeenCalled();
   });
 });

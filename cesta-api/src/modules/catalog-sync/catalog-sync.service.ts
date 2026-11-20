@@ -1,5 +1,5 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
 import { Queue } from 'bullmq';
 import { AppException } from '../../common/exceptions/app-exception';
@@ -9,10 +9,13 @@ import {
   PriceAlertCheckJob,
 } from '../alerts/alerts.processor';
 import {
+  STORAGE_SERVICE,
+  StorageService,
+} from '../storage/storage.service.interface';
+import {
   BACKFILL_IMAGES_QUEUE,
   BackfillImagesJob,
 } from './backfill-images.processor';
-import { isBlobUrl } from './backfill-images.service';
 import { CatalogSyncRepository } from './catalog-sync.repository';
 import { AlcampoAdapter } from './adapters/alcampo.adapter';
 import { AldiAdapter } from './adapters/aldi.adapter';
@@ -59,6 +62,8 @@ export class CatalogSyncService {
     private readonly alertsQueue: Queue<PriceAlertCheckJob>,
     @InjectQueue(BACKFILL_IMAGES_QUEUE)
     private readonly backfillImagesQueue: Queue<BackfillImagesJob>,
+    @Inject(STORAGE_SERVICE)
+    private readonly storage: StorageService,
   ) {
     this.adapters = new Map<string, SupermarketAdapter>([
       [mercadona.slug, mercadona],
@@ -151,10 +156,10 @@ export class CatalogSyncService {
           else stats.itemsUpdated += 1;
           updatedProductIds.add(product.id);
 
-          // Sprint 133: pipeline Blob-only. Enfileira backfill se o adapter
-          // trouxe imageUrl E o Product ainda não aponta pra Blob. Dedupe
-          // via jobId → múltiplos syncs no mesmo dia não acumulam jobs.
-          if (raw.imageUrl && !isBlobUrl(product.imageUrl)) {
+          // Sprint 133/135: pipeline storage-only. Enfileira backfill se o
+          // adapter trouxe imageUrl E o Product ainda não aponta pro storage
+          // gerenciado (R2). Dedupe via jobId.
+          if (raw.imageUrl && !this.storage.isManagedUrl(product.imageUrl)) {
             await this.backfillImagesQueue.add(
               'from-source',
               {
