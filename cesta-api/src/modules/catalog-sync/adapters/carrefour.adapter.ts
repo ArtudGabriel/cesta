@@ -1,24 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { pickUserAgent } from '../utils/user-agents';
-import {
-  closePuppeteerBrowser,
-  puppeteerFetch,
-} from '../utils/puppeteer-fetch';
+import { scrapingbeeFetch } from '../utils/scrapingbee-fetch';
 import type {
   RawPackageUnit,
   RawProduct,
   SupermarketAdapter,
 } from './supermarket-adapter.interface';
 
-// Carrefour (www.carrefour.es) — S118/S119/S120 tentativas raw fetch retornaram
-// 403 Akamai persistente. S128 pivot pra Puppeteer headless: renderiza páginas
-// de resultado via Chromium, Akamai _abck challenge executa, HTML real volta.
+// Carrefour (www.carrefour.es) — S118/S119/S120 raw fetch = 403 Akamai.
+// S128 Puppeteer funcionou mas OOM Render 512MB. S130 disable. S134 pivot
+// pra ScrapingBee (ADR 0009 opção A): proxy residencial + render_js
+// executam Akamai _abck challenge, HTML final volta via API.
 //
 // Estratégia:
-//  1. Puppeteer navigate `https://www.carrefour.es/search?q=<query>` (SSR Next.js)
-//  2. Aguarda JS hydration (networkidle2 + extraWaitMs)
-//  3. Extrai produtos de `__NEXT_DATA__` script (SSR Next.js embed inicial)
-//  4. Fallback: scan DOM via Cheerio se __NEXT_DATA__ ausente
+//  1. scrapingbeeFetch(`${BASE_URL}?q=<query>`, { renderJs:true })
+//  2. Extrai produtos de `__NEXT_DATA__` script (SSR Next.js embed inicial)
+//  3. Walk recursivo nas chaves procurando arrays com shape de produto.
 const BASE_URL = 'https://www.carrefour.es/search';
 const MAX_QUERIES = 20;
 
@@ -56,51 +52,43 @@ interface CarrefourNextProduct {
 export class CarrefourAdapter implements SupermarketAdapter {
   readonly slug = 'carrefour';
   private readonly logger = new Logger(CarrefourAdapter.name);
-  private readonly ua = pickUserAgent();
 
   async fetchProducts(): Promise<RawProduct[]> {
     const seen = new Set<string>();
     const products: RawProduct[] = [];
     const queries = SEED_QUERIES.slice(0, MAX_QUERIES);
 
-    try {
-      for (const query of queries) {
-        try {
-          const raws = await this.searchViaPuppeteer(query);
-          for (const raw of raws) {
-            const id = raw.id != null ? String(raw.id) : null;
-            if (!id || seen.has(id)) continue;
-            const normalized = this.normalize(raw, id);
-            if (!normalized) continue;
-            seen.add(id);
-            products.push(normalized);
-          }
-        } catch (error) {
-          const msg = error instanceof Error ? error.message : String(error);
-          this.logger.warn(`Carrefour query "${query}" falhou: ${msg}`);
+    for (const query of queries) {
+      try {
+        const raws = await this.searchViaScrapingbee(query);
+        for (const raw of raws) {
+          const id = raw.id != null ? String(raw.id) : null;
+          if (!id || seen.has(id)) continue;
+          const normalized = this.normalize(raw, id);
+          if (!normalized) continue;
+          seen.add(id);
+          products.push(normalized);
         }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Carrefour query "${query}" falhou: ${msg}`);
       }
-    } finally {
-      // Sempre fechar browser para liberar memória antes do próximo job
-      // (Render free tier 512MB — Chromium ~200MB + Node ~150MB).
-      await closePuppeteerBrowser();
     }
 
     this.logger.log(
-      `Carrefour: ${products.length} produtos coletados (${queries.length} queries via Puppeteer)`,
+      `Carrefour: ${products.length} produtos coletados (${queries.length} queries via ScrapingBee)`,
     );
     return products;
   }
 
-  private async searchViaPuppeteer(
+  private async searchViaScrapingbee(
     query: string,
   ): Promise<CarrefourNextProduct[]> {
     const url = `${BASE_URL}?q=${encodeURIComponent(query)}`;
-    const result = await puppeteerFetch(url, {
-      userAgent: this.ua,
-      timeoutMs: 35_000,
-      waitForSelector: 'script#__NEXT_DATA__',
-      extraWaitMs: 2000,
+    const result = await scrapingbeeFetch(url, {
+      renderJs: true,
+      waitFor: 'script#__NEXT_DATA__',
+      timeoutMs: 45_000,
     });
     if (!result.html) return [];
 

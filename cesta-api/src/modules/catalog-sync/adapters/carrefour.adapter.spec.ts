@@ -1,16 +1,11 @@
 import { CarrefourAdapter } from './carrefour.adapter';
-import { puppeteerFetch, closePuppeteerBrowser } from '../utils/puppeteer-fetch';
+import { scrapingbeeFetch } from '../utils/scrapingbee-fetch';
 
-jest.mock('../utils/puppeteer-fetch', () => ({
-  puppeteerFetch: jest.fn(),
-  closePuppeteerBrowser: jest.fn().mockResolvedValue(undefined),
+jest.mock('../utils/scrapingbee-fetch', () => ({
+  scrapingbeeFetch: jest.fn(),
 }));
-jest.mock('../utils/user-agents', () => ({ pickUserAgent: () => 'test-ua' }));
 
-const mockedPuppeteer = puppeteerFetch as jest.MockedFunction<typeof puppeteerFetch>;
-const mockedClose = closePuppeteerBrowser as jest.MockedFunction<
-  typeof closePuppeteerBrowser
->;
+const mockedFetch = scrapingbeeFetch as jest.MockedFunction<typeof scrapingbeeFetch>;
 
 const NEXT_DATA_LECHE = {
   props: {
@@ -54,21 +49,19 @@ const NEXT_DATA_LECHE = {
 const htmlWithNextData = (payload: unknown) =>
   `<html><body>...<script id="__NEXT_DATA__" type="application/json">${JSON.stringify(payload)}</script></body></html>`;
 
-describe('CarrefourAdapter (Puppeteer S128)', () => {
+describe('CarrefourAdapter (ScrapingBee S134)', () => {
   let adapter: CarrefourAdapter;
 
   beforeEach(() => {
     adapter = new CarrefourAdapter();
-    mockedPuppeteer.mockReset();
-    mockedClose.mockReset();
-    mockedClose.mockResolvedValue(undefined);
+    mockedFetch.mockReset();
   });
 
-  it('extrai produtos de __NEXT_DATA__ renderizado via Puppeteer', async () => {
-    mockedPuppeteer.mockResolvedValue({
+  it('extrai produtos de __NEXT_DATA__ renderizado via ScrapingBee', async () => {
+    mockedFetch.mockResolvedValue({
       html: htmlWithNextData(NEXT_DATA_LECHE),
-      finalUrl: 'https://www.carrefour.es/search?q=leche',
       status: 200,
+      cost: 5,
     });
 
     const products = await adapter.fetchProducts();
@@ -99,24 +92,39 @@ describe('CarrefourAdapter (Puppeteer S128)', () => {
     });
   });
 
-  it('não aborta quando página falta __NEXT_DATA__', async () => {
-    mockedPuppeteer.mockResolvedValue({
-      html: '<html><body>no next data here</body></html>',
-      finalUrl: 'https://www.carrefour.es/search?q=x',
+  it('passa renderJs=true + waitFor=script#__NEXT_DATA__ ao scrapingbeeFetch', async () => {
+    mockedFetch.mockResolvedValue({
+      html: htmlWithNextData(NEXT_DATA_LECHE),
       status: 200,
+      cost: 5,
+    });
+    await adapter.fetchProducts();
+    const firstCall = mockedFetch.mock.calls[0];
+    expect(firstCall[0]).toContain('https://www.carrefour.es/search?q=');
+    expect(firstCall[1]).toMatchObject({
+      renderJs: true,
+      waitFor: 'script#__NEXT_DATA__',
+    });
+  });
+
+  it('não aborta quando página falta __NEXT_DATA__', async () => {
+    mockedFetch.mockResolvedValue({
+      html: '<html><body>no next data here</body></html>',
+      status: 200,
+      cost: 5,
     });
     const products = await adapter.fetchProducts();
     expect(products).toEqual([]);
   });
 
-  it('sempre chama closePuppeteerBrowser no finally', async () => {
-    mockedPuppeteer.mockRejectedValue(new Error('chromium crashed'));
-    await adapter.fetchProducts();
-    expect(mockedClose).toHaveBeenCalledTimes(1);
+  it('warn + continua quando scrapingbeeFetch throw', async () => {
+    mockedFetch.mockRejectedValue(new Error('upstream 429'));
+    const products = await adapter.fetchProducts();
+    expect(products).toEqual([]);
   });
 
   it('pula produtos sem preço válido', async () => {
-    mockedPuppeteer.mockResolvedValue({
+    mockedFetch.mockResolvedValue({
       html: htmlWithNextData({
         props: {
           pageProps: {
@@ -138,8 +146,8 @@ describe('CarrefourAdapter (Puppeteer S128)', () => {
           },
         },
       }),
-      finalUrl: '',
       status: 200,
+      cost: 5,
     });
 
     const products = await adapter.fetchProducts();

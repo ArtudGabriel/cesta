@@ -1,7 +1,10 @@
 # ADR-0009 — Anti-bot Carrefour (ressurreição S134)
 
-**Status:** Accepted (opção C) · **Data:** 2026-11-20
-**Decisão user:** Opção C — Render Starter US$ 7/mo + Puppeteer reativo.
+**Status:** Accepted (opção A ScrapingBee) · **Data:** 2026-11-20
+**Decisão user:** Opção A — ScrapingBee proxy residencial (free tier bootstrap).
+Opção C (Render Starter + Puppeteer) rejeitada em segunda revisão — user
+observou que o Starter continua em 512 MB (upgrade só vai de free sleep
+para Starter sem sleep; RAM igual), portanto mesma OOM.
 
 ## Contexto
 
@@ -109,30 +112,41 @@ Render.
 
 ### Recomendação Dev (histórica)
 
-Dev recomendou **B (ScrapingBee)** por baixo compromisso financeiro.
+Dev recomendou **B** inicialmente (menor compromisso financeiro), user
+escolheu **C**, depois revisou para **A** (ScrapingBee) ao perceber que
+o Render Starter tem o mesmo 512 MB do free tier (só muda o sleep).
 
-### Escolha user (2026-11-20)
+### Escolha user (2026-11-20, revisada)
 
-**Opção C — Render Starter US$ 7/mo + Puppeteer reativo.** Justificativa:
-US$ 7 fixo bate US$ 29/mo (ScrapingBee Freelance) a longo prazo e
-elimina dependência de vendor externo + API key management. Chromium
-sempre custa ≈ 300 MB de pico → 2 GB RAM do Starter dá folga pros três
-adapters Puppeteer (Carrefour, Alcampo) em serial.
+**Opção A — ScrapingBee proxy residencial.** `SCRAPINGBEE_API_KEY` já
+foi provisionado no Render (Manager via Render API). Estratégia inicial:
+`render_js=true` sem `premium_proxy` (5 credits/call = ≈ 200 queries/mês
+no free tier de 1000 credits). Escalar para premium (25 credits = 40
+queries/mês) apenas se Akamai bloquear a rota básica.
 
 ## Consequências
 
-- `PUPPETEER_SLUGS` e flag `CATALOG_SYNC_PUPPETEER_ENABLED` removidas
-  do `catalog-sync.processor.ts`. Cron volta ao `SCHEDULE` único.
-- Carrefour (`30 3 * * *`) e Alcampo (`0 4 * * *`) voltam ao
-  agendamento diário Europe/Madrid.
-- Eroski continua com bareFetch (S125) — não depende de Chromium.
-- User upgrade Render dashboard:
-  `dashboard.render.com/web/srv-dbst4muc6qcc73a3opr0 → Settings →
-  Instance Type → Starter`. Pós-upgrade, trigger manual cron.
+- **Adapter rewrite (não mais Puppeteer):** `carrefour.adapter.ts` e
+  `alcampo.adapter.ts` chamam `scrapingbeeFetch()` em vez de
+  `puppeteerFetch()`. Util `scrapingbee-fetch.ts` novo em
+  `catalog-sync/utils/`.
+- **Puppeteer removido:** `puppeteer-fetch.ts` + spec deletados;
+  dependências `puppeteer-core` e `@sparticuz/chromium-min`
+  desinstaladas (zero consumers pós-refactor). Sem Chromium → RAM
+  baixa de ≈ 200 MB de pico. Free tier Render volta a caber.
+- **Processor inalterado** após S134: `SCHEDULE` único, sem gate.
+  Mercadona, Carrefour, Alcampo, DIA, Eroski diários; Froiz/LIDL/Aldi
+  semanais (terça).
+- **Credits budget:** 20 queries Carrefour + ~100 produtos Alcampo
+  = ≈ 600 credits/dia. Insuficiente no free tier diário → limitar a
+  1 run/dia, ou upgrade pago `Freelance` US$ 29/mo pra 150 k credits.
+  Follow-up S135 monitora.
 
 ## Follow-ups
 
-- Métrica S134: `prices WHERE supermarket.slug='carrefour' AND source='OFFICIAL'`
-  deve pular de 1 → ≥ 100 pós-primeiro run.
-- S135+ monitora: se Akamai bloquear Puppeteer de novo (headers/TLS
-  fingerprint), fallback para B em branch `feat/carrefour-proxy`.
+- Métrica S134: `prices WHERE supermarket.slug IN ('carrefour','alcampo')
+  AND source='OFFICIAL'` ≥ 100 cada pós-primeiro run.
+- S135 verifica consumo real de credits via header `Spb-Cost`
+  (logado em `scrapingbeeFetch`). Decide upgrade pago vs limitar queries.
+- Se Akamai bloquear `render_js` básico: ativar `premiumProxy: true`
+  no `CarrefourAdapter` (5× custo, mas residencial IP).
