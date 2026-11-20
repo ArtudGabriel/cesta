@@ -18,7 +18,9 @@ import { BackfillImagesRepository } from './backfill-images.repository';
 import { BackfillImagesService } from './backfill-images.service';
 import { CatalogSyncController } from './catalog-sync.controller';
 import {
+  CATALOG_SYNC_MANUAL_QUEUE,
   CATALOG_SYNC_QUEUE,
+  CatalogSyncManualProcessor,
   CatalogSyncProcessor,
 } from './catalog-sync.processor';
 import { CatalogSyncRepository } from './catalog-sync.repository';
@@ -29,6 +31,7 @@ import { CatalogSyncService } from './catalog-sync.service';
     RevalidateModule,
     BullModule.registerQueue(
       { name: CATALOG_SYNC_QUEUE },
+      { name: CATALOG_SYNC_MANUAL_QUEUE },
       { name: PRICE_ALERTS_QUEUE },
       { name: BACKFILL_IMAGES_QUEUE },
     ),
@@ -38,6 +41,7 @@ import { CatalogSyncService } from './catalog-sync.service';
     CatalogSyncService,
     CatalogSyncRepository,
     CatalogSyncProcessor,
+    CatalogSyncManualProcessor,
     BackfillImagesRepository,
     BackfillImagesService,
     BackfillImagesProcessor,
