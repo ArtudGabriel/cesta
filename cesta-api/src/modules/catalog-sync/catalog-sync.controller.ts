@@ -44,7 +44,11 @@ export class CatalogSyncController {
     // (1ª iteração) não resolveu: workers ficavam saturados por repeats
     // long-running (Mercadona ~24min) e priority só muda ordem, não
     // preempta slot. Queue separada = slot sempre livre pra admin trigger.
-    const job = await this.queue.add('manual-sync', { supermarketSlug: slug });
+    const job = await this.queue.add(
+      'manual-sync',
+      { supermarketSlug: slug },
+      { removeOnComplete: 50, removeOnFail: 50 },
+    );
     return { jobId: job.id, status: 'queued', supermarketSlug: slug };
   }
 
