@@ -62,6 +62,20 @@ describe('R2StorageService', () => {
     );
   });
 
+  it('constructor lança quando ACCOUNT_ID e S3_ENDPOINT ambos ausentes', () => {
+    delete process.env.R2_ACCOUNT_ID;
+    delete process.env.R2_S3_ENDPOINT;
+    expect(() => new R2StorageService()).toThrow(
+      /R2_ACCOUNT_ID ou R2_S3_ENDPOINT/,
+    );
+  });
+
+  it('constructor aceita só R2_S3_ENDPOINT (override jurisdiction)', () => {
+    delete process.env.R2_ACCOUNT_ID;
+    process.env.R2_S3_ENDPOINT = 'https://acct.eu.r2.cloudflarestorage.com';
+    expect(() => new R2StorageService()).not.toThrow();
+  });
+
   it('uploadImage chama PutObjectCommand com key, contentType, cache-control', async () => {
     mockedSend.mockResolvedValue({});
     const svc = new R2StorageService();
