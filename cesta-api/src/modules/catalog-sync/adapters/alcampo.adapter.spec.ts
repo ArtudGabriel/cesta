@@ -148,7 +148,7 @@ describe('AlcampoAdapter (ScrapingBee S134)', () => {
     expect(mockedScrapingbee).not.toHaveBeenCalled();
   });
 
-  it('warn + continua quando scrapingbeeFetch throw', async () => {
+  it('bubble up error quando TODAS pages falham (S134-r P2 silent failure)', async () => {
     mockedPoliteFetchRaw.mockImplementation((url: string) => {
       if (url.endsWith('sitemap_index.xml'))
         return Promise.resolve({ body: SITEMAP_INDEX_XML, status: 200, setCookie: [] }) as any;
@@ -157,8 +157,9 @@ describe('AlcampoAdapter (ScrapingBee S134)', () => {
       return Promise.resolve({ body: '', status: 404, setCookie: [] }) as any;
     });
     mockedScrapingbee.mockRejectedValue(new Error('upstream 429'));
-    const products = await adapter.fetchProducts();
-    expect(products).toEqual([]);
+    await expect(adapter.fetchProducts()).rejects.toThrow(
+      /Alcampo: 0 produtos coletados/,
+    );
   });
 
   it('pula produto sem Product schema JSON-LD', async () => {

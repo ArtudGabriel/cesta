@@ -57,6 +57,7 @@ export class CarrefourAdapter implements SupermarketAdapter {
     const seen = new Set<string>();
     const products: RawProduct[] = [];
     const queries = SEED_QUERIES.slice(0, MAX_QUERIES);
+    const errors: string[] = [];
 
     for (const query of queries) {
       try {
@@ -71,12 +72,21 @@ export class CarrefourAdapter implements SupermarketAdapter {
         }
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
-        this.logger.warn(`Carrefour query "${query}" falhou: ${msg}`);
+        this.logger.error(`Carrefour query "${query}" falhou: ${msg}`);
+        errors.push(`${query}: ${msg}`);
       }
     }
 
+    // Sprint 134-r P2: se todas queries falharem (0 produtos), bubble up último
+    // erro pra service persistir em SyncRun.errorMessage. QA fica cego sem isso.
+    if (products.length === 0 && errors.length > 0) {
+      throw new Error(
+        `Carrefour: 0 produtos coletados em ${queries.length} queries · últimos erros: ${errors.slice(-3).join(' | ')}`,
+      );
+    }
+
     this.logger.log(
-      `Carrefour: ${products.length} produtos coletados (${queries.length} queries via ScrapingBee)`,
+      `Carrefour: ${products.length} produtos coletados (${queries.length - errors.length}/${queries.length} queries ok via ScrapingBee)`,
     );
     return products;
   }

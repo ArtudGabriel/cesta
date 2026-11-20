@@ -39,7 +39,14 @@ export class CatalogSyncController {
   @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: 'Dispara sync manual (async)' })
   async runNow(@Param('slug') slug: string) {
-    const job = await this.queue.add('manual-sync', { supermarketSlug: slug });
+    // Sprint 134-r P1: priority 1 (BullMQ highest) → manual triggers passam
+    // à frente dos repeats de cron (que não setam priority = FIFO normal).
+    // QA observou manual stuck 23min+ atrás de cron enfileirado.
+    const job = await this.queue.add(
+      'manual-sync',
+      { supermarketSlug: slug },
+      { priority: 1 },
+    );
     return { jobId: job.id, status: 'queued', supermarketSlug: slug };
   }
 
