@@ -13,9 +13,9 @@ export interface CatalogSyncJob {
 // Agendamento — cron em Europe/Madrid. Espaçamento de 30min entre runs pra
 // aliviar DB. Froiz/LIDL/Aldi são semanais (terça) porque dependem de
 // scraping/folleto que não muda diariamente.
-// Sprint 134: Puppeteer slugs (carrefour, alcampo) reativados após upgrade
-// Render Starter (2 GB RAM) aprovado pelo user em 2026-11-20. ADR 0009
-// documenta decisão + custo US$ 7/mo. Eroski usa bareFetch (S125).
+// Sprint 134: Carrefour + Alcampo bypass Akamai/WAF via ScrapingBee
+// (ADR 0009 opção A). Puppeteer removido (OOM Render 512MB, S130).
+// Eroski usa bareFetch (S125).
 const SCHEDULE: Array<{ slug: string; cron: string }> = [
   { slug: 'mercadona', cron: '0 3 * * *' },
   { slug: 'carrefour', cron: '30 3 * * *' },

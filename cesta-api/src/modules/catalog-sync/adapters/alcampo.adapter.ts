@@ -2,26 +2,23 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as cheerio from 'cheerio';
 import { politeFetchRaw } from '../utils/polite-fetch';
 import { pickUserAgent } from '../utils/user-agents';
-import {
-  closePuppeteerBrowser,
-  puppeteerFetch,
-} from '../utils/puppeteer-fetch';
+import { scrapingbeeFetch } from '../utils/scrapingbee-fetch';
 import type {
   RawPackageUnit,
   RawProduct,
   SupermarketAdapter,
 } from './supermarket-adapter.interface';
 
-// Alcampo (compraonline.alcampo.es) — S123 bloqueado AWS WAF JS challenge
-// (jsapi.js awswaf.com) em raw fetch. S128 pivot pra Puppeteer que executa
-// JS challenge e recebe HTML real.
+// Alcampo (compraonline.alcampo.es) — S123 AWS WAF jsapi.js challenge bloqueia
+// raw fetch. S128 Puppeteer funcionou mas OOM Render 512MB. S134 pivot pra
+// ScrapingBee (ADR 0009 opção A).
 //
 // Estratégia:
 //  1. Sitemap via politeFetchRaw (não protegido WAF): extrai produto URLs
 //     /products/<slug>/<id> do sitemap-products-part*.xml
-//  2. Para N páginas de produto: puppeteerFetch renderiza → extrai JSON-LD
-//     Product schema → mapeia pra RawProduct
-//  3. Rate limit: 2s inter-page (Puppeteer já tem overhead ~1s)
+//  2. Para N páginas de produto: scrapingbeeFetch renderiza JS challenge
+//     → extrai JSON-LD Product schema → mapeia pra RawProduct
+//  3. Rate limit: 2s inter-page (ScrapingBee latência ~5-20s já serializa)
 const SITEMAP_INDEX = 'https://compraonline.alcampo.es/sitemaps/sitemap_index.xml';
 const MAX_PRODUCTS = 120;
 
@@ -41,26 +38,22 @@ export class AlcampoAdapter implements SupermarketAdapter {
     const seen = new Set<string>();
     const products: RawProduct[] = [];
 
-    try {
-      for (const url of slice) {
-        try {
-          const raw = await this.fetchProductPage(url);
-          if (!raw) continue;
-          if (seen.has(raw.externalId)) continue;
-          seen.add(raw.externalId);
-          products.push(raw);
-          await new Promise((r) => setTimeout(r, 2000));
-        } catch (error) {
-          const msg = error instanceof Error ? error.message : String(error);
-          this.logger.warn(`Alcampo page "${url}" falhou: ${msg}`);
-        }
+    for (const url of slice) {
+      try {
+        const raw = await this.fetchProductPage(url);
+        if (!raw) continue;
+        if (seen.has(raw.externalId)) continue;
+        seen.add(raw.externalId);
+        products.push(raw);
+        await new Promise((r) => setTimeout(r, 2000));
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Alcampo page "${url}" falhou: ${msg}`);
       }
-    } finally {
-      await closePuppeteerBrowser();
     }
 
     this.logger.log(
-      `Alcampo: ${products.length} produtos coletados (${slice.length}/${urls.length} via Puppeteer)`,
+      `Alcampo: ${products.length} produtos coletados (${slice.length}/${urls.length} via ScrapingBee)`,
     );
     return products;
   }
@@ -100,12 +93,10 @@ export class AlcampoAdapter implements SupermarketAdapter {
   }
 
   private async fetchProductPage(url: string): Promise<RawProduct | null> {
-    const result = await puppeteerFetch(url, {
-      userAgent: this.ua,
-      timeoutMs: 35_000,
-      waitForSelector:
-        'script[type="application/ld+json"], [data-test="product-price"]',
-      extraWaitMs: 1500,
+    const result = await scrapingbeeFetch(url, {
+      renderJs: true,
+      waitFor: 'script[type="application/ld+json"]',
+      timeoutMs: 45_000,
     });
     if (!result.html) return null;
     return this.extractProduct(result.html, url);
