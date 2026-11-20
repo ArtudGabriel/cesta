@@ -37,6 +37,7 @@ export class AlcampoAdapter implements SupermarketAdapter {
     const slice = urls.slice(0, MAX_PRODUCTS);
     const seen = new Set<string>();
     const products: RawProduct[] = [];
+    const errors: string[] = [];
 
     for (const url of slice) {
       try {
@@ -48,12 +49,21 @@ export class AlcampoAdapter implements SupermarketAdapter {
         await new Promise((r) => setTimeout(r, 2000));
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
-        this.logger.warn(`Alcampo page "${url}" falhou: ${msg}`);
+        this.logger.error(`Alcampo page "${url}" falhou: ${msg}`);
+        errors.push(msg);
       }
     }
 
+    // Sprint 134-r P2: se todas pages falharem (0 produtos), bubble up último
+    // erro pra service persistir em SyncRun.errorMessage.
+    if (products.length === 0 && errors.length > 0) {
+      throw new Error(
+        `Alcampo: 0 produtos coletados em ${slice.length} pages · últimos erros: ${errors.slice(-3).join(' | ')}`,
+      );
+    }
+
     this.logger.log(
-      `Alcampo: ${products.length} produtos coletados (${slice.length}/${urls.length} via ScrapingBee)`,
+      `Alcampo: ${products.length} produtos coletados (${slice.length - errors.length}/${slice.length} pages ok via ScrapingBee)`,
     );
     return products;
   }

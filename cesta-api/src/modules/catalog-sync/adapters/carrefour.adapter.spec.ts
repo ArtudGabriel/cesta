@@ -117,10 +117,11 @@ describe('CarrefourAdapter (ScrapingBee S134)', () => {
     expect(products).toEqual([]);
   });
 
-  it('warn + continua quando scrapingbeeFetch throw', async () => {
+  it('bubble up error quando TODAS queries falham (S134-r P2 silent failure)', async () => {
     mockedFetch.mockRejectedValue(new Error('upstream 429'));
-    const products = await adapter.fetchProducts();
-    expect(products).toEqual([]);
+    await expect(adapter.fetchProducts()).rejects.toThrow(
+      /Carrefour: 0 produtos coletados/,
+    );
   });
 
   it('pula produtos sem preço válido', async () => {

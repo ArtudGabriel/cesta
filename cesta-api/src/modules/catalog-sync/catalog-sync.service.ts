@@ -199,9 +199,18 @@ export class CatalogSyncService {
             ? 'failed'
             : 'success';
 
+      // Sprint 134-r P2: status='failed' por 0 itens precisa de errorMessage
+      // diagnóstico — adapter retornou array vazio sem throw (ex: todas
+      // queries falharam mas adapter engoliu). Sem isso, QA fica cego.
+      const errorMessage =
+        status === 'failed'
+          ? `Adapter ${supermarketSlug} retornou 0 produtos (nenhuma exceção lançada — ver logs do adapter para causa)`
+          : undefined;
+
       await this.repo.updateRun(run.id, {
         ...stats,
         status,
+        errorMessage,
         finishedAt: new Date(),
       });
 
