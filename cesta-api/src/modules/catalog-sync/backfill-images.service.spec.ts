@@ -4,7 +4,7 @@ import {
   BackfillImagesService,
   isBlobUrl,
 } from './backfill-images.service';
-import { PrismaService } from '../../database/prisma.service';
+import { BackfillImagesRepository } from './backfill-images.repository';
 
 jest.mock('@vercel/blob');
 
@@ -16,6 +16,19 @@ function mockFetchSequence(responses: Array<Partial<Response>>): jest.Mock {
   const fn = jest.fn();
   for (const r of responses) fn.mockResolvedValueOnce(r);
   return fn;
+}
+
+type RepoMock = jest.Mocked<Pick<
+  BackfillImagesRepository,
+  'findCandidates' | 'findSnapshot' | 'updateImageUrl'
+>>;
+
+function buildRepoMock(): RepoMock {
+  return {
+    findCandidates: jest.fn(),
+    findSnapshot: jest.fn(),
+    updateImageUrl: jest.fn(),
+  };
 }
 
 describe('BackfillImagesService', () => {
@@ -37,8 +50,8 @@ describe('BackfillImagesService', () => {
     jest.restoreAllMocks();
   });
 
-  function buildService(prisma: Partial<PrismaService>): BackfillImagesService {
-    return new BackfillImagesService(prisma as PrismaService);
+  function buildService(repo: RepoMock): BackfillImagesService {
+    return new BackfillImagesService(repo as unknown as BackfillImagesRepository);
   }
 
   describe('isBlobUrl helper', () => {
@@ -65,15 +78,13 @@ describe('BackfillImagesService', () => {
   });
 
   it('backfillFromSource: baixa bytes de imgix, upload Blob e atualiza Product.imageUrl', async () => {
-    const update = jest.fn().mockResolvedValue({});
-    const findUnique = jest.fn().mockResolvedValue({
+    const repo = buildRepoMock();
+    repo.findSnapshot.mockResolvedValue({
       id: 'p1',
       imageUrl: null,
       deletedAt: null,
     });
-    const prisma = {
-      product: { findUnique, update, findMany: jest.fn() },
-    } as unknown as PrismaService;
+    repo.updateImageUrl.mockResolvedValue();
 
     globalThis.fetch = mockFetchSequence([
       {
@@ -89,7 +100,7 @@ describe('BackfillImagesService', () => {
       contentDisposition: 'inline',
     } as Awaited<ReturnType<typeof put>>);
 
-    const svc = buildService(prisma);
+    const svc = buildService(repo);
     const result = await svc.backfillFromSource({
       productId: 'p1',
       sourceUrl: 'https://prod-mercadona.imgix.net/images/88451.jpg',
@@ -107,24 +118,20 @@ describe('BackfillImagesService', () => {
         cacheControlMaxAge: 31_536_000,
       }),
     );
-    expect(update).toHaveBeenCalledWith({
-      where: { id: 'p1' },
-      data: {
-        imageUrl: 'https://xyz.public.blob.vercel-storage.com/products/p1.jpg',
-      },
-    });
+    expect(repo.updateImageUrl).toHaveBeenCalledWith(
+      'p1',
+      'https://xyz.public.blob.vercel-storage.com/products/p1.jpg',
+    );
   });
 
   it('backfillFromSource: migra imgix passthrough existente → Blob (sobrescreve)', async () => {
-    const findUnique = jest.fn().mockResolvedValue({
+    const repo = buildRepoMock();
+    repo.findSnapshot.mockResolvedValue({
       id: 'p2',
       imageUrl: 'https://prod-mercadona.imgix.net/images/88451.jpg',
       deletedAt: null,
     });
-    const update = jest.fn().mockResolvedValue({});
-    const prisma = {
-      product: { findUnique, update, findMany: jest.fn() },
-    } as unknown as PrismaService;
+    repo.updateImageUrl.mockResolvedValue();
 
     globalThis.fetch = mockFetchSequence([
       {
@@ -140,34 +147,29 @@ describe('BackfillImagesService', () => {
       contentDisposition: 'inline',
     } as Awaited<ReturnType<typeof put>>);
 
-    const svc = buildService(prisma);
+    const svc = buildService(repo);
     const result = await svc.backfillFromSource({
       productId: 'p2',
       sourceUrl: 'https://prod-mercadona.imgix.net/images/88451.jpg',
     });
 
     expect(result).toBe('uploaded');
-    expect(update).toHaveBeenCalledWith({
-      where: { id: 'p2' },
-      data: {
-        imageUrl: 'https://xyz.public.blob.vercel-storage.com/products/p2.jpg',
-      },
-    });
+    expect(repo.updateImageUrl).toHaveBeenCalledWith(
+      'p2',
+      'https://xyz.public.blob.vercel-storage.com/products/p2.jpg',
+    );
   });
 
   it('backfillFromSource: skipa quando Product já aponta para Blob (race)', async () => {
-    const findUnique = jest.fn().mockResolvedValue({
+    const repo = buildRepoMock();
+    repo.findSnapshot.mockResolvedValue({
       id: 'p3',
       imageUrl:
         'https://xyz.public.blob.vercel-storage.com/products/p3.jpg',
       deletedAt: null,
     });
-    const update = jest.fn();
-    const prisma = {
-      product: { findUnique, update, findMany: jest.fn() },
-    } as unknown as PrismaService;
 
-    const svc = buildService(prisma);
+    const svc = buildService(repo);
     const result = await svc.backfillFromSource({
       productId: 'p3',
       sourceUrl: 'https://prod-mercadona.imgix.net/images/p3.jpg',
@@ -175,32 +177,28 @@ describe('BackfillImagesService', () => {
 
     expect(result).toBe('skipped');
     expect(mockedPut).not.toHaveBeenCalled();
-    expect(update).not.toHaveBeenCalled();
+    expect(repo.updateImageUrl).not.toHaveBeenCalled();
   });
 
   it('backfillFromSource: skipa quando BLOB_READ_WRITE_TOKEN ausente', async () => {
     delete process.env.BLOB_READ_WRITE_TOKEN;
-    const prisma = {
-      product: { findUnique: jest.fn(), update: jest.fn(), findMany: jest.fn() },
-    } as unknown as PrismaService;
-
-    const svc = buildService(prisma);
+    const repo = buildRepoMock();
+    const svc = buildService(repo);
     const result = await svc.backfillFromSource({
       productId: 'px',
       sourceUrl: 'https://any/x.jpg',
     });
     expect(result).toBe('skipped');
+    expect(repo.findSnapshot).not.toHaveBeenCalled();
   });
 
   it('scanAndBackfill: resolve EAN via OFF, faz upload e conta stats', async () => {
-    const findMany = jest.fn().mockResolvedValue([
+    const repo = buildRepoMock();
+    repo.findCandidates.mockResolvedValue([
       { id: 'p1', name: 'Leche entera', ean: '8480000181732' },
       { id: 'p2', name: 'Sem EAN', ean: null },
     ]);
-    const update = jest.fn().mockResolvedValue({});
-    const prisma = {
-      product: { findMany, update, findUnique: jest.fn() },
-    } as unknown as PrismaService;
+    repo.updateImageUrl.mockResolvedValue();
 
     globalThis.fetch = mockFetchSequence([
       {
@@ -223,32 +221,29 @@ describe('BackfillImagesService', () => {
       contentDisposition: 'inline',
     } as Awaited<ReturnType<typeof put>>);
 
-    const svc = buildService(prisma);
+    const svc = buildService(repo);
     const stats = await svc.scanAndBackfill(10);
 
+    expect(repo.findCandidates).toHaveBeenCalledWith(10);
     expect(stats).toEqual({
       scanned: 2,
       uploaded: 1,
       fallback: 1,
       errored: 0,
     });
-    expect(update).toHaveBeenCalledWith({
-      where: { id: 'p1' },
-      data: {
-        imageUrl: 'https://xyz.public.blob.vercel-storage.com/products/p1.jpg',
-      },
-    });
+    expect(repo.updateImageUrl).toHaveBeenCalledWith(
+      'p1',
+      'https://xyz.public.blob.vercel-storage.com/products/p1.jpg',
+    );
   });
 
   it('scanAndBackfill: lança AppException quando BLOB_READ_WRITE_TOKEN ausente', async () => {
     delete process.env.BLOB_READ_WRITE_TOKEN;
-    const prisma = {
-      product: { findMany: jest.fn(), update: jest.fn(), findUnique: jest.fn() },
-    } as unknown as PrismaService;
-
-    const svc = buildService(prisma);
+    const repo = buildRepoMock();
+    const svc = buildService(repo);
     await expect(svc.scanAndBackfill(10)).rejects.toMatchObject({
       errorCode: 'BACKFILL_IMAGES.MISSING_BLOB_TOKEN',
     });
+    expect(repo.findCandidates).not.toHaveBeenCalled();
   });
 });

@@ -1,7 +1,7 @@
 import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { put } from '@vercel/blob';
 import { AppException } from '../../common/exceptions/app-exception';
-import { PrismaService } from '../../database/prisma.service';
+import { BackfillImagesRepository } from './backfill-images.repository';
 import { pickUserAgent, IDENTIFIED_UA } from './utils/user-agents';
 
 // Sprint 133 (consolida S117 + migração imgix→Blob).
@@ -78,17 +78,12 @@ export function isBlobUrl(url: string | null | undefined): boolean {
 export class BackfillImagesService {
   private readonly logger = new Logger(BackfillImagesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly repo: BackfillImagesRepository) {}
 
   async scanAndBackfill(limit: number): Promise<BackfillStats> {
     this.assertBlobToken();
 
-    const products = await this.prisma.product.findMany({
-      where: { imageUrl: null, deletedAt: null },
-      select: { id: true, name: true, ean: true },
-      take: limit,
-      orderBy: { createdAt: 'asc' },
-    });
+    const products = await this.repo.findCandidates(limit);
 
     this.logger.log(
       `scanAndBackfill: ${products.length} produtos sem imagem (limit=${limit})`,
@@ -135,10 +130,7 @@ export class BackfillImagesService {
       return 'skipped';
     }
 
-    const existing = await this.prisma.product.findUnique({
-      where: { id: input.productId },
-      select: { id: true, imageUrl: true, deletedAt: true },
-    });
+    const existing = await this.repo.findSnapshot(input.productId);
     if (!existing || existing.deletedAt) return 'skipped';
     // Race: outra thread já migrou para Blob. imageUrl não-Blob (imgix,
     // etc.) pode ser substituída → prossegue.
@@ -200,10 +192,7 @@ export class BackfillImagesService {
         allowOverwrite: true,
         cacheControlMaxAge: 31_536_000,
       });
-      await this.prisma.product.update({
-        where: { id: productId },
-        data: { imageUrl: result.url },
-      });
+      await this.repo.updateImageUrl(productId, result.url);
       this.logger.log(`upload ok → ${productId} url=${result.url}`);
       return 'uploaded';
     } catch (err) {

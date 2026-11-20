@@ -14,6 +14,7 @@ import {
   BACKFILL_IMAGES_QUEUE,
   BackfillImagesProcessor,
 } from './backfill-images.processor';
+import { BackfillImagesRepository } from './backfill-images.repository';
 import { BackfillImagesService } from './backfill-images.service';
 import { CatalogSyncController } from './catalog-sync.controller';
 import {
@@ -37,6 +38,7 @@ import { CatalogSyncService } from './catalog-sync.service';
     CatalogSyncService,
     CatalogSyncRepository,
     CatalogSyncProcessor,
+    BackfillImagesRepository,
     BackfillImagesService,
     BackfillImagesProcessor,
     MercadonaAdapter,
