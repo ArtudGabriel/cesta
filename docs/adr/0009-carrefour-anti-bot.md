@@ -1,6 +1,7 @@
 # ADR-0009 — Anti-bot Carrefour (ressurreição S134)
 
-**Status:** Proposed · **Data:** 2026-11-20
+**Status:** Accepted (opção C) · **Data:** 2026-11-20
+**Decisão user:** Opção C — Render Starter US$ 7/mo + Puppeteer reativo.
 
 ## Contexto
 
@@ -106,27 +107,32 @@ Puppeteer** depois (S128 funcionou, mas CDN atualiza impressões).
 **Dependência user:** aprovar billing + fazer upgrade no dashboard
 Render.
 
-### Recomendação Dev
+### Recomendação Dev (histórica)
 
-**Opção B (ScrapingBee free tier)** — primeiro teste. Baixo compromisso
-financeiro, API key resolve bootstrap. Se validar que Carrefour +
-Alcampo + Eroski produzem ≥ 100 produtos cada em 500 créditos, parte-se
-para plano pago US$ 29/mo (Freelance) ou troca-se por C.
+Dev recomendou **B (ScrapingBee)** por baixo compromisso financeiro.
 
-**Opção C** fica como contingência se B falhar.
+### Escolha user (2026-11-20)
+
+**Opção C — Render Starter US$ 7/mo + Puppeteer reativo.** Justificativa:
+US$ 7 fixo bate US$ 29/mo (ScrapingBee Freelance) a longo prazo e
+elimina dependência de vendor externo + API key management. Chromium
+sempre custa ≈ 300 MB de pico → 2 GB RAM do Starter dá folga pros três
+adapters Puppeteer (Carrefour, Alcampo) em serial.
 
 ## Consequências
 
-- **Sprint 134 PAUSADA** até user escolher B ou C.
-- Carrefour continua desativada (prod sample ≤ 2 produtos).
-- MVP Bloco 1 fica em 2/3 supermercados reais (Mercadona + DIA + Aldi).
-  Alcampo e Eroski compartilham o mesmo bloqueio Akamai → decisão
-  aqui também vale para eles.
+- `PUPPETEER_SLUGS` e flag `CATALOG_SYNC_PUPPETEER_ENABLED` removidas
+  do `catalog-sync.processor.ts`. Cron volta ao `SCHEDULE` único.
+- Carrefour (`30 3 * * *`) e Alcampo (`0 4 * * *`) voltam ao
+  agendamento diário Europe/Madrid.
+- Eroski continua com bareFetch (S125) — não depende de Chromium.
+- User upgrade Render dashboard:
+  `dashboard.render.com/web/srv-dbst4muc6qcc73a3opr0 → Settings →
+  Instance Type → Starter`. Pós-upgrade, trigger manual cron.
 
-## Follow-ups (dependem da escolha)
+## Follow-ups
 
-- **Se B:** adapter re-escrito com `undici.ProxyAgent(SCRAPINGBEE_URL)`
-  + spec com fixture JSON real-shape. Sem Puppeteer. Remove
-  `PUPPETEER_SLUGS.has('carrefour')` em `catalog-sync.processor.ts`.
-- **Se C:** remove `CATALOG_SYNC_PUPPETEER_ENABLED` do filtro + user
-  faz upgrade Render. Nenhuma mudança de código além do processor.
+- Métrica S134: `prices WHERE supermarket.slug='carrefour' AND source='OFFICIAL'`
+  deve pular de 1 → ≥ 100 pós-primeiro run.
+- S135+ monitora: se Akamai bloquear Puppeteer de novo (headers/TLS
+  fingerprint), fallback para B em branch `feat/carrefour-proxy`.
