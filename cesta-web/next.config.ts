@@ -20,6 +20,8 @@ const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [
+      // Sprint 135: R2 novo + Blob legacy durante bootstrap (ADR 0010).
+      { protocol: "https", hostname: "**.r2.dev" },
       { protocol: "https", hostname: "**.public.blob.vercel-storage.com" },
       { protocol: "https", hostname: "**.mercadona.es" },
       { protocol: "https", hostname: "**.carrefour.es" },
