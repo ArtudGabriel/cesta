@@ -8,6 +8,11 @@ import {
   PRICE_ALERTS_QUEUE,
   PriceAlertCheckJob,
 } from '../alerts/alerts.processor';
+import {
+  BACKFILL_IMAGES_QUEUE,
+  BackfillImagesJob,
+} from './backfill-images.processor';
+import { isBlobUrl } from './backfill-images.service';
 import { CatalogSyncRepository } from './catalog-sync.repository';
 import { AlcampoAdapter } from './adapters/alcampo.adapter';
 import { AldiAdapter } from './adapters/aldi.adapter';
@@ -52,6 +57,8 @@ export class CatalogSyncService {
     aldi: AldiAdapter,
     @InjectQueue(PRICE_ALERTS_QUEUE)
     private readonly alertsQueue: Queue<PriceAlertCheckJob>,
+    @InjectQueue(BACKFILL_IMAGES_QUEUE)
+    private readonly backfillImagesQueue: Queue<BackfillImagesJob>,
   ) {
     this.adapters = new Map<string, SupermarketAdapter>([
       [mercadona.slug, mercadona],
@@ -143,6 +150,25 @@ export class CatalogSyncService {
           if (created) stats.itemsCreated += 1;
           else stats.itemsUpdated += 1;
           updatedProductIds.add(product.id);
+
+          // Sprint 133: pipeline Blob-only. Enfileira backfill se o adapter
+          // trouxe imageUrl E o Product ainda não aponta pra Blob. Dedupe
+          // via jobId → múltiplos syncs no mesmo dia não acumulam jobs.
+          if (raw.imageUrl && !isBlobUrl(product.imageUrl)) {
+            await this.backfillImagesQueue.add(
+              'from-source',
+              {
+                kind: 'from-source',
+                productId: product.id,
+                sourceUrl: raw.imageUrl,
+              },
+              {
+                jobId: `img-${product.id}`,
+                removeOnComplete: 200,
+                removeOnFail: 50,
+              },
+            );
+          }
 
           // Enfileira verificação de alertas (dedupe via jobId)
           await this.alertsQueue.add(

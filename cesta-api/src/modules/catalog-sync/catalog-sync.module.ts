@@ -10,6 +10,11 @@ import { EroskiAdapter } from './adapters/eroski.adapter';
 import { FroizAdapter } from './adapters/froiz.adapter';
 import { LidlAdapter } from './adapters/lidl.adapter';
 import { MercadonaAdapter } from './adapters/mercadona.adapter';
+import {
+  BACKFILL_IMAGES_QUEUE,
+  BackfillImagesProcessor,
+} from './backfill-images.processor';
+import { BackfillImagesService } from './backfill-images.service';
 import { CatalogSyncController } from './catalog-sync.controller';
 import {
   CATALOG_SYNC_QUEUE,
@@ -24,6 +29,7 @@ import { CatalogSyncService } from './catalog-sync.service';
     BullModule.registerQueue(
       { name: CATALOG_SYNC_QUEUE },
       { name: PRICE_ALERTS_QUEUE },
+      { name: BACKFILL_IMAGES_QUEUE },
     ),
   ],
   controllers: [CatalogSyncController],
@@ -31,6 +37,8 @@ import { CatalogSyncService } from './catalog-sync.service';
     CatalogSyncService,
     CatalogSyncRepository,
     CatalogSyncProcessor,
+    BackfillImagesService,
+    BackfillImagesProcessor,
     MercadonaAdapter,
     CarrefourAdapter,
     AlcampoAdapter,
