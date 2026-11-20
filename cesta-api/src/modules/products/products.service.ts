@@ -40,6 +40,29 @@ export class ProductsService {
     return ProductResponseDto.fromEntity(product);
   }
 
+  /**
+   * Sprint 132: top N produtos com maior spread (maxPrice - minPrice) entre
+   * supermarkets ativos disponíveis. Precisa >= 2 supermarkets disponíveis
+   * pra entrar; spread em euros absolutos. Ordem DESC spread.
+   */
+  async featuredDeals(limit: number): Promise<ProductResponseDto[]> {
+    const products = await this.repo.findManyWithPrices();
+    const scored = products
+      .map((p) => {
+        const mapped = ProductResponseDto.fromEntity(p);
+        const available = mapped.prices.filter((pr) => pr.isAvailable);
+        if (available.length < 2) return null;
+        const prices = available.map((pr) => pr.price);
+        const spread = Math.max(...prices) - Math.min(...prices);
+        return { product: mapped, spread };
+      })
+      .filter((x): x is { product: ProductResponseDto; spread: number } => x !== null)
+      .sort((a, b) => b.spread - a.spread)
+      .slice(0, limit)
+      .map((x) => x.product);
+    return scored;
+  }
+
   async compare(ids: string[]): Promise<ProductResponseDto[]> {
     if (!ids.length)
       throw new AppException(

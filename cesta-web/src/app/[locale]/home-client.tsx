@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ColdStartHint } from "@/components/cold-start-hint";
 import { CategoryChipSkeleton } from "@/features/catalog/components/category-chip-skeleton";
 import { DietaryFilters, type DietaryFlag } from "@/features/catalog/components/dietary-filters";
+import { FeaturedDeals } from "@/features/catalog/components/featured-deals";
 import { HomeEmptyState } from "@/features/catalog/components/home-empty-state";
 import {
   NutriFilters,
@@ -329,6 +330,9 @@ export function HomeClient() {
           )}
         </div>
       </div>
+
+      {/* Sprint 132: Melhores ofertas (top produtos com maior gap preço entre supermarkets) */}
+      <FeaturedDeals limit={10} />
 
       {/* Dietary filters + Nutri-Score chips */}
       <div className="mb-3 flex flex-wrap items-center gap-2">

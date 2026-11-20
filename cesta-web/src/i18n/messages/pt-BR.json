@@ -234,6 +234,11 @@
     "clearSearch": "Limpar busca",
     "searchPlaceholder": "Buscar produto…",
     "onlyPromotion": "Só em promoção",
+    "featured": {
+      "title": "Melhores ofertas",
+      "subtitle": "Maior diferença entre supermercados",
+      "cheaperAt": "Mais barato em {market}"
+    },
     "suggestions": {
       "empty": "Sem sugestões para \"{query}\"",
       "loading": "Buscando sugestões…",
