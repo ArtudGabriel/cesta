@@ -51,6 +51,15 @@ export class GraceReminderProcessor
   }
 
   private async scheduleCron(): Promise<void> {
+    const enabled =
+      this.config.get<string>('GRACE_REMINDER_CRON_ENABLED', 'false') ===
+      'true';
+    if (!enabled) {
+      this.logger.log(
+        'GraceReminder cron DISABLED via env (MVP $0/mês Redis quota)',
+      );
+      return;
+    }
     const hour = Number(
       this.config.get<number | string>('CRON_GRACE_REMINDER_HOUR', 9),
     );
