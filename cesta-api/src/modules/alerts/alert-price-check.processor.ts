@@ -38,6 +38,15 @@ export class AlertPriceCheckProcessor
   }
 
   private async scheduleCron(): Promise<void> {
+    const enabled =
+      this.config.get<string>('ALERT_PRICE_CHECK_CRON_ENABLED', 'false') ===
+      'true';
+    if (!enabled) {
+      this.logger.log(
+        'AlertPriceCheck cron DISABLED via env (MVP $0/mês Redis quota)',
+      );
+      return;
+    }
     const cron = this.config.get<string>(
       'CRON_ALERT_PRICE_CHECK',
       '0 */2 * * *',

@@ -48,6 +48,15 @@ export class AlertRuleEvaluatorProcessor
   }
 
   private async scheduleCron(): Promise<void> {
+    const enabled =
+      this.config.get<string>('ALERT_RULE_EVAL_CRON_ENABLED', 'false') ===
+      'true';
+    if (!enabled) {
+      this.logger.log(
+        'AlertRuleEvaluator cron DISABLED via env (MVP $0/mês Redis quota)',
+      );
+      return;
+    }
     const cron = this.config.get<string>('CRON_ALERT_RULE_EVAL', '15 */2 * * *');
     try {
       await this.queue.add(
