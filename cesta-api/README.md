@@ -26,6 +26,7 @@ Variáveis de ambiente: ver [`../.env.example`](../.env.example).
 | `npm run sync:eroski` | Sync manual Eroski (ver seção abaixo) |
 | `npm run sync:carrefour` | Sync manual Carrefour (Puppeteer local) |
 | `npm run sync:alcampo` | Sync manual Alcampo (Puppeteer local) |
+| `npm run sync:froiz` | Sync manual Froiz (Cheerio local) |
 | `npx prisma studio` | DB inspector |
 
 ## Manual syncs (Sprints 137–138)
@@ -232,6 +233,62 @@ npm run sync:alcampo
 **Cadência:** 1× por semana.
 **Tempo de run:** `--max-products=30` leva ~1-2min (2s/page + navegação).
 Sem EAN nas páginas; match por `normalizedName`.
+
+### Froiz
+
+`supermercado.froiz.com` é Nuxt SSR app com sitemap público
+(`/sitemap.xml` → 8280 `<loc>`, 7099 produtos + 1181 categorias). Cards
+de categoria renderizam `.product` com `.name` + `.price span` +
+`.offer` + `img`. Zero anti-bot aparente — scraping Cheerio direto, sem
+Puppeteer.
+
+**Prereq**
+
+- `cesta-api/.env` com `DATABASE_URL` → Neon prod.
+- `npm install` executado.
+
+**Checklist**
+
+- [ ] `cat cesta-api/.env | grep DATABASE_URL` retorna Neon.
+- [ ] `npm run sync:froiz -- --dry-run --max-cats=3` imprime amostras.
+
+**Comandos**
+
+```bash
+cd cesta-api
+
+# inspeção sem escrita
+npm run sync:froiz -- --dry-run --max-cats=3
+
+# bootstrap curto (20 categorias leaf, ~500 produtos)
+npm run sync:froiz -- --max-cats=20
+
+# cobertura padrão (60 categorias leaf)
+npm run sync:froiz
+
+# subset produtos
+npm run sync:froiz -- --max-cats=10 --limit=100
+```
+
+**Flags**
+
+| Flag | Default | Efeito |
+|---|---|---|
+| `--max-cats=N` | `60` | Trunca categorias leaf (`FROIZ_MAX_CATEGORIES` env) |
+| `--limit=N` | sem limite | Trunca produtos pós-fetch antes dos upserts |
+| `--dry-run` | off | Zero writes DB |
+
+**Cadência:** 1× por semana cobre variação esperada.
+**Tempo de run:** `--max-cats=20` leva ~1min (politeFetch 1-3s jitter
+× 20 categorias).
+
+**Idempotência:** upsert por `normalizedName` (Froiz não expõe EAN
+público). Re-run atualiza `ProductPrice`, não duplica; cada run cria 1
+linha nova em `PriceSnapshot`.
+
+**Silent-failure guard:** adapter `throw` quando sitemap vazio ou todas
+categorias falham — mesmo pattern Eroski (S137). Erros last-3
+concatenados na mensagem.
 
 ## JWT secret rotation (Sprint 92)
 
