@@ -88,19 +88,23 @@ function resolveChromium(raw: unknown): ChromiumApi {
   );
 }
 
-function tryResolveBundledChrome(): string | null {
+async function tryResolveBundledChrome(): Promise<string | null> {
   // puppeteer (pacote full) bundle Chrome em ~/.cache/puppeteer.
-  // `puppeteer.executablePath()` retorna o path sem baixar nada — se
-  // user rodou `npx puppeteer browsers install chrome`, resolve local.
+  // `puppeteer.executablePath()` retorna Promise<string> em v22+;
+  // await obrigatório — S140 QA REPROVA: código síncrono capturava
+  // Promise object, .length=undefined, falsy → fallback chromium-min
+  // → protocol mismatch Windows.
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const puppeteerPkg = require('puppeteer') as {
-      executablePath?: () => string;
+      executablePath?: () => string | Promise<string>;
     };
-    if (typeof puppeteerPkg.executablePath === 'function') {
-      const path = puppeteerPkg.executablePath();
-      if (path && path.length > 0) return path;
-    }
+    if (typeof puppeteerPkg.executablePath !== 'function') return null;
+    const result = puppeteerPkg.executablePath();
+    const path = typeof (result as Promise<string>).then === 'function'
+      ? await (result as Promise<string>)
+      : (result as string);
+    if (path && typeof path === 'string' && path.length > 0) return path;
   } catch (err) {
     logger.warn(
       `puppeteer package não disponível: ${(err as Error).message ?? err}`,
@@ -117,7 +121,7 @@ async function resolveExecutablePath(): Promise<{
   // apontado via PUPPETEER_EXECUTABLE_PATH frequentemente mismatcha a
   // versão que o puppeteer-core espera no DevTools protocol — S139 QA
   // bateu ProtocolError. Env var fica como escape-hatch explícito.
-  const bundled = tryResolveBundledChrome();
+  const bundled = await tryResolveBundledChrome();
   if (bundled) {
     if (process.env.PUPPETEER_EXECUTABLE_PATH) {
       logger.warn(
