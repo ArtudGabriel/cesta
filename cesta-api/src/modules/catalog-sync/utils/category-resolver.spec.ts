@@ -146,6 +146,23 @@ describe('resolveCategorySlug', () => {
     // Sprint 145 — hielo
     ['Bolsa de hielo cubitos 2kg', 'bebidas'],
     ['Cubitos de hielo artesanal 1kg', 'bebidas'],
+
+    // Sprint 146 — coloração / tintes capilares
+    ['Coloración permanente Colorcor castaño natural', 'higiene'],
+    ['Colorcor negro profundo tinte capilar', 'higiene'],
+    ['Color Sensation 1.0 ultra negro Garnier', 'higiene'],
+    ['Color Mask mascarilla cabello Schwarzkopf', 'higiene'],
+    ['Color Glow baño de color L\'Oreal', 'higiene'],
+    ['Tinte cabello rubio dorado Nutrisse', 'higiene'],
+    ['Mascarilla capilar nutritiva Pantene 300ml', 'higiene'],
+    ['Decolorante Palette plátino 10.0', 'higiene'],
+    ['Reflejos rubio miel kit casero', 'higiene'],
+    ['Just For Men tinte barba negro natural', 'higiene'],
+
+    // Sprint 146 — arreglo cocido / puchero
+    ['Arreglo para cocido Hacendado 500g', 'carne'],
+    ['Arreglo cocido madrileño con tocino 400g', 'carne'],
+    ['Puchero gallego ingredientes 600g', 'carne'],
   ];
 
   it.each(cases)('normaliza "%s" → %s', (input, expected) => {
