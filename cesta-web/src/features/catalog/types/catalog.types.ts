@@ -87,22 +87,20 @@ export interface ProductFilters {
   search?: string;
   category?: string;
   supermarket?: string;
-  /** Sprint 147: multi supermarket (OR). Serializa `?supermarkets=mercadona,dia`. */
-  supermarkets?: string[];
   brand?: string;
-  /** Sprint 147: preço mínimo inclusivo (€). */
-  minPrice?: number;
   maxPrice?: number;
   onPromotion?: boolean;
   isVegan?: boolean;
   isVegetarian?: boolean;
   isGlutenFree?: boolean;
   isLactoseFree?: boolean;
-  /** Sprint 147: Nutri-Score mínimo aceitável (A = só A; B = A+B; …). */
-  nutriScore?: NutriGrade;
-  sortBy?: "cheapest" | "newest" | "name" | "nutriScore";
+  sortBy?: "cheapest" | "newest" | "name";
   page?: number;
   limit?: number;
+  // Sprint 151 rollback: campos avançados (S147) removidos frontend-side.
+  // Backend aceita `minPrice`/`supermarkets[]`/`nutriScore`/sortBy=nutriScore
+  // mas não são consumidos aqui — reintroduzir quando o shell de filtros
+  // for retomado.
 }
 
 export interface Paginated<T> {
