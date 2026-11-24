@@ -24,8 +24,20 @@ export const catalogService = {
   },
 
   async listProducts(filters: ProductFilters = {}): Promise<Paginated<Product>> {
+    // Sprint 147: supermarkets[] → serializa `?supermarkets=a,b`. Demais
+    // campos passam direto; undefined/null/arrays vazios são dropados.
+    const params: Record<string, string | number | boolean> = {};
+    for (const [key, value] of Object.entries(filters)) {
+      if (value === undefined || value === null || value === "") continue;
+      if (Array.isArray(value)) {
+        if (value.length === 0) continue;
+        params[key] = value.join(",");
+        continue;
+      }
+      params[key] = value as string | number | boolean;
+    }
     const { data } = await api.get<Envelope<Product[]>>("/products", {
-      params: filters,
+      params,
     });
     return { items: data.data, meta: data.meta };
   },

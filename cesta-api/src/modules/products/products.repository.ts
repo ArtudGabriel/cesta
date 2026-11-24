@@ -221,14 +221,32 @@ export class ProductsRepository {
     }
 
     const priceFilters: Prisma.ProductPriceWhereInput = { isAvailable: true };
-    if (filters.supermarket) {
+    // Sprint 147: supermarkets[] (multi) tem precedência sobre supermarket single.
+    if (filters.supermarkets && filters.supermarkets.length > 0) {
+      priceFilters.supermarket = { slug: { in: filters.supermarkets } };
+    } else if (filters.supermarket) {
       priceFilters.supermarket = { slug: filters.supermarket };
     }
     if (filters.onPromotion) priceFilters.onPromotion = true;
-    if (filters.maxPrice !== undefined) {
-      priceFilters.currentPrice = { lte: new Prisma.Decimal(filters.maxPrice) };
+    // Preço range (inclusivo) sobre `currentPrice`.
+    if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
+      const priceRange: Prisma.DecimalFilter = {};
+      if (filters.minPrice !== undefined) {
+        priceRange.gte = new Prisma.Decimal(filters.minPrice);
+      }
+      if (filters.maxPrice !== undefined) {
+        priceRange.lte = new Prisma.Decimal(filters.maxPrice);
+      }
+      priceFilters.currentPrice = priceRange;
     }
-    if (Object.keys(priceFilters).length > 1 || filters.supermarket || filters.onPromotion || filters.maxPrice !== undefined) {
+    const hasPriceFilter =
+      Object.keys(priceFilters).length > 1 ||
+      filters.supermarket !== undefined ||
+      (filters.supermarkets && filters.supermarkets.length > 0) ||
+      filters.onPromotion !== undefined ||
+      filters.minPrice !== undefined ||
+      filters.maxPrice !== undefined;
+    if (hasPriceFilter) {
       where.prices = { some: priceFilters };
     }
 

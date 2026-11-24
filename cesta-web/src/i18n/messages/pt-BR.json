@@ -962,5 +962,34 @@
       "noPrice": "Sem oferta",
       "removeAria": "Remover {name}"
     }
+  },
+  "filters": {
+    "title": "Filtros",
+    "clear": "Limpar tudo",
+    "categoryAll": "Todas",
+    "supermarket": "Supermercado",
+    "priceRange": "Preço (€)",
+    "minPricePlaceholder": "Mín",
+    "maxPricePlaceholder": "Máx",
+    "dietary": {
+      "isVegan": "Vegano",
+      "isVegetarian": "Vegetariano",
+      "isGlutenFree": "Sem glúten",
+      "isLactoseFree": "Sem lactose"
+    },
+    "nutriScore": "Nutri-Score mínimo",
+    "onPromotion": "Em oferta",
+    "yes": "Sim",
+    "no": "Não",
+    "empty": "Sem produtos nesta categoria com os filtros selecionados.",
+    "breadcrumbCategory": "Categoria",
+    "totalCount": "{count, plural, one {# produto} other {# produtos}}",
+    "aria": {
+      "bar": "Barra de filtros",
+      "minPrice": "Preço mínimo em euros",
+      "maxPrice": "Preço máximo em euros",
+      "nutriScore": "Filtrar por Nutri-Score {grade}",
+      "productsList": "Lista de produtos filtrados"
+    }
   }
 }
