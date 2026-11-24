@@ -696,7 +696,14 @@
       "unknownError": "Error desconocido"
     },
     "activeHeader": "Alertas activas",
+    "triggeredHeader": "Alertas disparadas",
+    "badgeTriggered": "Disparada",
     "empty": "Aún no tienes alertas. Añade una desde la página de producto.",
+    "emptyState": {
+      "title": "Aún no tienes alertas",
+      "body": "Crea una alerta para avisarte cuando un precio baje o entre en promoción.",
+      "cta": "Crear mi primera alerta"
+    },
     "anyMarket": "Cualquier supermercado",
     "lastTriggered": "Última alerta:",
     "confirmDelete": "¿Eliminar esta alerta?",

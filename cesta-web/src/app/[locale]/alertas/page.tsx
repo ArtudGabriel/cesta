@@ -1,29 +1,19 @@
 "use client";
 
-import {
-  ArrowLeft,
-  Bell,
-  BellOff,
-  Loader2,
-  Plus,
-  Tag,
-  Target,
-  Trash2,
-} from "lucide-react";
+import { ArrowLeft, Bell, BellOff, Loader2, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/confirm-dialog";
+import { AlertCard } from "@/features/alerts/components/alert-card";
+import { AlertsEmptyState } from "@/features/alerts/components/alerts-empty-state";
 import {
   useAlertRules,
   useAlerts,
-  useDeleteAlert,
-  useToggleAlert,
 } from "@/features/alerts/hooks/use-alerts";
 import { usePush } from "@/features/alerts/hooks/use-push";
-import type { Alert, AlertRule } from "@/features/alerts/types/alert.types";
+import type { AlertRule } from "@/features/alerts/types/alert.types";
 import { cn, formatPrice } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth.store";
 
@@ -43,6 +33,18 @@ export default function AlertsPage() {
       router.replace(`/login?returnUrl=${encodeURIComponent("/alertas")}`);
     }
   }, [isHydrated, user, router]);
+
+  const { active, triggered } = useMemo(() => {
+    const data = alerts.data ?? [];
+    return {
+      active: data.filter((a) => !a.lastTriggeredAt),
+      triggered: data.filter((a) => a.lastTriggeredAt),
+    };
+  }, [alerts.data]);
+
+  const totalAlerts = active.length + triggered.length;
+  const showEmptyState =
+    !alerts.isLoading && totalAlerts === 0 && (rules.data?.length ?? 0) === 0;
 
   if (!isHydrated || !user) {
     return (
@@ -71,22 +73,18 @@ export default function AlertsPage() {
         </div>
       </header>
 
-      <section className="px-4 py-4">
-        <div className="rounded-card bg-white p-4 shadow-card">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="font-display text-sm font-bold text-ink">
-                {t("pushHeader")}
-              </p>
-              <p className="text-xs text-muted">
-                {!push.supported
-                  ? t("pushUnsupported")
-                  : push.subscribed
-                    ? t("pushActive")
-                    : t("pushInactive")}
-              </p>
-            </div>
-            {push.supported && (
+      {push.supported && (
+        <section className="px-4 py-4">
+          <div className="rounded-card bg-white p-4 shadow-card">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-display text-sm font-bold text-ink">
+                  {t("pushHeader")}
+                </p>
+                <p className="text-xs text-muted">
+                  {push.subscribed ? t("pushActive") : t("pushInactive")}
+                </p>
+              </div>
               <Button
                 size="sm"
                 variant={push.subscribed ? "ghost" : "primary"}
@@ -104,33 +102,62 @@ export default function AlertsPage() {
                 )}
                 {push.subscribed ? t("pushDisable") : t("pushEnable")}
               </Button>
-            )}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
-      <section className="px-4">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
-          {t("activeHeader")}
-        </h2>
-        {alerts.isLoading ? (
-          <div className="flex justify-center py-6">
+      {alerts.isLoading ? (
+        <section className="px-4">
+          <div className="flex justify-center py-10">
             <Loader2 className="h-5 w-5 animate-spin text-cesta-green" />
           </div>
-        ) : !alerts.data || alerts.data.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted">{t("empty")}</p>
-        ) : (
-          <ul className="space-y-2">
-            {alerts.data.map((alert) => (
-              <li key={alert.id}>
-                <AlertCard alert={alert} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+        </section>
+      ) : showEmptyState ? (
+        <section className="px-4 pt-2">
+          <AlertsEmptyState />
+        </section>
+      ) : (
+        <>
+          {triggered.length > 0 && (
+            <section
+              className="px-4 pt-2"
+              data-testid="alerts-triggered-section"
+            >
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
+                {t("triggeredHeader")}
+              </h2>
+              <ul className="space-y-2">
+                {triggered.map((alert) => (
+                  <li key={alert.id}>
+                    <AlertCard alert={alert} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
-      <section className="px-4 mt-6" data-testid="alert-rules-section">
+          {active.length > 0 && (
+            <section
+              className="mt-6 px-4"
+              data-testid="alerts-active-section"
+            >
+              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
+                {t("activeHeader")}
+              </h2>
+              <ul className="space-y-2">
+                {active.map((alert) => (
+                  <li key={alert.id}>
+                    <AlertCard alert={alert} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </>
+      )}
+
+      <section className="mt-6 px-4" data-testid="alert-rules-section">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
           {tRules("sectionHeader")}
         </h2>
@@ -204,107 +231,3 @@ function AlertRuleCard({ rule }: { rule: AlertRule }) {
   );
 }
 
-function AlertCard({ alert }: { alert: Alert }) {
-  const toggle = useToggleAlert();
-  const remove = useDeleteAlert();
-  const t = useTranslations("alerts");
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  const label = describeType(alert, t);
-
-  return (
-    <div
-      className={cn(
-        "rounded-card bg-white p-4 shadow-card",
-        !alert.isActive && "opacity-60",
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <Link
-            href={`/produto/${alert.productId}`}
-            className="line-clamp-1 text-sm font-medium text-ink hover:text-cesta-green"
-          >
-            {alert.productName}
-          </Link>
-          <p className="mt-1 text-xs text-muted">
-            {alert.supermarketName ?? t("anyMarket")}
-          </p>
-          <p className="mt-2 inline-flex items-center gap-1 rounded-pill bg-surface px-2 py-0.5 text-[10px] font-medium text-ink">
-            {label.icon}
-            {label.text}
-          </p>
-          {alert.lastTriggeredAt && (
-            <p className="mt-2 text-[11px] text-muted">
-              {t("lastTriggered")}{" "}
-              {new Date(alert.lastTriggeredAt).toLocaleDateString("es-ES")}
-            </p>
-          )}
-        </div>
-
-        <div className="flex gap-1">
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label={alert.isActive ? t("actionDeactivate") : t("actionActivate")}
-            onClick={() =>
-              toggle.mutate({ id: alert.id, isActive: !alert.isActive })
-            }
-          >
-            {alert.isActive ? (
-              <Bell className="h-4 w-4 text-cesta-green" />
-            ) : (
-              <BellOff className="h-4 w-4 text-muted" />
-            )}
-          </Button>
-          <Button
-            size="icon"
-            variant="ghost"
-            aria-label={t("actionDelete")}
-            onClick={() => setShowDeleteConfirm(true)}
-            disabled={remove.isPending}
-          >
-            <Trash2 className="h-4 w-4 text-coral" />
-          </Button>
-        </div>
-      </div>
-
-      <ConfirmDialog
-        open={showDeleteConfirm}
-        onClose={() => setShowDeleteConfirm(false)}
-        onConfirm={() => {
-          setShowDeleteConfirm(false);
-          remove.mutate(alert.id);
-        }}
-        title={t("confirmDelete")}
-        destructive
-        isPending={remove.isPending}
-      />
-    </div>
-  );
-}
-
-type TFn = (key: string, values?: Record<string, string>) => string;
-
-function describeType(alert: Alert, t: TFn): { icon: React.ReactNode; text: string } {
-  switch (alert.type) {
-    case "promotion":
-      return { icon: <Tag className="h-3 w-3" />, text: t("types.promotion") };
-    case "target_price":
-      return {
-        icon: <Target className="h-3 w-3" />,
-        text: t("types.targetPrice", {
-          price: alert.targetPrice ? formatPrice(alert.targetPrice) : t("types.unknownPrice"),
-        }),
-      };
-    case "promotion_ending":
-      return {
-        icon: <Tag className="h-3 w-3" />,
-        text: t("types.promotionEnding"),
-      };
-    case "back_in_stock":
-      return { icon: <Bell className="h-3 w-3" />, text: t("types.backInStock") };
-    default:
-      return { icon: <Bell className="h-3 w-3" />, text: alert.type };
-  }
-}
