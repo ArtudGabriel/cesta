@@ -188,15 +188,31 @@ describe('EroskiAdapter', () => {
     expect(byId.has('22222')).toBe(false);
   });
 
-  it('retorna [] quando sitemap vazio', async () => {
+  it('bubble up error quando sitemap vazio (S137 anti silent-failure)', async () => {
     const fetchMock = jest.fn(() =>
       Promise.resolve(
         mockBareResponse('<?xml version="1.0"?><urlset></urlset>'),
       ),
     );
     global.fetch = fetchMock as unknown as typeof fetch;
-    const products = await adapter.fetchProducts();
-    expect(products).toEqual([]);
+    await expect(adapter.fetchProducts()).rejects.toThrow(
+      /0 categorias no sitemap/,
+    );
+  });
+
+  it('bubble up quando todas categorias falham fetchHtml (S137 anti silent-failure)', async () => {
+    const fetchMock = jest.fn(() =>
+      Promise.resolve(mockBareResponse(SITEMAP_XML)),
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+    mockedPoliteFetchRaw.mockResolvedValue({
+      body: '',
+      status: 403,
+      setCookie: [],
+    } as any);
+    await expect(adapter.fetchProducts()).rejects.toThrow(
+      /0 produtos em .* categorias/,
+    );
   });
 
   it('filtra URLs não-categorias do sitemap', async () => {
