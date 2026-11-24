@@ -38,13 +38,57 @@ rodar sync manual pelo laptop do dev (IP residencial) 1-2× por semana.
 **Prereq comum pra Carrefour e Alcampo (adapters Puppeteer):**
 
 ```bash
-# instala o Chrome que o Puppeteer baixa (uma vez por máquina)
 cd cesta-api
+# 1. instalar Chrome bundled (uma vez por máquina)
 npx puppeteer browsers install chrome
 ```
 
+**Windows**: `@sparticuz/chromium-min` só serve Linux x64 (Lambda-style),
+e `puppeteer`-bundled Chrome pode não resolver `executablePath()` em
+alguns setups. Setar `PUPPETEER_EXECUTABLE_PATH` apontando o Chrome
+local é o fallback garantido:
+
+```powershell
+# PowerShell — persistente para a sessão atual
+$env:PUPPETEER_EXECUTABLE_PATH = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+
+# cmd.exe — equivalente
+set PUPPETEER_EXECUTABLE_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe
+
+# OR apontar pro Chrome baixado pelo Puppeteer:
+# C:\Users\<USER>\.cache\puppeteer\chrome\win64-<version>\chrome-win64\chrome.exe
+```
+
+**macOS / Linux** sem override:
+
+```bash
+# bundled Chrome após `puppeteer browsers install chrome`:
+export PUPPETEER_EXECUTABLE_PATH="$HOME/.cache/puppeteer/chrome/mac-<version>/chrome-mac/Chromium.app/Contents/MacOS/Chromium"
+# OR Chrome do sistema (Linux):
+export PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
+```
+
+Verificação sem rodar sync:
+
+```bash
+node -e "console.log(require('puppeteer').executablePath())"
+```
+
+**Stealth plugin ativo** (`puppeteer-extra-plugin-stealth`): patcha
+`navigator.webdriver`, plugins, WebGL vendor, lang etc. Sem stealth,
+Akamai/WAF detectam headless e servem challenge sem `__NEXT_DATA__`
+(S138 QA REPROVA: Carrefour 0/20, Alcampo 1/5). Com stealth, expectativa
+Carrefour 20-50/run e Alcampo 10-30/run.
+
+**Headful opcional** (abre janela visível; útil pra debug challenge):
+
+```bash
+export PUPPETEER_HEADFUL=true
+npm run sync:carrefour -- --dry-run --max-queries=1
+```
+
 `CARREFOUR_ALCAMPO_CRON_ENABLED` fica `false` em prod — scheduleCrons
-pula esses slugs e remove cualquer repeat scheduler stale. Para
+pula esses slugs e remove qualquer repeat scheduler stale. Para
 ressuscitar em prod (só se Render virar paid tier com mais RAM),
 setar a env `true` e redeploy.
 
