@@ -435,6 +435,7 @@ const WORD_BOUNDARY = /[^a-z0-9]/;
  * (char antes = "n", alphanum → fail).
  */
 function matchKeyword(haystack: string, needle: string): boolean {
+  if (!needle) return false;
   let searchFrom = 0;
   while (searchFrom <= haystack.length - needle.length) {
     const idx = haystack.indexOf(needle, searchFrom);
