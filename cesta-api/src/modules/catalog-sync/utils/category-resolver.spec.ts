@@ -133,6 +133,19 @@ describe('resolveCategorySlug', () => {
     ['Bosque Verde detergente líquido 2L', 'limpieza'],
     ['Bosqueverde lavavajillas gel 1L', 'limpieza'],
     ['Compy pañales talla 3 pack 54', 'bebes'],
+
+    // Sprint 145 — ultracongelados + pizza + marisco congelado
+    ['Pizza Hacendado jamón y queso ultracongelada', 'congelados'],
+    ['Pizza Casa Tarradellas 400g', 'congelados'],
+    ['Bogavante entero ultracongelado 400g', 'congelados'],
+    ['Cigalas ultracongeladas bandeja 300g', 'congelados'],
+    ['Croquetas de jamón Hacendado congeladas 500g', 'congelados'],
+    ['Base de pizza fresca Hacendado 2 unidades', 'congelados'],
+    ['Masa de pizza congelada Buitoni', 'congelados'],
+    ['Precongelado panadería mini croissant', 'congelados'],
+    // Sprint 145 — hielo
+    ['Bolsa de hielo cubitos 2kg', 'bebidas'],
+    ['Cubitos de hielo artesanal 1kg', 'bebidas'],
   ];
 
   it.each(cases)('normaliza "%s" → %s', (input, expected) => {
