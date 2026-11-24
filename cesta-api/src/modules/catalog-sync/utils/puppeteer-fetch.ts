@@ -10,11 +10,14 @@ import { Logger } from '@nestjs/common';
 // com Chrome real — stealth patcha navigator.webdriver, plugins, lang,
 // chrome.runtime etc. Reduz drasticamente detection rate sem custo.
 //
-// Local resolve de Chrome:
-//  1. `PUPPETEER_EXECUTABLE_PATH` (override explícito — fundamental em
-//     Windows onde chromium-min pack `.tar` não resolve)
-//  2. `puppeteer` (pacote full, bundled Chrome após
-//     `npx puppeteer browsers install chrome`)
+// Local resolve de Chrome (Sprint 140):
+//  1. `puppeteer` (pacote full, bundled Chrome após
+//     `npx puppeteer browsers install chrome`) — DEFAULT. Match garantido
+//     da versão do DevTools protocol.
+//  2. `PUPPETEER_EXECUTABLE_PATH` — escape-hatch quando bundled não
+//     resolver OU user quer forçar Chrome específico. Logger WARN se
+//     setado junto com bundled disponível (S139/S140 ProtocolError =
+//     user Chrome 157 vs puppeteer-bundled 142).
 //  3. Fallback `@sparticuz/chromium-min` (Lambda Linux only — não
 //     funciona em Windows). Mantido pra Render Pro se algum dia subir.
 
@@ -106,12 +109,34 @@ function tryResolveBundledChrome(): string | null {
   return null;
 }
 
-async function resolveExecutablePath(): Promise<string> {
-  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-    return process.env.PUPPETEER_EXECUTABLE_PATH;
-  }
+async function resolveExecutablePath(): Promise<{
+  path: string;
+  source: 'env' | 'bundled' | 'chromium-min';
+}> {
+  // Sprint 140: bundled Chrome (via `puppeteer`) é primary. System Chrome
+  // apontado via PUPPETEER_EXECUTABLE_PATH frequentemente mismatcha a
+  // versão que o puppeteer-core espera no DevTools protocol — S139 QA
+  // bateu ProtocolError. Env var fica como escape-hatch explícito.
   const bundled = tryResolveBundledChrome();
-  if (bundled) return bundled;
+  if (bundled) {
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+      logger.warn(
+        `PUPPETEER_EXECUTABLE_PATH setado (${process.env.PUPPETEER_EXECUTABLE_PATH}) — override honored sobre bundled. ` +
+          `Se protocol mismatch, unset a env var e rode "npx puppeteer browsers install chrome".`,
+      );
+      return {
+        path: process.env.PUPPETEER_EXECUTABLE_PATH,
+        source: 'env',
+      };
+    }
+    return { path: bundled, source: 'bundled' };
+  }
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    return {
+      path: process.env.PUPPETEER_EXECUTABLE_PATH,
+      source: 'env',
+    };
+  }
   // Último fallback: @sparticuz/chromium-min (Linux x64 only — Lambda).
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const rawChromium = require('@sparticuz/chromium-min') as unknown;
@@ -120,17 +145,17 @@ async function resolveExecutablePath(): Promise<string> {
   if (!path) {
     throw new Error(
       `Chromium executablePath vazio (CHROMIUM_PACK_URL=${CHROMIUM_PACK_URL}). ` +
-        `Setar PUPPETEER_EXECUTABLE_PATH OR rodar npx puppeteer browsers install chrome`,
+        `Rodar "npx puppeteer browsers install chrome" OR setar PUPPETEER_EXECUTABLE_PATH`,
     );
   }
-  return path;
+  return { path, source: 'chromium-min' };
 }
 
 async function getBrowser(): Promise<BrowserLike> {
   if (browserPromise) return browserPromise;
 
   browserPromise = (async () => {
-    const executablePath = await resolveExecutablePath();
+    const { path: executablePath, source } = await resolveExecutablePath();
 
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const puppeteerExtraRaw = require('puppeteer-extra') as unknown;
@@ -152,7 +177,7 @@ async function getBrowser(): Promise<BrowserLike> {
       '--disable-blink-features=AutomationControlled',
     ];
     logger.log(
-      `Launching Chromium (executablePath=${executablePath}, headful=${headful})`,
+      `Launching Chromium (source=${source}, executablePath=${executablePath}, headful=${headful})`,
     );
     return (await puppeteer.launch({
       args,
