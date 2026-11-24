@@ -6,10 +6,18 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
+import * as Sentry from "@sentry/nextjs";
 import { toast } from "sonner";
 import { translateError } from "@/lib/translate-error";
 import { alertsService } from "../services/alerts.service";
-import type { CreateAlertPayload } from "../types/alert.types";
+import type {
+  AlertRule,
+  AlertRuleType,
+  BundleRulePayload,
+  ComboRulePayload,
+  CreateAlertPayload,
+  TrendRulePayload,
+} from "../types/alert.types";
 
 export const ALERT_KEYS = {
   all: ["alerts"] as const,
@@ -53,6 +61,43 @@ export function useToggleAlert() {
       qc.invalidateQueries({ queryKey: ALERT_KEYS.all });
     },
     onError: (err: Error) => toast.error(translateError(err, tErr)),
+  });
+}
+
+// Sprint 159 — mutation unificada pra criar rules combo/trend/bundle via wizard.
+// Garante cache invalidation + toast feedback + Sentry capture; antes o wizard
+// chamava o service direto e erros ficavam silent abaixo do fold.
+type CreateRuleArgs =
+  | { type: "combo"; payload: ComboRulePayload }
+  | { type: "trend"; payload: TrendRulePayload }
+  | { type: "bundle"; payload: BundleRulePayload };
+
+export function useCreateAlertRule(options?: {
+  onSuccess?: (rule: AlertRule, type: AlertRuleType) => void;
+  onError?: (err: Error) => void;
+}) {
+  const qc = useQueryClient();
+  const tErr = useTranslations("errors");
+  const tRules = useTranslations("alerts.rules");
+  return useMutation({
+    mutationFn: async (args: CreateRuleArgs): Promise<AlertRule> => {
+      if (args.type === "combo") return alertsService.createCombo(args.payload);
+      if (args.type === "trend") return alertsService.createTrend(args.payload);
+      return alertsService.createBundle(args.payload);
+    },
+    onSuccess: (rule, vars) => {
+      qc.invalidateQueries({ queryKey: ALERT_KEYS.rules });
+      toast.success(tRules("success.ruleCreated"));
+      options?.onSuccess?.(rule, vars.type);
+    },
+    onError: (err: Error, vars) => {
+      Sentry.captureException(err, {
+        tags: { feature: "alerts", action: "createRule", ruleType: vars.type },
+      });
+      const msg = translateError(err, tErr);
+      toast.error(msg);
+      options?.onError?.(err);
+    },
   });
 }
 

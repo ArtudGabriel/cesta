@@ -787,6 +787,9 @@
       "sectionHeader": "Regras combo / trend / bundle",
       "empty": "Você ainda não tem regras. Crie uma nova acima.",
       "lastTriggered": "Último disparo:",
+      "success": {
+        "ruleCreated": "Regra criada"
+      },
       "summary": {
         "combo": "{count} produtos · total ≤ {total}",
         "trend": "Queda {weeks} semanas seguidas",

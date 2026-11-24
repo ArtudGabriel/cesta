@@ -24,6 +24,20 @@ vi.mock("@/features/products/services/products.service", () => ({
   },
 }));
 
+const toastSuccess = vi.fn();
+const toastError = vi.fn();
+vi.mock("sonner", () => ({
+  toast: {
+    success: (...args: unknown[]) => toastSuccess(...args),
+    error: (...args: unknown[]) => toastError(...args),
+  },
+}));
+
+const sentryCapture = vi.fn();
+vi.mock("@sentry/nextjs", () => ({
+  captureException: (...args: unknown[]) => sentryCapture(...args),
+}));
+
 const VALID_CUID_1 = "c" + "a".repeat(24);
 const VALID_CUID_2 = "c" + "b".repeat(24);
 
@@ -50,6 +64,9 @@ async function pickTwoProducts(getByTestId: (id: string) => HTMLElement) {
 describe("AlertRuleWizard (Sprint 105)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    toastSuccess.mockClear();
+    toastError.mockClear();
+    sentryCapture.mockClear();
   });
 
   it("step 1: lista os 3 tipos; clicar em combo avança pra form", () => {
@@ -170,5 +187,51 @@ describe("AlertRuleWizard (Sprint 105)", () => {
       expect(container.textContent).toMatch(/2 productos|2 produtos/i);
     });
     expect(alertsService.createCombo).not.toHaveBeenCalled();
+  });
+
+  // ────────────────────────────────────────────────────────────
+  // Sprint 159 — silent fail fix
+  // ────────────────────────────────────────────────────────────
+
+  it("combo: submit success dispara toast.success e router.push", async () => {
+    (alertsService.createCombo as ReturnType<typeof vi.fn>).mockResolvedValue({
+      id: "r-combo",
+    });
+    const { getByTestId } = renderWithProviders(<AlertRuleWizard />);
+    fireEvent.click(getByTestId("rule-type-combo"));
+
+    await pickTwoProducts(getByTestId);
+    fireEvent.change(getByTestId("rule-input-target-total"), {
+      target: { value: "10.00" },
+    });
+    fireEvent.click(getByTestId("rule-submit"));
+
+    await waitFor(() => {
+      expect(toastSuccess).toHaveBeenCalled();
+      expect(pushMock).toHaveBeenCalledWith("/alertas");
+    });
+  });
+
+  it("combo: submit error → toast.error + Sentry capture + FieldError inline visible", async () => {
+    (alertsService.createCombo as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error("Boom backend"),
+    );
+    const { getByTestId, container } = renderWithProviders(<AlertRuleWizard />);
+    fireEvent.click(getByTestId("rule-type-combo"));
+
+    await pickTwoProducts(getByTestId);
+    fireEvent.change(getByTestId("rule-input-target-total"), {
+      target: { value: "10.00" },
+    });
+    fireEvent.click(getByTestId("rule-submit"));
+
+    await waitFor(() => {
+      expect(toastError).toHaveBeenCalled();
+      expect(sentryCapture).toHaveBeenCalled();
+    });
+    // FieldError inline presente no container (role=alert).
+    expect(container.querySelector('[role="alert"]')).toBeTruthy();
+    // Router NÃO redirecionou em caso de erro.
+    expect(pushMock).not.toHaveBeenCalledWith("/alertas");
   });
 });
