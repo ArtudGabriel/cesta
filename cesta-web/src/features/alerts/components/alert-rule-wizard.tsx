@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FieldError } from "@/components/ui/field-error";
-import { alertsService } from "@/features/alerts/services/alerts.service";
+import { useCreateAlertRule } from "@/features/alerts/hooks/use-alerts";
 import type { AlertRuleType } from "@/features/alerts/types/alert.types";
 import { ProductPicker } from "@/features/products/components/product-picker";
 import type { ProductSearchItem } from "@/features/products/services/products.service";
@@ -22,6 +22,7 @@ export function AlertRuleWizard() {
   const t = useTranslations("alerts.rules");
   const tErrors = useTranslations("errors");
   const router = useRouter();
+  const errorRef = useRef<HTMLDivElement>(null);
 
   const [step, setStep] = useState<WizardStep>("pick-type");
   const [type, setType] = useState<AlertRuleType | null>(null);
@@ -33,7 +34,23 @@ export function AlertRuleWizard() {
   const [consecutiveWeeks, setConsecutiveWeeks] = useState("2");
   const [targetSavings, setTargetSavings] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+
+  const createRule = useCreateAlertRule({
+    onSuccess: () => {
+      router.push("/alertas");
+    },
+    onError: (err) => {
+      setError(translateError(err, tErrors));
+      // Scroll inline error into view — fold era vilão P2 S158.
+      requestAnimationFrame(() => {
+        errorRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      });
+    },
+  });
+  const submitting = createRule.isPending;
 
   function pickType(t: AlertRuleType) {
     setType(t);
@@ -75,39 +92,40 @@ export function AlertRuleWizard() {
     return null;
   }
 
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     const err = validate();
     if (err) {
       setError(err);
+      requestAnimationFrame(() => {
+        errorRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      });
       return;
     }
-    setSubmitting(true);
     setError(null);
-    try {
-      const ids =
-        type === "trend" ? parseProductIds() : pickedProducts.map((p) => p.id);
-      if (type === "combo") {
-        await alertsService.createCombo({
-          productIds: ids,
-          targetTotal: Number(targetTotal),
-        });
-      } else if (type === "trend") {
-        await alertsService.createTrend({
+    const ids =
+      type === "trend" ? parseProductIds() : pickedProducts.map((p) => p.id);
+    if (type === "combo") {
+      createRule.mutate({
+        type: "combo",
+        payload: { productIds: ids, targetTotal: Number(targetTotal) },
+      });
+    } else if (type === "trend") {
+      createRule.mutate({
+        type: "trend",
+        payload: {
           productId: ids[0],
           consecutiveWeeks: Number(consecutiveWeeks),
-        });
-      } else if (type === "bundle") {
-        await alertsService.createBundle({
-          productIds: ids,
-          targetSavings: Number(targetSavings),
-        });
-      }
-      router.push("/alertas");
-    } catch (e2) {
-      setError(translateError(e2, tErrors));
-    } finally {
-      setSubmitting(false);
+        },
+      });
+    } else if (type === "bundle") {
+      createRule.mutate({
+        type: "bundle",
+        payload: { productIds: ids, targetSavings: Number(targetSavings) },
+      });
     }
   }
 
@@ -222,7 +240,9 @@ export function AlertRuleWizard() {
         </>
       )}
 
-      {error && <FieldError message={error} />}
+      <div ref={errorRef} data-testid="rule-wizard-error">
+        {error && <FieldError message={error} />}
+      </div>
 
       <div className="flex justify-between gap-2">
         <Button
