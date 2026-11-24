@@ -577,7 +577,8 @@
       "title": "Histórico de precios",
       "errorLoading": "Error al cargar el histórico.",
       "insufficient": "Sin histórico suficiente todavía."
-    }
+    },
+    "packageAria": "Envase de {size} {unit}"
   },
   "reviews": {
     "emptySummary": "Aún no hay opiniones. Sé el primero en opinar.",
