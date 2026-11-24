@@ -67,19 +67,45 @@ export class ProductsRepository {
    * deal). Cap no fetch pra evitar carregar catálogo inteiro — service
    * depois calcula spread + top N. Oversample 10x limit alvo (service pede
    * limit pequeno, 10-50).
+   *
+   * Sprint 156: agora retorna UNIÃO de duas sub-queries filtradas no DB:
+   *  a) todos os produtos com `previousPrice != null` (promos atuais ou
+   *     recentes — não limitado por `updatedAt` pq produtos de promo
+   *     costumam ter `updatedAt` antigo quando o sync não os re-toca);
+   *  b) top-updated com 2+ supers (preserva comportamento S132 cross-market).
+   * Dedupe por `id`. Service decide por scoring. QA S155 detectou que
+   * cap 500 + orderBy updatedAt mandava produtos de promo pra fora da
+   * janela, section FeaturedDeals ficava vazia.
    */
-  findManyWithPrices(cap = 500): Promise<ProductWithPrices[]> {
-    return this.prisma.product.findMany({
-      where: {
-        deletedAt: null,
-        prices: {
-          some: { isAvailable: true },
+  async findManyWithPrices(cap = 500): Promise<ProductWithPrices[]> {
+    const [withPromo, recent] = await Promise.all([
+      this.prisma.product.findMany({
+        where: {
+          deletedAt: null,
+          prices: {
+            some: {
+              isAvailable: true,
+              previousPrice: { not: null },
+            },
+          },
         },
-      },
-      include: PRICE_INCLUDE,
-      take: cap,
-      orderBy: { updatedAt: 'desc' },
-    });
+        include: PRICE_INCLUDE,
+        take: cap,
+      }),
+      this.prisma.product.findMany({
+        where: {
+          deletedAt: null,
+          prices: { some: { isAvailable: true } },
+        },
+        include: PRICE_INCLUDE,
+        take: cap,
+        orderBy: { updatedAt: 'desc' },
+      }),
+    ]);
+    const byId = new Map<string, ProductWithPrices>();
+    for (const row of withPromo) byId.set(row.id, row);
+    for (const row of recent) if (!byId.has(row.id)) byId.set(row.id, row);
+    return [...byId.values()];
   }
 
   async findForSearch(q: string, limit: number): Promise<{

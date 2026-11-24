@@ -325,6 +325,32 @@ describe('ProductsService.featuredDeals', () => {
     const result = await service.featuredDeals(10);
     expect(result).toHaveLength(0);
   });
+
+  it('Sprint 156: promo antigo (updatedAt velho) ainda aparece no feature', async () => {
+    // Repo S156 une produtos com previousPrice != null OU top-updated.
+    // Mock reflecte isso: retorna o produto de promo antigo lado a lado
+    // com cross-market recentes. Service lógica deve priorizar o promo
+    // (saving maior).
+    repoMock.findManyWithPrices.mockResolvedValue([
+      makeEntity('aceite-hacendado-promo-antigo', [
+        {
+          slug: 'merc',
+          price: 1.85,
+          previousPrice: 8.6,
+          onPromotion: true,
+        },
+      ]),
+      makeEntity('leche-cross-market', [
+        { slug: 'merc', price: 1.0 },
+        { slug: 'dia', price: 1.5 },
+      ]),
+    ] as never);
+    const result = await service.featuredDeals(10);
+    const ids = result.map((p) => p.id);
+    expect(ids).toContain('aceite-hacendado-promo-antigo');
+    // 6.75 € savings > 0.5 € spread → promo antigo ranqueia primeiro
+    expect(ids[0]).toBe('aceite-hacendado-promo-antigo');
+  });
 });
 
 // Sprint 147: findMany filters nutriScore + sortBy nutriScore
