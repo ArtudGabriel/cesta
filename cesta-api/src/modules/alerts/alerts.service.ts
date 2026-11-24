@@ -178,6 +178,39 @@ export class AlertsService {
     return rows.map(AlertRuleResponseDto.fromEntity);
   }
 
+  // Sprint 160 — rule card inline actions (toggle + soft delete)
+
+  async toggleRule(
+    userId: string,
+    id: string,
+    isActive: boolean,
+  ): Promise<AlertRuleResponseDto> {
+    await this.assertRuleOwner(userId, id);
+    const updated = await this.repo.updateRuleActive(id, isActive);
+    this.logger.log(
+      `[audit] AlertRuleToggled user=${userId} id=${id} isActive=${isActive}`,
+    );
+    return AlertRuleResponseDto.fromEntity(updated);
+  }
+
+  async removeRule(userId: string, id: string): Promise<void> {
+    await this.assertRuleOwner(userId, id);
+    await this.repo.softDeleteRule(id);
+    this.logger.log(`[audit] AlertRuleDeleted user=${userId} id=${id}`);
+  }
+
+  private async assertRuleOwner(userId: string, id: string): Promise<void> {
+    const rule = await this.repo.findRuleByIdForUser(id, userId);
+    if (!rule) {
+      throw new AppException(
+        'ALERTS_RULES.NOT_FOUND',
+        `Regra "${id}" não encontrada`,
+        HttpStatus.NOT_FOUND,
+        { ruleId: id },
+      );
+    }
+  }
+
   private extractProductIds(
     type: AlertRuleType,
     rules: AlertRulePayload,

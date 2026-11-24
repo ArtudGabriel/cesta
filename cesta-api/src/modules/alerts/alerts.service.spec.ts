@@ -188,3 +188,90 @@ describe('AlertsService.createRule (Sprint 105 guards)', () => {
     ).rejects.toMatchObject({ errorCode: 'ALERTS_RULES.INVALID_TYPE' });
   });
 });
+
+// ────────────────────────────────────────────────────────────
+// Sprint 160 — rule card inline actions (toggle + soft delete)
+// ────────────────────────────────────────────────────────────
+
+describe('AlertsService.toggleRule + removeRule (Sprint 160)', () => {
+  let service: AlertsService;
+  let repo: {
+    findRuleByIdForUser: jest.Mock;
+    updateRuleActive: jest.Mock;
+    softDeleteRule: jest.Mock;
+  };
+  const productsRepo = { findById: jest.fn() };
+  const config = {
+    get: jest.fn((_key: string, fallback?: unknown) => fallback),
+  } as unknown as ConfigService;
+
+  const sampleRule = {
+    id: 'r-1',
+    userId: 'u1',
+    type: 'combo',
+    rules: { productIds: ['p-1', 'p-2'], targetTotal: 10 },
+    isActive: true,
+    lastTriggeredAt: null,
+    lastNotifiedAt: null,
+    lastNotifiedHash: null,
+    createdAt: new Date('2026-11-25T00:00:00Z'),
+  };
+
+  beforeEach(() => {
+    repo = {
+      findRuleByIdForUser: jest.fn(),
+      updateRuleActive: jest.fn(),
+      softDeleteRule: jest.fn(),
+    };
+    service = new AlertsService(
+      repo as unknown as AlertsRepository,
+      productsRepo as unknown as ProductsRepository,
+      config,
+    );
+    jest.spyOn(service['logger'], 'log').mockImplementation(() => undefined);
+  });
+
+  it('toggleRule: owner + exists → updateRuleActive e retorna DTO', async () => {
+    repo.findRuleByIdForUser.mockResolvedValue(sampleRule);
+    repo.updateRuleActive.mockResolvedValue({ ...sampleRule, isActive: false });
+
+    const dto = await service.toggleRule('u1', 'r-1', false);
+
+    expect(repo.findRuleByIdForUser).toHaveBeenCalledWith('r-1', 'u1');
+    expect(repo.updateRuleActive).toHaveBeenCalledWith('r-1', false);
+    expect(dto.isActive).toBe(false);
+  });
+
+  it('toggleRule: regra de outro user ou inexistente → 404 NOT_FOUND', async () => {
+    repo.findRuleByIdForUser.mockResolvedValue(null);
+
+    await expect(
+      service.toggleRule('u1', 'r-stranger', true),
+    ).rejects.toMatchObject({
+      errorCode: 'ALERTS_RULES.NOT_FOUND',
+    });
+    expect(repo.updateRuleActive).not.toHaveBeenCalled();
+  });
+
+  it('removeRule: owner + exists → softDeleteRule', async () => {
+    repo.findRuleByIdForUser.mockResolvedValue(sampleRule);
+    repo.softDeleteRule.mockResolvedValue({
+      ...sampleRule,
+      isActive: false,
+      deletedAt: new Date(),
+    });
+
+    await expect(service.removeRule('u1', 'r-1')).resolves.toBeUndefined();
+
+    expect(repo.softDeleteRule).toHaveBeenCalledWith('r-1');
+  });
+
+  it('removeRule: regra de outro user → 404 NOT_FOUND, não deleta', async () => {
+    repo.findRuleByIdForUser.mockResolvedValue(null);
+
+    await expect(service.removeRule('u1', 'r-stranger')).rejects.toMatchObject({
+      errorCode: 'ALERTS_RULES.NOT_FOUND',
+    });
+    expect(repo.softDeleteRule).not.toHaveBeenCalled();
+  });
+});

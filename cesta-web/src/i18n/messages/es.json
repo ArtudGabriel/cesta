@@ -788,7 +788,8 @@
       "empty": "Aún no tienes reglas. Crea una nueva arriba.",
       "lastTriggered": "Último disparo:",
       "success": {
-        "ruleCreated": "Regla creada"
+        "ruleCreated": "Regla creada",
+        "ruleDeleted": "Regla eliminada"
       },
       "summary": {
         "combo": "{count} productos · total ≤ {total}",

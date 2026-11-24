@@ -166,6 +166,30 @@ export class AlertsRepository {
     });
   }
 
+  // Sprint 160 — rule card inline actions
+  findRuleByIdForUser(
+    id: string,
+    userId: string,
+  ): Promise<AlertRule | null> {
+    return this.prisma.alertRule.findFirst({
+      where: { id, userId, deletedAt: null },
+    });
+  }
+
+  updateRuleActive(id: string, isActive: boolean): Promise<AlertRule> {
+    return this.prisma.alertRule.update({
+      where: { id },
+      data: { isActive },
+    });
+  }
+
+  softDeleteRule(id: string): Promise<AlertRule> {
+    return this.prisma.alertRule.update({
+      where: { id },
+      data: { deletedAt: new Date(), isActive: false },
+    });
+  }
+
   markRuleNotified(
     ruleId: string,
     hash: string,
