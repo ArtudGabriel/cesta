@@ -2,7 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as cheerio from 'cheerio';
 import { politeFetchRaw } from '../utils/polite-fetch';
 import { pickUserAgent } from '../utils/user-agents';
-import { scrapingbeeFetch } from '../utils/scrapingbee-fetch';
+import {
+  closePuppeteerBrowser,
+  puppeteerFetch,
+} from '../utils/puppeteer-fetch';
 import type {
   RawPackageUnit,
   RawProduct,
@@ -11,16 +14,24 @@ import type {
 
 // Alcampo (compraonline.alcampo.es) — S123 AWS WAF jsapi.js challenge bloqueia
 // raw fetch. S128 Puppeteer funcionou mas OOM Render 512MB. S134 pivot pra
-// ScrapingBee (ADR 0009 opção A).
+// ScrapingBee (ADR 0009 opção A). S138 volta pra Puppeteer local via
+// scripts/sync-alcampo.ts (laptop do dev). Cron prod permanece gated.
 //
 // Estratégia:
 //  1. Sitemap via politeFetchRaw (não protegido WAF): extrai produto URLs
 //     /products/<slug>/<id> do sitemap-products-part*.xml
-//  2. Para N páginas de produto: scrapingbeeFetch renderiza JS challenge
+//  2. Para N páginas de produto: puppeteerFetch renderiza JS challenge
 //     → extrai JSON-LD Product schema → mapeia pra RawProduct
-//  3. Rate limit: 2s inter-page (ScrapingBee latência ~5-20s já serializa)
+//  3. Rate limit: 2s inter-page (Puppeteer já tem overhead ~1s)
 const SITEMAP_INDEX = 'https://compraonline.alcampo.es/sitemaps/sitemap_index.xml';
-const MAX_PRODUCTS = 120;
+const DEFAULT_MAX_PRODUCTS = 120;
+
+function resolveMaxProducts(): number {
+  const raw = process.env.ALCAMPO_MAX_PRODUCTS;
+  if (!raw) return DEFAULT_MAX_PRODUCTS;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_MAX_PRODUCTS;
+}
 
 @Injectable()
 export class AlcampoAdapter implements SupermarketAdapter {
@@ -34,28 +45,30 @@ export class AlcampoAdapter implements SupermarketAdapter {
       this.logger.warn('Alcampo: 0 product URLs no sitemap');
       return [];
     }
-    const slice = urls.slice(0, MAX_PRODUCTS);
+    const slice = urls.slice(0, resolveMaxProducts());
     const seen = new Set<string>();
     const products: RawProduct[] = [];
     const errors: string[] = [];
 
-    for (const url of slice) {
-      try {
-        const raw = await this.fetchProductPage(url);
-        if (!raw) continue;
-        if (seen.has(raw.externalId)) continue;
-        seen.add(raw.externalId);
-        products.push(raw);
-        await new Promise((r) => setTimeout(r, 2000));
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        this.logger.error(`Alcampo page "${url}" falhou: ${msg}`);
-        errors.push(msg);
+    try {
+      for (const url of slice) {
+        try {
+          const raw = await this.fetchProductPage(url);
+          if (!raw) continue;
+          if (seen.has(raw.externalId)) continue;
+          seen.add(raw.externalId);
+          products.push(raw);
+          await new Promise((r) => setTimeout(r, 2000));
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          this.logger.error(`Alcampo page "${url}" falhou: ${msg}`);
+          errors.push(msg);
+        }
       }
+    } finally {
+      await closePuppeteerBrowser();
     }
 
-    // Sprint 134-r P2: se todas pages falharem (0 produtos), bubble up último
-    // erro pra service persistir em SyncRun.errorMessage.
     if (products.length === 0 && errors.length > 0) {
       throw new Error(
         `Alcampo: 0 produtos coletados em ${slice.length} pages · últimos erros: ${errors.slice(-3).join(' | ')}`,
@@ -63,7 +76,7 @@ export class AlcampoAdapter implements SupermarketAdapter {
     }
 
     this.logger.log(
-      `Alcampo: ${products.length} produtos coletados (${slice.length - errors.length}/${slice.length} pages ok via ScrapingBee)`,
+      `Alcampo: ${products.length} produtos coletados (${slice.length - errors.length}/${slice.length} pages ok via Puppeteer)`,
     );
     return products;
   }
@@ -103,10 +116,12 @@ export class AlcampoAdapter implements SupermarketAdapter {
   }
 
   private async fetchProductPage(url: string): Promise<RawProduct | null> {
-    const result = await scrapingbeeFetch(url, {
-      renderJs: true,
-      waitFor: 'script[type="application/ld+json"]',
-      timeoutMs: 45_000,
+    const result = await puppeteerFetch(url, {
+      userAgent: this.ua,
+      timeoutMs: 35_000,
+      waitForSelector:
+        'script[type="application/ld+json"], [data-test="product-price"]',
+      extraWaitMs: 1500,
     });
     if (!result.html) return null;
     return this.extractProduct(result.html, url);
