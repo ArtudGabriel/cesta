@@ -82,6 +82,31 @@ export class AlertsController {
     return this.service.createRule(userId, 'bundle', body);
   }
 
+  // Sprint 160 — rule inline actions (toggle + soft delete).
+  // Rotas específicas antes de `:id` pra evitar colisão com @Get(':id').
+
+  @Patch('rules/:id')
+  @Throttle({ write: { limit: 20, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Sprint 160 — toggle isActive de regra' })
+  toggleRule(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+    @Body() body: { isActive: boolean },
+  ): Promise<AlertRuleResponseDto> {
+    return this.service.toggleRule(userId, id, Boolean(body?.isActive));
+  }
+
+  @Delete('rules/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ write: { limit: 20, ttl: 60_000 } })
+  @ApiOperation({ summary: 'Sprint 160 — soft delete regra' })
+  async removeRule(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+  ): Promise<void> {
+    await this.service.removeRule(userId, id);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Detalhe do alerta' })
   findOne(@CurrentUser('id') userId: string, @Param('id') id: string) {

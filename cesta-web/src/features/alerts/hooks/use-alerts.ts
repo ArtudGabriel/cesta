@@ -101,6 +101,65 @@ export function useCreateAlertRule(options?: {
   });
 }
 
+// Sprint 160 — rule card inline actions
+export function useToggleAlertRule() {
+  const qc = useQueryClient();
+  const tErr = useTranslations("errors");
+  return useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      alertsService.toggleRule(id, isActive),
+    onMutate: async ({ id, isActive }) => {
+      // Optimistic: muda isActive imediato pra feedback visual.
+      await qc.cancelQueries({ queryKey: ALERT_KEYS.rules });
+      const prev = qc.getQueryData<AlertRule[]>(ALERT_KEYS.rules);
+      qc.setQueryData<AlertRule[]>(ALERT_KEYS.rules, (old) =>
+        Array.isArray(old)
+          ? old.map((r) => (r.id === id ? { ...r, isActive } : r))
+          : old,
+      );
+      return { prev };
+    },
+    onError: (err: Error, _vars, ctx) => {
+      Sentry.captureException(err, {
+        tags: { feature: "alerts", action: "toggleRule" },
+      });
+      if (ctx?.prev !== undefined) qc.setQueryData(ALERT_KEYS.rules, ctx.prev);
+      toast.error(translateError(err, tErr));
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ALERT_KEYS.rules });
+    },
+  });
+}
+
+export function useDeleteAlertRule() {
+  const qc = useQueryClient();
+  const tErr = useTranslations("errors");
+  const tRules = useTranslations("alerts.rules");
+  return useMutation({
+    mutationFn: (id: string) => alertsService.removeRule(id),
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ALERT_KEYS.rules });
+      const prev = qc.getQueryData<AlertRule[]>(ALERT_KEYS.rules);
+      qc.setQueryData<AlertRule[]>(ALERT_KEYS.rules, (old) =>
+        Array.isArray(old) ? old.filter((r) => r.id !== id) : old,
+      );
+      return { prev };
+    },
+    onError: (err: Error, _id, ctx) => {
+      Sentry.captureException(err, {
+        tags: { feature: "alerts", action: "deleteRule" },
+      });
+      if (ctx?.prev !== undefined) qc.setQueryData(ALERT_KEYS.rules, ctx.prev);
+      toast.error(translateError(err, tErr));
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ALERT_KEYS.rules });
+      toast.success(tRules("success.ruleDeleted"));
+    },
+  });
+}
+
 export function useDeleteAlert() {
   const qc = useQueryClient();
   const tErr = useTranslations("errors");

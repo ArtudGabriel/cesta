@@ -66,6 +66,19 @@ export const alertsService = {
     );
     return data.data;
   },
+
+  // Sprint 160 — rule card inline actions
+  async toggleRule(id: string, isActive: boolean): Promise<AlertRule> {
+    const { data } = await api.patch<Envelope<AlertRule>>(
+      `/alerts/rules/${id}`,
+      { isActive },
+    );
+    return data.data;
+  },
+
+  async removeRule(id: string): Promise<void> {
+    await api.delete(`/alerts/rules/${id}`);
+  },
 };
 
 export const pushService = {
