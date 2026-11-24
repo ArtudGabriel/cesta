@@ -12,6 +12,7 @@ import {
   filtersFromSearchParams,
   filtersToSearchParams,
 } from "../utils/filters-url";
+import { useLocale } from "@/hooks/use-locale";
 
 interface CategoriaClientProps {
   slug: string;
@@ -19,6 +20,8 @@ interface CategoriaClientProps {
 
 export function CategoriaClient({ slug }: CategoriaClientProps) {
   const t = useTranslations("filters");
+  const tCategories = useTranslations("categoryNames");
+  const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -26,6 +29,15 @@ export function CategoriaClient({ slug }: CategoriaClientProps) {
   const filters = useFiltersStore((s) => s.filters);
   const applyPartial = useFiltersStore((s) => s.applyPartial);
   const resetAll = useFiltersStore((s) => s.resetAll);
+
+  // Sprint 148 fix P0: hidrata store do URL antes do primeiro render
+  // útil. `effectiveFilters` derivado cola `category=slug` mesmo quando
+  // o store ainda não sincronizou — garante useProducts disparar fetch
+  // na mount (sem esperar o useEffect de hidratação terminar).
+  const effectiveFilters = useMemo(
+    () => ({ ...filters, category: slug }),
+    [filters, slug],
+  );
 
   // Hidrata store a partir de URL + força category=slug da rota.
   useEffect(() => {
@@ -48,11 +60,21 @@ export function CategoriaClient({ slug }: CategoriaClientProps) {
 
   const categoriesQ = useCategories();
   const categoryLabel = useMemo(() => {
+    // Sprint 148: prefer i18n namespace (categoryNames.<slug>) para
+    // garantir label traduzida mesmo sem Category table carregada.
+    // Fallback: nameEs/namePt do backend; último fallback: slug raw.
+    try {
+      const i18n = tCategories(slug);
+      if (i18n && i18n !== slug) return i18n;
+    } catch {
+      // key missing — fallback abaixo
+    }
     const match = categoriesQ.data?.find((c) => c.slug === slug);
-    return match?.nameEs ?? slug;
-  }, [categoriesQ.data, slug]);
+    if (!match) return slug;
+    return locale === "pt-BR" ? match.namePt : match.nameEs;
+  }, [categoriesQ.data, slug, locale, tCategories]);
 
-  const productsQ = useProducts(filters);
+  const productsQ = useProducts(effectiveFilters);
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6">
