@@ -40,45 +40,42 @@ rodar sync manual pelo laptop do dev (IP residencial) 1-2× por semana.
 ```bash
 cd cesta-api
 # 1. instalar Chrome bundled (uma vez por máquina)
-npx puppeteer browsers install chrome
+npm run install:chrome
+# ↑ equivalente a `npx puppeteer browsers install chrome`.
+#   Baixa pra ~/.cache/puppeteer/chrome/<platform>-<version>/ —
+#   versão casada com a do puppeteer (DevTools protocol match).
 ```
 
-**Windows**: `@sparticuz/chromium-min` só serve Linux x64 (Lambda-style),
-e `puppeteer`-bundled Chrome pode não resolver `executablePath()` em
-alguns setups. Setar `PUPPETEER_EXECUTABLE_PATH` apontando o Chrome
-local é o fallback garantido:
+**Por que bundled e não system Chrome?** Puppeteer `25.x` fala DevTools
+protocol de Chrome 142; Chrome do sistema costuma estar em 155+ →
+`ProtocolError: Protocol error ... Target.setAutoAttach` (S139 QA
+REPROVA). Bundled sempre bate.
 
-```powershell
-# PowerShell — persistente para a sessão atual
-$env:PUPPETEER_EXECUTABLE_PATH = "C:\Program Files\Google\Chrome\Application\chrome.exe"
-
-# cmd.exe — equivalente
-set PUPPETEER_EXECUTABLE_PATH=C:\Program Files\Google\Chrome\Application\chrome.exe
-
-# OR apontar pro Chrome baixado pelo Puppeteer:
-# C:\Users\<USER>\.cache\puppeteer\chrome\win64-<version>\chrome-win64\chrome.exe
-```
-
-**macOS / Linux** sem override:
-
-```bash
-# bundled Chrome após `puppeteer browsers install chrome`:
-export PUPPETEER_EXECUTABLE_PATH="$HOME/.cache/puppeteer/chrome/mac-<version>/chrome-mac/Chromium.app/Contents/MacOS/Chromium"
-# OR Chrome do sistema (Linux):
-export PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
-```
-
-Verificação sem rodar sync:
+**Verificação após install:**
 
 ```bash
 node -e "console.log(require('puppeteer').executablePath())"
 ```
 
+Imprime um path tipo:
+`C:\Users\<USER>\.cache\puppeteer\chrome\win64-142.0.7444.59\chrome-win64\chrome.exe`
+(Windows) ou `~/.cache/puppeteer/chrome/mac-142.*/.../Chromium` (mac) ou
+`~/.cache/puppeteer/chrome/linux-142.*/.../chrome` (Linux).
+
+**Escape-hatch** `PUPPETEER_EXECUTABLE_PATH` ainda respeitado (útil se
+bundled não baixa — firewall, offline, custom Chromium). Logger emite
+WARN se setado junto com bundled disponível:
+
+```powershell
+# Windows PowerShell — só quando bundled falhar
+$env:PUPPETEER_EXECUTABLE_PATH = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+```
+
 **Stealth plugin ativo** (`puppeteer-extra-plugin-stealth`): patcha
 `navigator.webdriver`, plugins, WebGL vendor, lang etc. Sem stealth,
 Akamai/WAF detectam headless e servem challenge sem `__NEXT_DATA__`
-(S138 QA REPROVA: Carrefour 0/20, Alcampo 1/5). Com stealth, expectativa
-Carrefour 20-50/run e Alcampo 10-30/run.
+(S138 REPROVA: Carrefour 0/20, Alcampo 1/5). Com stealth + bundled Chrome,
+expectativa Carrefour 20-50/run e Alcampo 10-30/run.
 
 **Headful opcional** (abre janela visível; útil pra debug challenge):
 
@@ -87,7 +84,7 @@ export PUPPETEER_HEADFUL=true
 npm run sync:carrefour -- --dry-run --max-queries=1
 ```
 
-`CARREFOUR_ALCAMPO_CRON_ENABLED` fica `false` em prod — scheduleCrons
+`CARREFOUR_ALCAMPO_CRON_ENABLED` fica `false` em prod — `scheduleCrons`
 pula esses slugs e remove qualquer repeat scheduler stale. Para
 ressuscitar em prod (só se Render virar paid tier com mais RAM),
 setar a env `true` e redeploy.

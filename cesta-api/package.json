@@ -28,6 +28,7 @@
     "sync:eroski": "ts-node scripts/sync-eroski.ts",
     "sync:carrefour": "ts-node scripts/sync-carrefour.ts",
     "sync:alcampo": "ts-node scripts/sync-alcampo.ts",
+    "install:chrome": "puppeteer browsers install chrome",
     "postinstall": "prisma generate"
   },
   "prisma": {
