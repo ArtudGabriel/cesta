@@ -4,7 +4,9 @@ import { Tag, AlertTriangle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn, formatPrice } from "@/lib/utils";
 import { formatUnitPrice } from "../utils/format-unit-price";
+import { calculateDiscount } from "../utils/discount";
 import { useLocale } from "@/hooks/use-locale";
+import { DiscountBadge } from "./discount-badge";
 import type { PriceByMarket } from "../types/catalog.types";
 
 interface PriceComparisonGridProps {
@@ -67,19 +69,35 @@ export function PriceComparisonGrid({ prices }: PriceComparisonGridProps) {
             <div className="flex flex-col items-end gap-1">
               {p.isAvailable ? (
                 <>
-                  <span
-                    className={cn(
-                      "text-lg font-bold",
-                      isCheapest ? "text-cesta-green" : "text-ink",
+                  <div className="flex items-baseline gap-1.5">
+                    {p.previousPrice != null && p.previousPrice > p.price && (
+                      <span className="text-xs text-muted line-through">
+                        {formatPrice(p.previousPrice)}
+                      </span>
                     )}
-                  >
-                    {formatPrice(p.price)}
-                  </span>
-                  {p.onPromotion && (
-                    <span className="inline-flex items-center gap-1 rounded-pill bg-amber/20 px-2 py-0.5 text-[10px] font-medium text-amber">
-                      <Tag className="h-3 w-3" /> Promo
+                    <span
+                      className={cn(
+                        "text-lg font-bold",
+                        isCheapest ? "text-cesta-green" : "text-ink",
+                      )}
+                    >
+                      {formatPrice(p.price)}
                     </span>
-                  )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {p.onPromotion && (
+                      <span className="inline-flex items-center gap-1 rounded-pill bg-amber/20 px-2 py-0.5 text-[10px] font-medium text-amber">
+                        <Tag className="h-3 w-3" /> Promo
+                      </span>
+                    )}
+                    {(() => {
+                      const d = calculateDiscount({
+                        previousPrice: p.previousPrice,
+                        currentPrice: p.price,
+                      });
+                      return d ? <DiscountBadge discount={d} size="sm" /> : null;
+                    })()}
+                  </div>
                 </>
               ) : (
                 <span className="text-xs text-muted">No disponible</span>

@@ -6,7 +6,9 @@ import { Tag } from "lucide-react";
 import { cn, formatPrice } from "@/lib/utils";
 import { FavoriteToggle } from "@/features/favorites/components/favorite-toggle";
 import { formatUnitPrice } from "../utils/format-unit-price";
+import { calculateDiscount } from "../utils/discount";
 import { useLocale } from "@/hooks/use-locale";
+import { DiscountBadge } from "./discount-badge";
 import { HighlightedText } from "./highlighted-text";
 import { NutriScoreBadge } from "./nutri-score-badge";
 import type { Product } from "../types/catalog.types";
@@ -103,6 +105,13 @@ export function ProductCard({
                       <Tag className="h-3 w-3" /> Promo
                     </span>
                   )}
+                  {(() => {
+                    const d = calculateDiscount({
+                      previousPrice: cheapest.previousPrice,
+                      currentPrice: cheapest.price,
+                    });
+                    return d ? <DiscountBadge discount={d} size="sm" /> : null;
+                  })()}
                 </div>
               </>
             )}

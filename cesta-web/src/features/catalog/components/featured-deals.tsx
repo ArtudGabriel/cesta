@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useMemo } from "react";
 import { cn, formatPrice } from "@/lib/utils";
 import { useFeaturedDeals } from "../hooks/use-featured-deals";
+import { DiscountBadge } from "./discount-badge";
 import type { Product } from "../types/catalog.types";
 
 interface FeaturedDealsProps {
@@ -132,12 +133,23 @@ function DealCard({ deal }: { deal: DealEntry }) {
         ) : (
           <div className="h-full w-full bg-neutral-100" />
         )}
-        <span
-          className="absolute left-1 top-1 rounded-pill bg-cesta-green px-2 py-0.5 text-[10px] font-bold text-white"
+        <div
+          className="absolute left-1 top-1"
           data-testid="featured-deal-savings"
         >
-          -{deal.savingsPercent.toFixed(0)}%
-        </span>
+          <DiscountBadge
+            discount={{
+              percent: Math.round(deal.savingsPercent),
+              severity:
+                deal.savingsPercent >= 30
+                  ? "high"
+                  : deal.savingsPercent >= 15
+                    ? "mid"
+                    : "low",
+            }}
+            size="sm"
+          />
+        </div>
       </div>
       <p className="line-clamp-2 min-h-[2.4em] text-xs font-medium text-ink">
         {deal.product.name}
