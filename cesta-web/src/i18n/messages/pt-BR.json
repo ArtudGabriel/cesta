@@ -245,7 +245,9 @@
       "recentsTitle": "Recentes",
       "clearAll": "Limpar histórico",
       "removeRecent": "Remover do histórico"
-    }
+    },
+    "discountOff": "-{percent}%",
+    "discountOffAria": "Desconto de {percent} por cento"
   },
   "favorites": {
     "title": "Meus favoritos",
