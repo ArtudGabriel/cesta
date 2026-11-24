@@ -107,6 +107,32 @@ describe('resolveCategorySlug', () => {
     ['Gazpacho Alvalle 1L', 'despensa'],
     ['Lasaña bolognesa seca Gallo 500g', 'despensa'],
     ['Crema de calabaza listo consumir 500g', 'despensa'],
+
+    // Sprint 144 — carne cortes + aves
+    ['Morcillo de ternera 1kg', 'carne'],
+    ['Jarrete de ternera 500g', 'carne'],
+    ['Gallina entera para caldo 2kg', 'carne'],
+    ['Compango asturiano chorizo + morcilla + lacón', 'carne'],
+    ['Carpaccio de buey 80g', 'carne'],
+    ['Vacuno picado 500g', 'carne'],
+    ['Pechuga de pollo filetes 1kg', 'carne'],
+    ['Alitas de pollo 1kg', 'carne'],
+    ['Muslos de pollo bandeja 1kg', 'carne'],
+    ['Costilla de cerdo bandeja 1kg', 'carne'],
+    ['Lacón cocido Carrefour 200g', 'carne'],
+    ['Secreto ibérico 400g', 'carne'],
+    ['Lomo adobado 500g', 'carne'],
+    ['Flamenquín de pollo 400g', 'carne'],
+    ['Rabo de ternera 500g', 'carne'],
+    ['Callos a la madrileña 500g', 'carne'],
+
+    // Sprint 144 — private labels Mercadona
+    ['Deliplus champú anti-caspa 500ml', 'higiene'],
+    ['Deliplus crema hidratante facial 50ml', 'higiene'],
+    ['Deliplus gel ducha 750ml', 'higiene'],
+    ['Bosque Verde detergente líquido 2L', 'limpieza'],
+    ['Bosqueverde lavavajillas gel 1L', 'limpieza'],
+    ['Compy pañales talla 3 pack 54', 'bebes'],
   ];
 
   it.each(cases)('normaliza "%s" → %s', (input, expected) => {
