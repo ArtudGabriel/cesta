@@ -1,15 +1,22 @@
 import { Logger } from '@nestjs/common';
 
-// Sprint 138: ressucitado para scripts manuais locais (sync-carrefour +
-// sync-alcampo). Prod NÃO roda Puppeteer — cron de Carrefour/Alcampo
-// está gated por env CARREFOUR_ALCAMPO_CRON_ENABLED (default false).
-// Imports são lazy (dynamic require dentro do launch) pra prod Nest
-// módulo bootar sem Chromium instalado — bundle carrega o adapter mas
-// nunca chama puppeteerFetch.
+// Sprint 138-139: utility for manual local syncs (sync-carrefour +
+// sync-alcampo). Prod cron NÃO roda Puppeteer — carrefour+alcampo gated
+// por CARREFOUR_ALCAMPO_CRON_ENABLED (default false). Imports lazy via
+// dynamic require pra Nest módulo bootar sem Chrome instalado.
 //
-// Local: `npx puppeteer browsers install chrome` baixa Chrome; puppeteer
-// (npm) resolve o executable sozinho. Render free-tier não tem Chrome,
-// mas também não chama estas rotinas.
+// Sprint 139: puppeteer-extra + stealth plugin. S138 QA mostrou que
+// Akamai (Carrefour) e AWS WAF (Alcampo) ainda detectam headless mesmo
+// com Chrome real — stealth patcha navigator.webdriver, plugins, lang,
+// chrome.runtime etc. Reduz drasticamente detection rate sem custo.
+//
+// Local resolve de Chrome:
+//  1. `PUPPETEER_EXECUTABLE_PATH` (override explícito — fundamental em
+//     Windows onde chromium-min pack `.tar` não resolve)
+//  2. `puppeteer` (pacote full, bundled Chrome após
+//     `npx puppeteer browsers install chrome`)
+//  3. Fallback `@sparticuz/chromium-min` (Lambda Linux only — não
+//     funciona em Windows). Mantido pra Render Pro se algum dia subir.
 
 const logger = new Logger('PuppeteerFetch');
 const CHROMIUM_PACK_URL =
@@ -36,6 +43,7 @@ interface ChromiumApi {
 }
 
 interface PuppeteerLike {
+  use(plugin: unknown): PuppeteerLike;
   launch(options: unknown): Promise<unknown>;
 }
 
@@ -61,11 +69,6 @@ interface PageLike {
 
 let browserPromise: Promise<BrowserLike> | null = null;
 
-/**
- * S129 CJS/ESM fix mantido: @sparticuz/chromium-min usa module.exports plain;
- * require() + unwrap .default resolve ambos shapes. tsconfig sem
- * esModuleInterop → import default direto falha em runtime CJS.
- */
 function resolveChromium(raw: unknown): ChromiumApi {
   if (raw && typeof (raw as ChromiumApi).executablePath === 'function') {
     return raw as ChromiumApi;
@@ -82,39 +85,79 @@ function resolveChromium(raw: unknown): ChromiumApi {
   );
 }
 
+function tryResolveBundledChrome(): string | null {
+  // puppeteer (pacote full) bundle Chrome em ~/.cache/puppeteer.
+  // `puppeteer.executablePath()` retorna o path sem baixar nada — se
+  // user rodou `npx puppeteer browsers install chrome`, resolve local.
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const puppeteerPkg = require('puppeteer') as {
+      executablePath?: () => string;
+    };
+    if (typeof puppeteerPkg.executablePath === 'function') {
+      const path = puppeteerPkg.executablePath();
+      if (path && path.length > 0) return path;
+    }
+  } catch (err) {
+    logger.warn(
+      `puppeteer package não disponível: ${(err as Error).message ?? err}`,
+    );
+  }
+  return null;
+}
+
+async function resolveExecutablePath(): Promise<string> {
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    return process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+  const bundled = tryResolveBundledChrome();
+  if (bundled) return bundled;
+  // Último fallback: @sparticuz/chromium-min (Linux x64 only — Lambda).
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const rawChromium = require('@sparticuz/chromium-min') as unknown;
+  const chromium = resolveChromium(rawChromium);
+  const path = await chromium.executablePath(CHROMIUM_PACK_URL);
+  if (!path) {
+    throw new Error(
+      `Chromium executablePath vazio (CHROMIUM_PACK_URL=${CHROMIUM_PACK_URL}). ` +
+        `Setar PUPPETEER_EXECUTABLE_PATH OR rodar npx puppeteer browsers install chrome`,
+    );
+  }
+  return path;
+}
+
 async function getBrowser(): Promise<BrowserLike> {
   if (browserPromise) return browserPromise;
 
   browserPromise = (async () => {
-    // Local dev: PUPPETEER_EXECUTABLE_PATH pode apontar pro Chrome
-    // instalado pelo `npx puppeteer browsers install chrome` (default dir
-    // `~/.cache/puppeteer/chrome/...`). Produção/CI: chromium-min baixa.
-    let executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-    if (!executablePath) {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const rawChromium = require('@sparticuz/chromium-min') as unknown;
-      const chromium = resolveChromium(rawChromium);
-      executablePath = await chromium.executablePath(CHROMIUM_PACK_URL);
-    }
-    if (!executablePath) {
-      throw new Error(
-        `Chromium executablePath vazio (CHROMIUM_PACK_URL=${CHROMIUM_PACK_URL})`,
-      );
-    }
+    const executablePath = await resolveExecutablePath();
 
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const puppeteer = require('puppeteer-core') as PuppeteerLike;
+    const puppeteerExtraRaw = require('puppeteer-extra') as unknown;
+    const puppeteer =
+      (puppeteerExtraRaw as { default?: PuppeteerLike }).default ??
+      (puppeteerExtraRaw as PuppeteerLike);
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const stealthRaw = require('puppeteer-extra-plugin-stealth') as unknown;
+    const stealthFactory =
+      (stealthRaw as { default?: () => unknown }).default ??
+      (stealthRaw as () => unknown);
+    puppeteer.use(stealthFactory());
+
+    const headful = process.env.PUPPETEER_HEADFUL === 'true';
     const args = [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
-      '--disable-gpu',
+      '--disable-blink-features=AutomationControlled',
     ];
-    logger.log(`Launching Chromium (executablePath=${executablePath})`);
+    logger.log(
+      `Launching Chromium (executablePath=${executablePath}, headful=${headful})`,
+    );
     return (await puppeteer.launch({
       args,
       executablePath,
-      headless: true,
+      headless: !headful,
       defaultViewport: { width: 1280, height: 800 },
     })) as BrowserLike;
   })();
