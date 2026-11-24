@@ -991,5 +991,22 @@
       "nutriScore": "Filtrar por Nutri-Score {grade}",
       "productsList": "Lista de productos filtrados"
     }
+  },
+  "categoryNames": {
+    "lacteos": "Lácteos y huevos",
+    "pan-bolleria": "Pan y bollería",
+    "desayuno-cereales": "Desayuno y cereales",
+    "carne": "Carnicería",
+    "pescado": "Pescadería",
+    "frutas-verduras": "Frutas y verduras",
+    "bebidas": "Bebidas",
+    "despensa": "Despensa",
+    "salsas-conservas": "Salsas y conservas",
+    "snacks-dulces": "Snacks y dulces",
+    "congelados": "Congelados",
+    "limpieza": "Limpieza",
+    "higiene": "Higiene y belleza",
+    "bebes": "Bebés",
+    "mascotas": "Mascotas"
   }
 }
