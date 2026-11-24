@@ -29,19 +29,18 @@ export function CategoriaClient({
   const filters = useFiltersStore((s) => s.filters);
   const applyPartial = useFiltersStore((s) => s.applyPartial);
   const resetAll = useFiltersStore((s) => s.resetAll);
-  const hydratedRef = useRef(false);
 
-  // Sprint 149: hidratação sync dos filtros via prop (não `useSearchParams`).
-  // Zustand é mutado dentro do primeiro render client-side pra garantir
-  // que `useProducts` receba `{category:slug, ...}` no mesmo frame —
-  // elimina janela SSR→hydration onde S147/S148 caíram.
-  if (!hydratedRef.current && typeof window !== "undefined") {
-    hydratedRef.current = true;
+  // Sprint 150: hidrata store em `useEffect` (não durante render — S149 fazia
+  // `set()` em pleno render, violação React que silenciosamente abortava
+  // sub-trees em prod). `effectiveFilters` derivado continua garantindo
+  // `category=slug` em render 1, portanto useProducts fire sempre.
+  useEffect(() => {
     const params = new URLSearchParams(initialSearchParams);
     const parsed = filtersFromSearchParams(params);
     resetAll();
     applyPartial({ ...parsed, category: slug });
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
 
   // Força fetch mesmo em SSR / primeiro paint: effectiveFilters sempre
   // inclui `category=slug`. Store serve a FilterBar; esta fonte vai
@@ -52,8 +51,16 @@ export function CategoriaClient({
   );
 
   // Sync URL no cliente após mudança de filtros (shareable links).
+  // Sprint 150: skip 1º run (filters iniciais vêm da URL, não precisa
+  // re-escrever). Previne ciclo potencial com o useEffect de hidratação
+  // e evita history.replaceState redundante no boot.
+  const urlSyncedRef = useRef(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (!urlSyncedRef.current) {
+      urlSyncedRef.current = true;
+      return;
+    }
     const { category: _omit, ...rest } = filters;
     const qs = filtersToSearchParams(rest).toString();
     const target = qs
