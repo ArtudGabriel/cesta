@@ -38,15 +38,30 @@ export function FeaturedDeals({ limit = 10 }: FeaturedDealsProps) {
     return data
       .map((p) => {
         const available = p.prices.filter((pr) => pr.isAvailable);
-        if (available.length < 2) return null;
-        const prices = available.map((pr) => pr.price);
-        const lowPrice = Math.min(...prices);
-        const highPrice = Math.max(...prices);
+        if (available.length === 0) return null;
+
         const cheapest = available.reduce((a, b) =>
           a.price < b.price ? a : b,
         );
+        const prices = available.map((pr) => pr.price);
+        const lowPrice = Math.min(...prices);
+
+        // Sprint 157: single-super com `previousPrice > price` também é
+        // deal válido (backend S155/S156 emite esses produtos). Reference
+        // price: mais alto entre cross-market highs e o `previousPrice`
+        // do cheapest. Fallback para cross-market S132 quando sem promo
+        // em uma única super.
+        const cheapestPrev = cheapest.previousPrice;
+        const crossMarketHigh = Math.max(...prices);
+        const referenceHigh =
+          cheapestPrev != null && cheapestPrev > crossMarketHigh
+            ? cheapestPrev
+            : crossMarketHigh;
+        const highPrice = referenceHigh;
         const spread = highPrice - lowPrice;
+        if (spread <= 0) return null;
         const savingsPercent = highPrice > 0 ? (spread / highPrice) * 100 : 0;
+
         return {
           product: p,
           lowPrice,
