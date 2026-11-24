@@ -23,7 +23,14 @@ import type {
 const ROOT = 'https://supermercado.eroski.es';
 const SITEMAP_URL = `${ROOT}/sitemap.xml`;
 const CATEGORY_PATH_PREFIX = '/es/supermercado/';
-const MAX_CATEGORIES = 60;
+const DEFAULT_MAX_CATEGORIES = 60;
+
+function resolveMaxCategories(): number {
+  const raw = process.env.EROSKI_MAX_CATEGORIES;
+  if (!raw) return DEFAULT_MAX_CATEGORIES;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_MAX_CATEGORIES;
+}
 
 interface DataMetricsItem {
   price?: number | string;
@@ -60,18 +67,25 @@ export class EroskiAdapter implements SupermarketAdapter {
   async fetchProducts(): Promise<RawProduct[]> {
     const categoryUrls = await this.loadCategoryUrls();
     if (categoryUrls.length === 0) {
-      this.logger.warn('Eroski: 0 categorias no sitemap');
-      return [];
+      throw new Error(
+        'Eroski: 0 categorias no sitemap — CDN block ou sitemap vazio (ver logs loadCategoryUrls)',
+      );
     }
 
     const seen = new Set<string>();
     const products: RawProduct[] = [];
-    const slice = categoryUrls.slice(0, MAX_CATEGORIES);
+    const slice = categoryUrls.slice(0, resolveMaxCategories());
+    const errors: string[] = [];
+    let fetchedCategories = 0;
 
     for (const url of slice) {
       try {
         const html = await this.fetchHtml(url);
-        if (!html) continue;
+        if (!html) {
+          errors.push(`${url}: fetchHtml null (CDN block ou timeout)`);
+          continue;
+        }
+        fetchedCategories += 1;
         const raws = this.extractFromCategory(html, url);
         for (const raw of raws) {
           if (seen.has(raw.externalId)) continue;
@@ -80,12 +94,23 @@ export class EroskiAdapter implements SupermarketAdapter {
         }
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
-        this.logger.warn(`Eroski category "${url}" falhou: ${msg}`);
+        this.logger.error(`Eroski category "${url}" falhou: ${msg}`);
+        errors.push(`${url}: ${msg}`);
       }
     }
 
+    // Sprint 137: bubble up quando TODAS categorias falham (0 produtos +
+    // erros registrados). Previne silent-failure do S125 (prod retornava
+    // [] silencioso; QA/SyncRun.errorMessage ficava null). Mesma política
+    // Carrefour/Alcampo (PR #86 S134-r).
+    if (products.length === 0 && errors.length > 0) {
+      throw new Error(
+        `Eroski: 0 produtos em ${slice.length} categorias · últimos erros: ${errors.slice(-3).join(' | ')}`,
+      );
+    }
+
     this.logger.log(
-      `Eroski: ${products.length} produtos coletados (${slice.length} categorias)`,
+      `Eroski: ${products.length} produtos coletados (${fetchedCategories}/${slice.length} categorias ok)`,
     );
     return products;
   }

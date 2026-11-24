@@ -22,7 +22,84 @@ Variáveis de ambiente: ver [`../.env.example`](../.env.example).
 | `npm run test:coverage` | Jest + lcov |
 | `npm run audit:dtos` | Verifica DTOs seguem padrão |
 | `npm run audit:repos` | Verifica repositórios seguem padrão |
+| `npm run sync:mercadona` | Sync manual Mercadona |
+| `npm run sync:eroski` | Sync manual Eroski (ver seção abaixo) |
 | `npx prisma studio` | DB inspector |
+
+## Manual syncs (Sprint 137)
+
+Alguns supermercados bloqueiam o IP datacenter do Render em páginas de
+produto. O cron do `catalog-sync` roda esses adapters em prod mas a CDN
+retorna 403/sem produtos para IPs non-residenciais. Opção escolhida:
+rodar sync manual pelo laptop do dev (IP residencial) 1-2× por semana.
+
+### Eroski
+
+A CDN deixa `/sitemap.xml` passar mas filtra `/es/supermercado/...`
+quando o origem é datacenter. O Render atual retorna 0 produtos
+silenciosamente (`items_processed=0` nos `sync_runs`).
+
+**Pré-requisitos**
+
+- `cesta-api/.env` com `DATABASE_URL` apontando pro Neon de prod.
+- Conexão do laptop pela internet residencial (sem VPN datacenter).
+- `npm install` executado com sucesso (Prisma client gerado).
+
+**Checklist antes do primeiro run**
+
+- [ ] `cat cesta-api/.env | grep DATABASE_URL` retorna a conexão Neon
+  esperada.
+- [ ] `npm run sync:eroski -- --dry-run --max-cats=3` imprime 100+
+  produtos de amostra sem gravar nada.
+- [ ] Verificar a amostra à mão (nome, preço, pacote) antes de rodar sem
+  `--dry-run`.
+
+**Comandos**
+
+```bash
+cd cesta-api
+
+# inspeção sem escrita
+npm run sync:eroski -- --dry-run --max-cats=3
+
+# bootstrap curto (20 categorias, ~800 produtos)
+npm run sync:eroski -- --max-cats=20
+
+# cobertura mais larga (default 60 categorias)
+npm run sync:eroski
+
+# subset produtos (útil quando adapter vier com 2000+)
+npm run sync:eroski -- --max-cats=20 --limit=200
+```
+
+**Flags**
+
+| Flag | Default | Efeito |
+|---|---|---|
+| `--max-cats=N` | `60` | Trunca categorias fetchadas via `EROSKI_MAX_CATEGORIES` env |
+| `--limit=N` | sem limite | Trunca produtos pós-fetch antes dos upserts |
+| `--dry-run` | off | Zero writes DB — útil pra validar fetch |
+
+**Frequência sugerida**
+
+- 1× por semana cobre variação de preço esperada.
+- Após reorganização grande do catálogo (migrations, seed novo), rodar
+  manualmente.
+
+**Idempotência**
+
+Upsert por `normalizedName` (Eroski não expõe EAN público). Re-run do
+mesmo comando atualiza `ProductPrice` existente, não duplica. Cada run
+cria 1 linha nova em `PriceSnapshot` (histórico esperado).
+
+**Diagnóstico**
+
+- Script aborta com mensagem quando `DATABASE_URL` não está no `.env`.
+- Adapter faz `throw` (não `return []`) quando **todas** as categorias
+  falham — a mensagem aparece no stdout do script com os 3 últimos
+  erros concatenados.
+- Logs do próprio adapter saem via NestJS `Logger` (cor por level);
+  usar `NEST_DEBUG=1` para ver o verbose.
 
 ## JWT secret rotation (Sprint 92)
 

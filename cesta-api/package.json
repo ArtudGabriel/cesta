@@ -25,6 +25,7 @@
     "audit:repos": "ts-node scripts/audit-repos.ts",
     "seed:admin": "ts-node scripts/seed-admin.ts",
     "sync:mercadona": "ts-node scripts/sync-mercadona.ts",
+    "sync:eroski": "ts-node scripts/sync-eroski.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {
