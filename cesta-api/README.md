@@ -27,6 +27,7 @@ Variáveis de ambiente: ver [`../.env.example`](../.env.example).
 | `npm run sync:carrefour` | Sync manual Carrefour (Puppeteer local) |
 | `npm run sync:alcampo` | Sync manual Alcampo (Puppeteer local) |
 | `npm run sync:froiz` | Sync manual Froiz (Cheerio local) |
+| `npm run backfill:categories` | Backfill `Product.categoryId` (ver seção Backfills) |
 | `npx prisma studio` | DB inspector |
 
 ## Manual syncs (Sprints 137–138)
@@ -289,6 +290,49 @@ linha nova em `PriceSnapshot`.
 **Silent-failure guard:** adapter `throw` quando sitemap vazio ou todas
 categorias falham — mesmo pattern Eroski (S137). Erros last-3
 concatenados na mensagem.
+
+## Backfills
+
+### Categorização (Sprint 142)
+
+Audit Neon 2026-11-24: 8553 / 8580 produtos (99.7%) com `category_id=NULL`.
+Adapters coletam `categoryHint` mas o `CatalogSyncService` legacy ignorava
+no persist. Fix S142 cobre produtos novos; este script cobre o backlog.
+
+**Uso:**
+
+```bash
+cd cesta-api
+
+# dry-run: 1 página (default 500) + stats, zero writes
+npm run backfill:categories -- --dry-run
+
+# full backfill (sem limite)
+npm run backfill:categories
+
+# truncado
+npm run backfill:categories -- --limit=5000 --page-size=1000
+```
+
+**Flags:**
+
+| Flag | Default | Efeito |
+|---|---|---|
+| `--limit=N` | sem limite | Para após N updates |
+| `--page-size=N` | `500` | Tamanho da página Prisma |
+| `--dry-run` | off | Só stats, zero updates |
+
+**Heurística:** `resolveCategorySlug(name, hint?)` em
+`src/modules/catalog-sync/utils/category-resolver.ts`. 15 slugs,
+~250 keywords, prefix-boundary matching. Regras em ordem (específicas
+→ gerais): `snacks-dulces` antes de `lacteos` (chocolate con leche →
+snack).
+
+**Idempotência:** query `where categoryId=null` filtra naturalmente.
+Re-run só vê produtos novos sem categoria.
+
+**Output:** `updated` vs `unresolved` vs breakdown por slug + amostras
+de produtos não-resolvidos (pra guiar extensão de keywords).
 
 ## JWT secret rotation (Sprint 92)
 
