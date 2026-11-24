@@ -962,52 +962,5 @@
       "noPrice": "Sin oferta",
       "removeAria": "Quitar {name}"
     }
-  },
-  "filters": {
-    "title": "Filtros",
-    "clear": "Limpiar todo",
-    "categoryAll": "Todas",
-    "supermarket": "Supermercado",
-    "priceRange": "Precio (€)",
-    "minPricePlaceholder": "Mín",
-    "maxPricePlaceholder": "Máx",
-    "dietaryTitle": "Dieta",
-    "dietary": {
-      "isVegan": "Vegano",
-      "isVegetarian": "Vegetariano",
-      "isGlutenFree": "Sin gluten",
-      "isLactoseFree": "Sin lactosa"
-    },
-    "nutriScore": "Nutri-Score mínimo",
-    "onPromotion": "En oferta",
-    "yes": "Sí",
-    "no": "No",
-    "empty": "Sin productos en esta categoría con los filtros seleccionados.",
-    "breadcrumbCategory": "Categoría",
-    "totalCount": "{count, plural, one {# producto} other {# productos}}",
-    "aria": {
-      "bar": "Barra de filtros",
-      "minPrice": "Precio mínimo en euros",
-      "maxPrice": "Precio máximo en euros",
-      "nutriScore": "Filtrar por Nutri-Score {grade}",
-      "productsList": "Lista de productos filtrados"
-    }
-  },
-  "categoryNames": {
-    "lacteos": "Lácteos y huevos",
-    "pan-bolleria": "Pan y bollería",
-    "desayuno-cereales": "Desayuno y cereales",
-    "carne": "Carnicería",
-    "pescado": "Pescadería",
-    "frutas-verduras": "Frutas y verduras",
-    "bebidas": "Bebidas",
-    "despensa": "Despensa",
-    "salsas-conservas": "Salsas y conservas",
-    "snacks-dulces": "Snacks y dulces",
-    "congelados": "Congelados",
-    "limpieza": "Limpieza",
-    "higiene": "Higiene y belleza",
-    "bebes": "Bebés",
-    "mascotas": "Mascotas"
   }
 }
