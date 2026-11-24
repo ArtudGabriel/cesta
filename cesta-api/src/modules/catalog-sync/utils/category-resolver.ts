@@ -132,9 +132,16 @@ const RULES: Rule[] = [
   {
     slug: 'congelados',
     keywords: [
+      // Sprint 145: "ultracongelad" explícito pq prefix-boundary não
+      // deixa `congelad` bater em "ultracongelada" (char antes = "a",
+      // alphanum). Mesma lógica pra "precongelado".
       'congelad',
+      'ultracongelad',
+      'precongelad',
+      'pre-congelad',
       'pescado congelado',
       'verdura congelada',
+      'pizza',
       'pizza congelada',
       'patatas congeladas',
       'nugget',
@@ -146,6 +153,8 @@ const RULES: Rule[] = [
       'palitos de',
       'empanadilla',
       'empanadillas',
+      'croqueta',
+      'croquetas',
       'croqueta congelada',
       'tarta helada',
       'helado',
@@ -164,8 +173,17 @@ const RULES: Rule[] = [
       'bacalao congelado',
       'merluza congelada',
       'gambas congeladas',
+      'bogavante',
+      'cigala',
+      'cigalas',
+      'langostino congelado',
       'marisco congelado',
       'bolsa congelado',
+      'base de pizza',
+      'base pizza',
+      'masa de pizza',
+      'hojaldre congelado',
+      'masa congelada',
       // Marcas congelados
       'findus',
       'la cocinera',
@@ -623,6 +641,9 @@ const RULES: Rule[] = [
       'vermouth',
       'tequila',
       'mezcal',
+      'hielo',
+      'cubito de hielo',
+      'cubitos hielo',
       // Genérico
       'bebida',
       'beverage',
