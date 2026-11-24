@@ -36,6 +36,77 @@ describe('resolveCategorySlug', () => {
     ['Pienso perro adulto 12kg', 'mascotas'],
     ['Mayonesa Hellmann\'s 450ml', 'salsas-conservas'],
     ['Produto sem categoria clara xyz zzz', null],
+
+    // Sprint 143 — long-tail bebidas
+    ['Red Bull Energy Drink lata 250ml', 'bebidas'],
+    ['Monster Energy Original 500ml', 'bebidas'],
+    ['Powerade Isotonic Mountain Blast 500ml', 'bebidas'],
+    ['Hacendado Iso drink naranja 1L', 'bebidas'],
+    ['Furious energy drink 500ml', 'bebidas'],
+    ['Aquarius Limón 1.5L', 'bebidas'],
+    ['Schweppes tónica 1L', 'bebidas'],
+    ['Bebida vegetal de avena 1L', 'bebidas'],
+    ['Bebida de soja Pascual 1L', 'bebidas'],
+    ['Granini zumo naranja 1L', 'bebidas'],
+    ['Don Simon néctar piña 1L', 'bebidas'],
+    ['Vermut Martini blanco 1L', 'bebidas'],
+
+    // Sprint 143 — long-tail snacks + brands
+    ['Doritos Tex Mex 150g', 'snacks-dulces'],
+    ['Pringles Original 165g', 'snacks-dulces'],
+    ['Cheetos Risketos 80g', 'snacks-dulces'],
+    ['Kit Kat chocolate 4 barritas', 'snacks-dulces'],
+    ['Oreo galletas pack 3', 'snacks-dulces'],
+    ['Kinder Bueno 6 unidades', 'snacks-dulces'],
+    ['Nutella crema cacao 400g', 'snacks-dulces'],
+
+    // Sprint 143 — long-tail limpeza
+    ['Fairy lavavajillas limón 750ml', 'limpieza'],
+    ['Mistol clásico 1L', 'limpieza'],
+    ['Cif crema limpiador 750ml', 'limpieza'],
+    ['Don Limpio multiusos 1L', 'limpieza'],
+    ['KH-7 quitamanchas 750ml', 'limpieza'],
+    ['Sanytol desinfectante multiusos 750ml', 'limpieza'],
+    ['Ambientador Febreze lavanda', 'limpieza'],
+    ['Film transparente Albal 30m', 'limpieza'],
+
+    // Sprint 143 — long-tail higiene
+    ['Colgate Total pasta de dientes 75ml', 'higiene'],
+    ['Oral-B cepillo dental medio', 'higiene'],
+    ['Listerine Zero enjuague bucal 500ml', 'higiene'],
+    ['Pantene Pro-V champú 500ml', 'higiene'],
+    ['Head & Shoulders anti-caspa 400ml', 'higiene'],
+    ['Nivea crema hidratante 200ml', 'higiene'],
+    ['Dove gel de ducha 600ml', 'higiene'],
+    ['Gillette Mach3 cuchillas', 'higiene'],
+
+    // Sprint 143 — long-tail mascotas
+    ['Royal Canin perro adulto 15kg', 'mascotas'],
+    ['Purina Felix gato pack 12', 'mascotas'],
+    ['Whiskas sabor atún 100g', 'mascotas'],
+    ['Pedigree snack perro', 'mascotas'],
+    ['Advance comida gato esterilizado 1.5kg', 'mascotas'],
+
+    // Sprint 143 — long-tail congelados
+    ['Nuggets de pollo Findus 400g', 'congelados'],
+    ['Pizza congelada Casa Tarradellas', 'congelados'],
+    ['Varitas de merluza Pescanova 480g', 'congelados'],
+    ['Magnum almendra pack 3', 'congelados'],
+    ['Cornetto clásico 4 unidades', 'congelados'],
+
+    // Sprint 143 — long-tail bebês
+    ['Dodot Sensitive talla 3 pack 108', 'bebes'],
+    ['Pampers Baby-Dry talla 4', 'bebes'],
+    ['Hero Baby papilla multicereales 500g', 'bebes'],
+    ['Nutribén potito pollo con arroz', 'bebes'],
+    ['Toallitas bebé Dodot pack 4', 'bebes'],
+
+    // Sprint 143 — despensa long-tail
+    ['Quinoa real 500g', 'despensa'],
+    ['Avecrem caldo pollo 24 pastillas', 'despensa'],
+    ['Gazpacho Alvalle 1L', 'despensa'],
+    ['Lasaña bolognesa seca Gallo 500g', 'despensa'],
+    ['Crema de calabaza listo consumir 500g', 'despensa'],
   ];
 
   it.each(cases)('normaliza "%s" → %s', (input, expected) => {
