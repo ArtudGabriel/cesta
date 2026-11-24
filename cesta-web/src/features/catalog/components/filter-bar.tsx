@@ -170,7 +170,7 @@ export function FilterBar({ hideCategory = false, activeCategorySlug }: FilterBa
       {/* Dieta */}
       <div>
         <p className="mb-1.5 text-xs font-medium text-neutral-500">
-          {t("dietary")}
+          {t("dietaryTitle")}
         </p>
         <div className="flex flex-wrap gap-2">
           {DIETARY_FILTER_KEYS.map((key) => {

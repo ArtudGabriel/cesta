@@ -971,6 +971,7 @@
     "priceRange": "Precio (€)",
     "minPricePlaceholder": "Mín",
     "maxPricePlaceholder": "Máx",
+    "dietaryTitle": "Dieta",
     "dietary": {
       "isVegan": "Vegano",
       "isVegetarian": "Vegetariano",

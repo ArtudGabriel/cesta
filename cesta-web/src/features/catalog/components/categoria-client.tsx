@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { ProductCard } from "./product-card";
 import { ProductCardSkeleton } from "./product-card-skeleton";
@@ -16,62 +15,67 @@ import { useLocale } from "@/hooks/use-locale";
 
 interface CategoriaClientProps {
   slug: string;
+  initialSearchParams: Record<string, string>;
 }
 
-export function CategoriaClient({ slug }: CategoriaClientProps) {
+export function CategoriaClient({
+  slug,
+  initialSearchParams,
+}: CategoriaClientProps) {
   const t = useTranslations("filters");
   const tCategories = useTranslations("categoryNames");
   const locale = useLocale();
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   const filters = useFiltersStore((s) => s.filters);
   const applyPartial = useFiltersStore((s) => s.applyPartial);
   const resetAll = useFiltersStore((s) => s.resetAll);
+  const hydratedRef = useRef(false);
 
-  // Sprint 148 fix P0: hidrata store do URL antes do primeiro render
-  // útil. `effectiveFilters` derivado cola `category=slug` mesmo quando
-  // o store ainda não sincronizou — garante useProducts disparar fetch
-  // na mount (sem esperar o useEffect de hidratação terminar).
+  // Sprint 149: hidratação sync dos filtros via prop (não `useSearchParams`).
+  // Zustand é mutado dentro do primeiro render client-side pra garantir
+  // que `useProducts` receba `{category:slug, ...}` no mesmo frame —
+  // elimina janela SSR→hydration onde S147/S148 caíram.
+  if (!hydratedRef.current && typeof window !== "undefined") {
+    hydratedRef.current = true;
+    const params = new URLSearchParams(initialSearchParams);
+    const parsed = filtersFromSearchParams(params);
+    resetAll();
+    applyPartial({ ...parsed, category: slug });
+  }
+
+  // Força fetch mesmo em SSR / primeiro paint: effectiveFilters sempre
+  // inclui `category=slug`. Store serve a FilterBar; esta fonte vai
+  // direto pro useProducts.
   const effectiveFilters = useMemo(
     () => ({ ...filters, category: slug }),
     [filters, slug],
   );
 
-  // Hidrata store a partir de URL + força category=slug da rota.
+  // Sync URL no cliente após mudança de filtros (shareable links).
   useEffect(() => {
-    const fromUrl = filtersFromSearchParams(searchParams);
-    resetAll();
-    applyPartial({ ...fromUrl, category: slug });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug]);
-
-  // Espelha filtros atuais na URL (shareable links). Omite `category`
-  // porque já está no path.
-  useEffect(() => {
+    if (typeof window === "undefined") return;
     const { category: _omit, ...rest } = filters;
-    const params = filtersToSearchParams(rest);
-    const qs = params.toString();
-    const target = qs ? `${pathname}?${qs}` : pathname;
-    router.replace(target, { scroll: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const qs = filtersToSearchParams(rest).toString();
+    const target = qs
+      ? `${window.location.pathname}?${qs}`
+      : window.location.pathname;
+    window.history.replaceState(null, "", target);
   }, [filters]);
 
   const categoriesQ = useCategories();
   const categoryLabel = useMemo(() => {
-    // Sprint 148: prefer i18n namespace (categoryNames.<slug>) para
-    // garantir label traduzida mesmo sem Category table carregada.
-    // Fallback: nameEs/namePt do backend; último fallback: slug raw.
+    // 1) namespace i18n `categoryNames.<slug>`
     try {
       const i18n = tCategories(slug);
       if (i18n && i18n !== slug) return i18n;
     } catch {
-      // key missing — fallback abaixo
+      // key missing → próximo fallback
     }
+    // 2) backend Category.nameEs/namePt
     const match = categoriesQ.data?.find((c) => c.slug === slug);
-    if (!match) return slug;
-    return locale === "pt-BR" ? match.namePt : match.nameEs;
+    if (match) return locale === "pt-BR" ? match.namePt : match.nameEs;
+    // 3) slug cru
+    return slug;
   }, [categoriesQ.data, slug, locale, tCategories]);
 
   const productsQ = useProducts(effectiveFilters);
