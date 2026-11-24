@@ -13,6 +13,8 @@ const messages = {
       subtitle: "Mayor diferencia entre supermercados",
       cheaperAt: "Más barato en {market}",
     },
+    discountOff: "-{percent}%",
+    discountOffAria: "Descuento del {percent} por ciento",
   },
 };
 
