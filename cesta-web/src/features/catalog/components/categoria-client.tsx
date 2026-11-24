@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
+import { useQuery } from "@tanstack/react-query";
 import { ProductCard } from "./product-card";
 import { ProductCardSkeleton } from "./product-card-skeleton";
 import { FilterBar } from "./filter-bar";
-import { useCategories, useProducts } from "../hooks/use-catalog";
+import { useCategories } from "../hooks/use-catalog";
+import { catalogService } from "../services/catalog.service";
 import { useFiltersStore } from "../stores/filters.store";
 import {
   filtersFromSearchParams,
@@ -85,7 +87,16 @@ export function CategoriaClient({
     return slug;
   }, [categoriesQ.data, slug, locale, tCategories]);
 
-  const productsQ = useProducts(effectiveFilters);
+  // Sprint 150: query inline em vez de via `useProducts` hook. S147→S149
+  // o hook não disparava `queryFn` em prod (isPending=true 23s sem /api
+  // call). Chamar direto confirma que o fetch sai. `enabled: true`
+  // explícito + sem `placeholderData` elimina branches ocultos do caminho.
+  const productsQ = useQuery({
+    queryKey: ["catalog", "categoria", slug, effectiveFilters],
+    queryFn: () => catalogService.listProducts(effectiveFilters),
+    enabled: true,
+    staleTime: 5 * 60 * 1000,
+  });
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6">
