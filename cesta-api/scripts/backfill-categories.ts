@@ -148,8 +148,11 @@ async function main(): Promise<void> {
         scanned += 1;
         if (limit != null && updated >= limit) break;
 
+        // Legacy sem hint do adapter — passa `brand name` como productName
+        // única fonte (resolver concatena hint+name no haystack; sem hint
+        // aqui, evita duplicação).
         const fullName = `${p.brand ?? ''} ${p.name}`.trim();
-        const slug = resolveCategorySlug(p.name, fullName);
+        const slug = resolveCategorySlug(fullName);
         if (!slug) {
           unresolved += 1;
           if (samplesUnresolved.length < 10) samplesUnresolved.push(p.name);
