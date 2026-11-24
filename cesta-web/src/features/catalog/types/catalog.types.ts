@@ -87,14 +87,20 @@ export interface ProductFilters {
   search?: string;
   category?: string;
   supermarket?: string;
+  /** Sprint 147: multi supermarket (OR). Serializa `?supermarkets=mercadona,dia`. */
+  supermarkets?: string[];
   brand?: string;
+  /** Sprint 147: preço mínimo inclusivo (€). */
+  minPrice?: number;
   maxPrice?: number;
   onPromotion?: boolean;
   isVegan?: boolean;
   isVegetarian?: boolean;
   isGlutenFree?: boolean;
   isLactoseFree?: boolean;
-  sortBy?: "cheapest" | "newest" | "name";
+  /** Sprint 147: Nutri-Score mínimo aceitável (A = só A; B = A+B; …). */
+  nutriScore?: NutriGrade;
+  sortBy?: "cheapest" | "newest" | "name" | "nutriScore";
   page?: number;
   limit?: number;
 }

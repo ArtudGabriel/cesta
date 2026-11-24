@@ -17,15 +17,42 @@ export class ProductsService {
     const { items, total } = await this.repo.findMany(filters);
     let mapped = items.map(ProductResponseDto.fromEntity);
 
-    if ((filters.sortBy ?? 'cheapest') === 'cheapest') {
+    // Sprint 147: filtro Nutri-Score pós-fetch (grade calculada no DTO).
+    // Inclusivo: A → só A; B → A+B; C → A+B+C; etc. Produtos sem grade
+    // (nutriScore=null) saem quando filtro aplicado.
+    const GRADE_ORDER: Record<string, number> = { A: 0, B: 1, C: 2, D: 3, E: 4 };
+    if (filters.nutriScore) {
+      const threshold = GRADE_ORDER[filters.nutriScore];
+      mapped = mapped.filter((p) => {
+        const grade = p.nutriScore?.grade;
+        if (!grade) return false;
+        return GRADE_ORDER[grade] <= threshold;
+      });
+    }
+
+    const sortBy = filters.sortBy ?? 'cheapest';
+    if (sortBy === 'cheapest') {
       mapped = mapped.sort((a, b) => {
         const ap = a.cheapestPrice ?? Number.POSITIVE_INFINITY;
         const bp = b.cheapestPrice ?? Number.POSITIVE_INFINITY;
         return ap - bp;
       });
+    } else if (sortBy === 'nutriScore') {
+      mapped = mapped.sort((a, b) => {
+        const ag = a.nutriScore?.grade;
+        const bg = b.nutriScore?.grade;
+        const av = ag ? GRADE_ORDER[ag] : Number.POSITIVE_INFINITY;
+        const bv = bg ? GRADE_ORDER[bg] : Number.POSITIVE_INFINITY;
+        return av - bv;
+      });
     }
 
-    return { items: mapped, total, page: filters.page, limit: filters.limit };
+    return {
+      items: mapped,
+      total: filters.nutriScore ? mapped.length : total,
+      page: filters.page,
+      limit: filters.limit,
+    };
   }
 
   async findById(id: string): Promise<ProductResponseDto> {

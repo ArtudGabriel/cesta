@@ -291,3 +291,132 @@ describe('ProductsService.featuredDeals', () => {
     expect(result.map((p) => p.id)).toEqual(['duo']);
   });
 });
+
+// Sprint 147: findMany filters nutriScore + sortBy nutriScore
+describe('ProductsService.findMany — nutriScore filter + sort', () => {
+  let service: ProductsService;
+  let repoMock: { findMany: jest.Mock };
+
+  const makeNutri = (id: string, fields: Record<string, number | null>) => ({
+    id,
+    name: `Prod ${id}`,
+    brand: null,
+    normalizedName: `prod-${id}`,
+    ean: null,
+    imageUrl: null,
+    categoryId: null,
+    category: {
+      id: 'c1',
+      slug: 'lacteos',
+      nameEs: 'Lácteos',
+      namePt: 'Laticínios',
+      parentId: null,
+      order: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as any,
+    packageSize: 1,
+    packageUnit: 'LITER',
+    comparisonUnit: 'LITER',
+    calories: fields.calories ?? 100,
+    protein: fields.protein ?? 5,
+    fat: fields.fat ?? 2,
+    saturatedFat: fields.saturatedFat ?? 1,
+    carbs: fields.carbs ?? 10,
+    sugar: fields.sugar ?? 5,
+    salt: fields.salt ?? 0.1,
+    fiber: fields.fiber ?? 2,
+    nutritionPer: '100g',
+    nutriScore: null,
+    isVegan: false,
+    isVegetarian: false,
+    isGlutenFree: false,
+    isLactoseFree: false,
+    deletedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    prices: [
+      {
+        id: `price-${id}`,
+        productId: id,
+        supermarketId: 'm',
+        currentPrice: { toString: () => '1.00' } as any,
+        previousPrice: null,
+        onPromotion: false,
+        isAvailable: true,
+        isStale: false,
+        lastSyncedAt: new Date(),
+        confidenceScore: 1,
+        source: 'official_api',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        supermarket: {
+          id: 'm',
+          slug: 'mercadona',
+          name: 'Mercadona',
+          color: null,
+          logoUrl: null,
+          website: null,
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      },
+    ],
+  });
+
+  beforeEach(async () => {
+    repoMock = { findMany: jest.fn() };
+    const module = await Test.createTestingModule({
+      providers: [
+        ProductsService,
+        { provide: ProductsRepository, useValue: repoMock as any },
+      ],
+    }).compile();
+    service = module.get(ProductsService);
+  });
+
+  it('filtra nutriScore=B retém apenas A e B (inclusivo)', async () => {
+    // Montagem: produto "verde" (A) + "amarelo" (C). Nutri calculado no
+    // DTO; aqui garantimos que o filtro drop C.
+    repoMock.findMany.mockResolvedValue({
+      items: [
+        makeNutri('green', { calories: 40, sugar: 1, salt: 0.05, saturatedFat: 0, protein: 10, fiber: 5 }),
+        makeNutri('red', { calories: 400, sugar: 30, salt: 1.5, saturatedFat: 15, protein: 2, fiber: 0 }),
+      ],
+      total: 2,
+    });
+
+    const res = await service.findMany({ nutriScore: 'B', page: 1, limit: 20 } as any);
+    const grades = res.items.map((p) => p.nutriScore?.grade ?? null);
+    for (const g of grades) {
+      expect(['A', 'B']).toContain(g);
+    }
+    expect(res.total).toBe(res.items.length);
+  });
+
+  it('sem filtro nutriScore retorna total original (não filtra)', async () => {
+    repoMock.findMany.mockResolvedValue({
+      items: [makeNutri('p1', {})],
+      total: 42,
+    });
+    const res = await service.findMany({ page: 1, limit: 20 } as any);
+    expect(res.total).toBe(42);
+  });
+
+  it('sortBy=nutriScore ordena A→E com nulls ao fim', async () => {
+    repoMock.findMany.mockResolvedValue({
+      items: [
+        makeNutri('mid', { calories: 150, sugar: 10, salt: 0.5, saturatedFat: 3, protein: 5, fiber: 2 }),
+        makeNutri('green', { calories: 40, sugar: 1, salt: 0.05, saturatedFat: 0, protein: 10, fiber: 5 }),
+        makeNutri('red', { calories: 500, sugar: 40, salt: 2, saturatedFat: 20, protein: 2, fiber: 0 }),
+      ],
+      total: 3,
+    });
+    const res = await service.findMany({ sortBy: 'nutriScore', page: 1, limit: 20 } as any);
+    const grades = res.items.map((p) => p.nutriScore?.grade ?? 'Z');
+    const order: Record<string, number> = { A: 0, B: 1, C: 2, D: 3, E: 4, Z: 5 };
+    const sorted = [...grades].sort((a, b) => order[a] - order[b]);
+    expect(grades).toEqual(sorted);
+  });
+});
