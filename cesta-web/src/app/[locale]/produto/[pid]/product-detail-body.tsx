@@ -9,6 +9,7 @@ import { CreateAlertButton } from "@/features/alerts/components/create-alert-but
 import { DietaryBadges } from "@/features/catalog/components/dietary-badges";
 import { NutriScoreBadge } from "@/features/catalog/components/nutri-score-badge";
 import { NutritionTable } from "@/features/catalog/components/nutrition-table";
+import { PackageInfoStrip } from "@/features/catalog/components/package-info-strip";
 import { PriceComparisonGrid } from "@/features/catalog/components/price-comparison-grid";
 import { PriceHistoryChart } from "@/features/catalog/components/price-history-chart";
 import { useSupermarkets } from "@/features/catalog/hooks/use-catalog";
@@ -68,6 +69,14 @@ export function ProductDetailBody({ product }: { product: Product }) {
             </h2>
             {product.brand && (
               <p className="mt-1 text-sm text-muted">{product.brand}</p>
+            )}
+            {product.packageSize > 0 && (
+              <div className="mt-2">
+                <PackageInfoStrip
+                  packageSize={product.packageSize}
+                  packageUnit={product.packageUnit}
+                />
+              </div>
             )}
           </div>
           {product.nutriScore && (
