@@ -24,14 +24,29 @@ Variáveis de ambiente: ver [`../.env.example`](../.env.example).
 | `npm run audit:repos` | Verifica repositórios seguem padrão |
 | `npm run sync:mercadona` | Sync manual Mercadona |
 | `npm run sync:eroski` | Sync manual Eroski (ver seção abaixo) |
+| `npm run sync:carrefour` | Sync manual Carrefour (Puppeteer local) |
+| `npm run sync:alcampo` | Sync manual Alcampo (Puppeteer local) |
 | `npx prisma studio` | DB inspector |
 
-## Manual syncs (Sprint 137)
+## Manual syncs (Sprints 137–138)
 
 Alguns supermercados bloqueiam o IP datacenter do Render em páginas de
 produto. O cron do `catalog-sync` roda esses adapters em prod mas a CDN
 retorna 403/sem produtos para IPs non-residenciais. Opção escolhida:
 rodar sync manual pelo laptop do dev (IP residencial) 1-2× por semana.
+
+**Prereq comum pra Carrefour e Alcampo (adapters Puppeteer):**
+
+```bash
+# instala o Chrome que o Puppeteer baixa (uma vez por máquina)
+cd cesta-api
+npx puppeteer browsers install chrome
+```
+
+`CARREFOUR_ALCAMPO_CRON_ENABLED` fica `false` em prod — scheduleCrons
+pula esses slugs e remove cualquer repeat scheduler stale. Para
+ressuscitar em prod (só se Render virar paid tier com mais RAM),
+setar a env `true` e redeploy.
 
 ### Eroski
 
@@ -100,6 +115,82 @@ cria 1 linha nova em `PriceSnapshot` (histórico esperado).
   erros concatenados.
 - Logs do próprio adapter saem via NestJS `Logger` (cor por level);
   usar `NEST_DEBUG=1` para ver o verbose.
+
+### Carrefour
+
+Akamai `_abck` challenge bloqueia qualquer `fetch` que não execute JS.
+ScrapingBee tentou em S134 e também apanhou (status 500, cost 0 em
+todos os tiers). Puppeteer local do laptop com Chrome instalado passa.
+
+**Pré-requisitos**
+
+- `.env` com `DATABASE_URL` → Neon prod.
+- `npx puppeteer browsers install chrome` executado uma vez.
+- Internet residencial (não VPN/datacenter).
+
+**Comandos**
+
+```bash
+cd cesta-api
+
+# inspeção sem escrita
+npm run sync:carrefour -- --dry-run --max-queries=3
+
+# bootstrap curto (10 queries, ~500 produtos)
+npm run sync:carrefour -- --max-queries=10
+
+# cobertura padrão (20 queries)
+npm run sync:carrefour
+
+# subset produtos (após fetch) pra iteração
+npm run sync:carrefour -- --max-queries=5 --limit=50
+```
+
+**Flags**
+
+| Flag | Default | Efeito |
+|---|---|---|
+| `--max-queries=N` | `20` | Queries seed (`CARREFOUR_MAX_QUERIES` env) |
+| `--limit=N` | sem limite | Trunca produtos pós-fetch |
+| `--dry-run` | off | Zero writes DB |
+
+**Cadência:** 1× por semana.
+**Tempo de run:** `--max-queries=10` leva ~3-5min dependendo do
+challenge Akamai + hydration SPA. Chrome fecha ao final (`closePuppeteerBrowser`).
+
+### Alcampo
+
+AWS WAF `jsapi.js` challenge bloqueia `fetch`. Sitemap passa via
+`politeFetchRaw` (bare headers); páginas de produto precisam Puppeteer.
+
+**Pré-requisitos** idem Carrefour (Chrome instalado via Puppeteer).
+
+**Comandos**
+
+```bash
+cd cesta-api
+
+# inspeção
+npm run sync:alcampo -- --dry-run --max-products=5
+
+# bootstrap curto (30 pages, com delay 2s)
+npm run sync:alcampo -- --max-products=30
+
+# cobertura padrão (120 pages)
+npm run sync:alcampo
+```
+
+**Flags**
+
+| Flag | Default | Efeito |
+|---|---|---|
+| `--max-products=N` | `120` | Páginas de produto fetched (`ALCAMPO_MAX_PRODUCTS` env) |
+| `--limit=N` | sem limite | Trunca produtos pós-fetch |
+| `--dry-run` | off | Zero writes DB |
+
+**Cadência:** 1× por semana.
+**Tempo de run:** `--max-products=30` leva ~1-2min (2s/page + navegação).
+Sem EAN nas páginas; match por `normalizedName`.
 
 ## JWT secret rotation (Sprint 92)
 

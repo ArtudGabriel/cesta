@@ -1,5 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { scrapingbeeFetch } from '../utils/scrapingbee-fetch';
+import { pickUserAgent } from '../utils/user-agents';
+import {
+  closePuppeteerBrowser,
+  puppeteerFetch,
+} from '../utils/puppeteer-fetch';
 import type {
   RawPackageUnit,
   RawProduct,
@@ -7,16 +11,26 @@ import type {
 } from './supermarket-adapter.interface';
 
 // Carrefour (www.carrefour.es) — S118/S119/S120 raw fetch = 403 Akamai.
-// S128 Puppeteer funcionou mas OOM Render 512MB. S130 disable. S134 pivot
-// pra ScrapingBee (ADR 0009 opção A): proxy residencial + render_js
-// executam Akamai _abck challenge, HTML final volta via API.
+// S128 Puppeteer funcionou. S130 cron prod desabilitado (OOM Render
+// 512MB). S134 tentou ScrapingBee mas Akamai refusa em todos os tiers.
+// S138 Puppeteer de volta, só em scripts locais: `npm run sync:carrefour`
+// roda no laptop do dev (IP residencial + Chrome instalado). Cron prod
+// de Carrefour/Alcampo fica gated por env CARREFOUR_ALCAMPO_CRON_ENABLED.
 //
 // Estratégia:
-//  1. scrapingbeeFetch(`${BASE_URL}?q=<query>`, { renderJs:true })
-//  2. Extrai produtos de `__NEXT_DATA__` script (SSR Next.js embed inicial)
+//  1. puppeteerFetch(`${BASE_URL}?q=<query>`) renderiza SPA + executa
+//     Akamai _abck challenge.
+//  2. Extrai produtos de `__NEXT_DATA__` script.
 //  3. Walk recursivo nas chaves procurando arrays com shape de produto.
 const BASE_URL = 'https://www.carrefour.es/search';
-const MAX_QUERIES = 20;
+const DEFAULT_MAX_QUERIES = 20;
+
+function resolveMaxQueries(): number {
+  const raw = process.env.CARREFOUR_MAX_QUERIES;
+  if (!raw) return DEFAULT_MAX_QUERIES;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_MAX_QUERIES;
+}
 
 const SEED_QUERIES = [
   'leche', 'yogur', 'queso', 'huevos',
@@ -52,33 +66,37 @@ interface CarrefourNextProduct {
 export class CarrefourAdapter implements SupermarketAdapter {
   readonly slug = 'carrefour';
   private readonly logger = new Logger(CarrefourAdapter.name);
+  private readonly ua = pickUserAgent();
 
   async fetchProducts(): Promise<RawProduct[]> {
     const seen = new Set<string>();
     const products: RawProduct[] = [];
-    const queries = SEED_QUERIES.slice(0, MAX_QUERIES);
+    const queries = SEED_QUERIES.slice(0, resolveMaxQueries());
     const errors: string[] = [];
 
-    for (const query of queries) {
-      try {
-        const raws = await this.searchViaScrapingbee(query);
-        for (const raw of raws) {
-          const id = raw.id != null ? String(raw.id) : null;
-          if (!id || seen.has(id)) continue;
-          const normalized = this.normalize(raw, id);
-          if (!normalized) continue;
-          seen.add(id);
-          products.push(normalized);
+    try {
+      for (const query of queries) {
+        try {
+          const raws = await this.searchViaPuppeteer(query);
+          for (const raw of raws) {
+            const id = raw.id != null ? String(raw.id) : null;
+            if (!id || seen.has(id)) continue;
+            const normalized = this.normalize(raw, id);
+            if (!normalized) continue;
+            seen.add(id);
+            products.push(normalized);
+          }
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          this.logger.error(`Carrefour query "${query}" falhou: ${msg}`);
+          errors.push(`${query}: ${msg}`);
         }
-      } catch (error) {
-        const msg = error instanceof Error ? error.message : String(error);
-        this.logger.error(`Carrefour query "${query}" falhou: ${msg}`);
-        errors.push(`${query}: ${msg}`);
       }
+    } finally {
+      // Liberar Chromium — scripts standalone chamam adapter uma vez.
+      await closePuppeteerBrowser();
     }
 
-    // Sprint 134-r P2: se todas queries falharem (0 produtos), bubble up último
-    // erro pra service persistir em SyncRun.errorMessage. QA fica cego sem isso.
     if (products.length === 0 && errors.length > 0) {
       throw new Error(
         `Carrefour: 0 produtos coletados em ${queries.length} queries · últimos erros: ${errors.slice(-3).join(' | ')}`,
@@ -86,19 +104,20 @@ export class CarrefourAdapter implements SupermarketAdapter {
     }
 
     this.logger.log(
-      `Carrefour: ${products.length} produtos coletados (${queries.length - errors.length}/${queries.length} queries ok via ScrapingBee)`,
+      `Carrefour: ${products.length} produtos coletados (${queries.length - errors.length}/${queries.length} queries ok via Puppeteer)`,
     );
     return products;
   }
 
-  private async searchViaScrapingbee(
+  private async searchViaPuppeteer(
     query: string,
   ): Promise<CarrefourNextProduct[]> {
     const url = `${BASE_URL}?q=${encodeURIComponent(query)}`;
-    const result = await scrapingbeeFetch(url, {
-      renderJs: true,
-      waitFor: 'script#__NEXT_DATA__',
+    const result = await puppeteerFetch(url, {
+      userAgent: this.ua,
       timeoutMs: 45_000,
+      waitForSelector: 'script#__NEXT_DATA__',
+      extraWaitMs: 2000,
     });
     if (!result.html) return [];
 

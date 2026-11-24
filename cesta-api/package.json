@@ -26,6 +26,8 @@
     "seed:admin": "ts-node scripts/seed-admin.ts",
     "sync:mercadona": "ts-node scripts/sync-mercadona.ts",
     "sync:eroski": "ts-node scripts/sync-eroski.ts",
+    "sync:carrefour": "ts-node scripts/sync-carrefour.ts",
+    "sync:alcampo": "ts-node scripts/sync-alcampo.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {
@@ -48,6 +50,7 @@
     "@nestjs/throttler": "^6.0.0",
     "@prisma/client": "^5.22.0",
     "@sentry/node": "^11.12.0",
+    "@sparticuz/chromium-min": "^147.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@vercel/blob": "2.4.0",
     "bcrypt": "^6.0.0",
@@ -65,6 +68,8 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
+    "puppeteer": "^25.18.1",
+    "puppeteer-core": "^25.18.1",
     "qrcode": "^1.5.4",
     "reflect-metadata": "^0.2.2",
     "resend": "^6.38.1",

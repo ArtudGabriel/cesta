@@ -1,6 +1,6 @@
 import { AlcampoAdapter } from './alcampo.adapter';
 import { politeFetchRaw } from '../utils/polite-fetch';
-import { scrapingbeeFetch } from '../utils/scrapingbee-fetch';
+import { puppeteerFetch, closePuppeteerBrowser } from '../utils/puppeteer-fetch';
 
 jest.mock('../utils/polite-fetch', () => {
   const actual = jest.requireActual('../utils/polite-fetch');
@@ -9,13 +9,17 @@ jest.mock('../utils/polite-fetch', () => {
     politeFetchRaw: jest.fn(),
   };
 });
-jest.mock('../utils/scrapingbee-fetch', () => ({
-  scrapingbeeFetch: jest.fn(),
+jest.mock('../utils/puppeteer-fetch', () => ({
+  puppeteerFetch: jest.fn(),
+  closePuppeteerBrowser: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('../utils/user-agents', () => ({ pickUserAgent: () => 'test-ua' }));
 
 const mockedPoliteFetchRaw = politeFetchRaw as jest.MockedFunction<typeof politeFetchRaw>;
-const mockedScrapingbee = scrapingbeeFetch as jest.MockedFunction<typeof scrapingbeeFetch>;
+const mockedPuppeteer = puppeteerFetch as jest.MockedFunction<typeof puppeteerFetch>;
+const mockedClose = closePuppeteerBrowser as jest.MockedFunction<
+  typeof closePuppeteerBrowser
+>;
 
 const SITEMAP_INDEX_XML = `<?xml version="1.0"?><sitemapindex>
   <sitemap><loc>https://www.compraonline.alcampo.es/sitemaps/sitemap-products-part1.xml</loc></sitemap>
@@ -47,16 +51,17 @@ const productLd = (overrides: Record<string, unknown>) => ({
 const htmlWithLd = (ld: unknown) =>
   `<html><body><script type="application/ld+json">${JSON.stringify(ld)}</script></body></html>`;
 
-describe('AlcampoAdapter (ScrapingBee S134)', () => {
+describe('AlcampoAdapter (Puppeteer S138)', () => {
   let adapter: AlcampoAdapter;
 
   beforeEach(() => {
     adapter = new AlcampoAdapter();
     mockedPoliteFetchRaw.mockReset();
-    mockedScrapingbee.mockReset();
+    mockedPuppeteer.mockReset();
+    mockedClose.mockReset().mockResolvedValue(undefined);
   });
 
-  it('extrai produtos via sitemap (politeFetch) + ScrapingBee JSON-LD', async () => {
+  it('extrai produtos via sitemap (politeFetch) + Puppeteer JSON-LD', async () => {
     mockedPoliteFetchRaw.mockImplementation((url: string) => {
       if (url.endsWith('sitemap_index.xml'))
         return Promise.resolve({ body: SITEMAP_INDEX_XML, status: 200, setCookie: [] }) as any;
@@ -64,12 +69,12 @@ describe('AlcampoAdapter (ScrapingBee S134)', () => {
         return Promise.resolve({ body: SITEMAP_PRODUCTS_XML, status: 200, setCookie: [] }) as any;
       return Promise.resolve({ body: '', status: 404, setCookie: [] }) as any;
     });
-    mockedScrapingbee.mockImplementation((url: string) => {
+    mockedPuppeteer.mockImplementation((url: string) => {
       if (url.includes('54178')) {
         return Promise.resolve({
           html: htmlWithLd(productLd({})),
           status: 200,
-          cost: 5,
+          finalUrl: "",
         });
       }
       if (url.includes('50733')) {
@@ -86,10 +91,10 @@ describe('AlcampoAdapter (ScrapingBee S134)', () => {
             }),
           ),
           status: 200,
-          cost: 5,
+          finalUrl: "",
         });
       }
-      return Promise.resolve({ html: '', status: 200, cost: null });
+      return Promise.resolve({ html: '', status: 200, finalUrl: "" });
     });
 
     const products = await adapter.fetchProducts();
@@ -114,7 +119,7 @@ describe('AlcampoAdapter (ScrapingBee S134)', () => {
     });
   });
 
-  it('passa renderJs=true + waitFor JSON-LD selector ao scrapingbeeFetch', async () => {
+  it('passa UA + waitForSelector JSON-LD ao puppeteerFetch', async () => {
     mockedPoliteFetchRaw.mockImplementation((url: string) => {
       if (url.endsWith('sitemap_index.xml'))
         return Promise.resolve({ body: SITEMAP_INDEX_XML, status: 200, setCookie: [] }) as any;
@@ -122,19 +127,36 @@ describe('AlcampoAdapter (ScrapingBee S134)', () => {
         return Promise.resolve({ body: SITEMAP_PRODUCTS_XML, status: 200, setCookie: [] }) as any;
       return Promise.resolve({ body: '', status: 404, setCookie: [] }) as any;
     });
-    mockedScrapingbee.mockResolvedValue({
+    mockedPuppeteer.mockResolvedValue({
       html: htmlWithLd(productLd({})),
       status: 200,
-      cost: 5,
+      finalUrl: "",
     });
 
     await adapter.fetchProducts();
-    const firstCall = mockedScrapingbee.mock.calls[0];
+    const firstCall = mockedPuppeteer.mock.calls[0];
     expect(firstCall[0]).toContain('compraonline.alcampo.es/products/');
     expect(firstCall[1]).toMatchObject({
-      renderJs: true,
-      waitFor: 'script[type="application/ld+json"]',
+      userAgent: 'test-ua',
+      waitForSelector: expect.stringContaining('application/ld+json'),
     });
+  });
+
+  it('sempre chama closePuppeteerBrowser (release resources)', async () => {
+    mockedPoliteFetchRaw.mockImplementation((url: string) => {
+      if (url.endsWith('sitemap_index.xml'))
+        return Promise.resolve({ body: SITEMAP_INDEX_XML, status: 200, setCookie: [] }) as any;
+      if (url.endsWith('sitemap-products-part1.xml'))
+        return Promise.resolve({ body: SITEMAP_PRODUCTS_XML, status: 200, setCookie: [] }) as any;
+      return Promise.resolve({ body: '', status: 404, setCookie: [] }) as any;
+    });
+    mockedPuppeteer.mockResolvedValue({
+      html: htmlWithLd(productLd({})),
+      status: 200,
+      finalUrl: "",
+    });
+    await adapter.fetchProducts();
+    expect(mockedClose).toHaveBeenCalledTimes(1);
   });
 
   it('retorna [] quando sitemap_index falha', async () => {
@@ -145,7 +167,7 @@ describe('AlcampoAdapter (ScrapingBee S134)', () => {
     } as any);
     const products = await adapter.fetchProducts();
     expect(products).toEqual([]);
-    expect(mockedScrapingbee).not.toHaveBeenCalled();
+    expect(mockedPuppeteer).not.toHaveBeenCalled();
   });
 
   it('bubble up error quando TODAS pages falham (S134-r P2 silent failure)', async () => {
@@ -156,7 +178,7 @@ describe('AlcampoAdapter (ScrapingBee S134)', () => {
         return Promise.resolve({ body: SITEMAP_PRODUCTS_XML, status: 200, setCookie: [] }) as any;
       return Promise.resolve({ body: '', status: 404, setCookie: [] }) as any;
     });
-    mockedScrapingbee.mockRejectedValue(new Error('upstream 429'));
+    mockedPuppeteer.mockRejectedValue(new Error('upstream 429'));
     await expect(adapter.fetchProducts()).rejects.toThrow(
       /Alcampo: 0 produtos coletados/,
     );
@@ -170,14 +192,14 @@ describe('AlcampoAdapter (ScrapingBee S134)', () => {
         return Promise.resolve({ body: SITEMAP_PRODUCTS_XML, status: 200, setCookie: [] }) as any;
       return Promise.resolve({ body: '', status: 404, setCookie: [] }) as any;
     });
-    mockedScrapingbee.mockResolvedValue({
+    mockedPuppeteer.mockResolvedValue({
       html: htmlWithLd({
         '@context': 'https://schema.org',
         '@type': 'BreadcrumbList',
         itemListElement: [],
       }),
       status: 200,
-      cost: 5,
+      finalUrl: "",
     });
 
     const products = await adapter.fetchProducts();

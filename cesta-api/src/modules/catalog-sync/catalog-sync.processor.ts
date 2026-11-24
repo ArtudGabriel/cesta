@@ -18,10 +18,14 @@ export interface CatalogSyncJob {
 // Agendamento — cron em Europe/Madrid. Espaçamento de 30min entre runs pra
 // aliviar DB. Froiz/LIDL/Aldi são semanais (terça) porque dependem de
 // scraping/folleto que não muda diariamente.
-// Sprint 134: Carrefour + Alcampo bypass Akamai/WAF via ScrapingBee
-// (ADR 0009 opção A). Puppeteer removido (OOM Render 512MB, S130).
-// Eroski usa bareFetch (S125).
-const SCHEDULE: Array<{ slug: string; cron: string }> = [
+// Sprint 138: Carrefour + Alcampo voltaram a usar Puppeteer, mas só em
+// scripts locais (`npm run sync:carrefour|sync:alcampo`). Prod cron fica
+// OFF pra esses slugs (OOM Chromium × 512MB Render), a menos que
+// CARREFOUR_ALCAMPO_CRON_ENABLED=true override explícito seja setado.
+// Eroski também precisa rodar local (CDN bloqueia datacenter IP, S137).
+const PUPPETEER_CRON_SLUGS = new Set(['carrefour', 'alcampo']);
+
+const FULL_SCHEDULE: Array<{ slug: string; cron: string }> = [
   { slug: 'mercadona', cron: '0 3 * * *' },
   { slug: 'carrefour', cron: '30 3 * * *' },
   { slug: 'alcampo', cron: '0 4 * * *' },
@@ -31,6 +35,13 @@ const SCHEDULE: Array<{ slug: string; cron: string }> = [
   { slug: 'lidl', cron: '0 6 * * 2' },
   { slug: 'aldi', cron: '0 7 * * 2' },
 ];
+
+function activeSchedule(): Array<{ slug: string; cron: string }> {
+  if (process.env.CARREFOUR_ALCAMPO_CRON_ENABLED === 'true') {
+    return FULL_SCHEDULE;
+  }
+  return FULL_SCHEDULE.filter((entry) => !PUPPETEER_CRON_SLUGS.has(entry.slug));
+}
 
 // Sprint 119 follow-up: concurrency=3 permite adapters distintos rodarem em
 // paralelo (Mercadona + Carrefour + outro). Com concurrency=1 default, cada
@@ -58,7 +69,29 @@ export class CatalogSyncProcessor
   }
 
   private async scheduleCrons(): Promise<void> {
-    for (const entry of SCHEDULE) {
+    const schedule = activeSchedule();
+    const skipped = FULL_SCHEDULE.filter((e) => !schedule.includes(e));
+    if (skipped.length > 0) {
+      this.logger.warn(
+        `Puppeteer slugs disabled (Render 512MB OOM) — skipping crons: ${skipped
+          .map((e) => e.slug)
+          .join(',')}. Override: CARREFOUR_ALCAMPO_CRON_ENABLED=true`,
+      );
+    }
+    // Sprint 138: removedRepeatable pra qualquer cron que saiu do schedule.
+    // BullMQ persiste repeatables no Redis — deploy anterior que agendou
+    // carrefour/alcampo continuaria disparando mesmo com schedule filtrado.
+    for (const dead of skipped) {
+      const jobId = `cron-${dead.slug}`;
+      try {
+        await this.queue.removeJobScheduler(jobId);
+      } catch (err) {
+        this.logger.warn(
+          `Failed to remove stale scheduler ${jobId}: ${(err as Error).message}`,
+        );
+      }
+    }
+    for (const entry of schedule) {
       const jobId = `cron-${entry.slug}`;
       try {
         await this.queue.add(
@@ -102,7 +135,7 @@ export class CatalogSyncProcessor
 
 // Worker dedicado pra manual-sync: queue separada = zero contenção com
 // repeat crons. concurrency=2 permite dois triggers paralelos mas não
-// mais (ScrapingBee rate limit + DB upsert).
+// mais (adapter rate-limit interno + DB upsert).
 @Processor(CATALOG_SYNC_MANUAL_QUEUE, { concurrency: 2 })
 export class CatalogSyncManualProcessor extends WorkerHost {
   private readonly logger = new Logger(CatalogSyncManualProcessor.name);
