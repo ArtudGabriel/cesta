@@ -18,7 +18,17 @@ const messages = {
   },
 };
 
-function makeProduct(id: string, prices: Array<{ slug: string; name: string; price: number; available?: boolean }>): Product {
+function makeProduct(
+  id: string,
+  prices: Array<{
+    slug: string;
+    name: string;
+    price: number;
+    available?: boolean;
+    previousPrice?: number | null;
+    onPromotion?: boolean;
+  }>,
+): Product {
   return {
     id,
     name: `Prod ${id}`,
@@ -49,8 +59,8 @@ function makeProduct(id: string, prices: Array<{ slug: string; name: string; pri
       supermarketColor: null,
       price: p.price,
       unitPrice: null,
-      onPromotion: false,
-      previousPrice: null,
+      onPromotion: p.onPromotion ?? false,
+      previousPrice: p.previousPrice ?? null,
       isAvailable: p.available !== false,
       isStale: false,
       lastSyncedAt: new Date().toISOString(),
@@ -103,7 +113,7 @@ describe("FeaturedDeals (Sprint 132)", () => {
 
   it("não renderiza nada quando zero deals qualificados", async () => {
     vi.spyOn(service.featuredDealsService, "fetch").mockResolvedValue([
-      // Produto com só 1 supermarket disponível — não qualifica
+      // Solo supermarket, sem previousPrice → spread=0 → não qualifica
       makeProduct("solo", [{ slug: "merc", name: "Mercadona", price: 1.0 }]),
     ]);
 
@@ -114,5 +124,26 @@ describe("FeaturedDeals (Sprint 132)", () => {
     // Aguarda hook resolver + render decidir não mostrar
     await new Promise((r) => setTimeout(r, 50));
     expect(queryByTestId("featured-deals-section")).toBeNull();
+  });
+
+  it("Sprint 157: single-super com previousPrice qualifica (uses prev como high)", async () => {
+    vi.spyOn(service.featuredDealsService, "fetch").mockResolvedValue([
+      makeProduct("aceite-promo", [
+        {
+          slug: "merc",
+          name: "Mercadona",
+          price: 1.85,
+          previousPrice: 8.6,
+          onPromotion: true,
+        },
+      ]),
+    ]);
+
+    const { findByTestId } = renderWithProviders(
+      <FeaturedDeals limit={10} />,
+    );
+    const card = await findByTestId("featured-deal-aceite-promo");
+    // savings = (8.6 - 1.85) / 8.6 ≈ 78.49% → -78%
+    expect(card.textContent).toContain("-78%");
   });
 });
