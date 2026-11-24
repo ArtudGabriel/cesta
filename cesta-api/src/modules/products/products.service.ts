@@ -68,9 +68,16 @@ export class ProductsService {
   }
 
   /**
-   * Sprint 132: top N produtos com maior spread (maxPrice - minPrice) entre
-   * supermarkets ativos disponíveis. Precisa >= 2 supermarkets disponíveis
-   * pra entrar; spread em euros absolutos. Ordem DESC spread.
+   * Sprint 132: top N produtos ranqueados por economia máxima disponível.
+   * Sprint 155: threshold expandido. Antes: só produtos com ≥2 supermarkets
+   * entravam (spread cross-market). Em prod, Mercadona domina catalog e a
+   * section FeaturedDeals ficava vazia. Agora produto entra se:
+   *  a) spread entre supers ≥ 0.01 €, OR
+   *  b) qualquer supermercado tem previousPrice > currentPrice (promo real).
+   *
+   * Score = max(crossMarketSpread, bestSingleDiscount) em €. Ordem DESC.
+   * Response shape inalterado (`ProductResponseDto[]`) — zero breaking
+   * downstream.
    */
   async featuredDeals(limit: number): Promise<ProductResponseDto[]> {
     const products = await this.repo.findManyWithPrices();
@@ -78,13 +85,32 @@ export class ProductsService {
       .map((p) => {
         const mapped = ProductResponseDto.fromEntity(p);
         const available = mapped.prices.filter((pr) => pr.isAvailable);
-        if (available.length < 2) return null;
-        const prices = available.map((pr) => pr.price);
-        const spread = Math.max(...prices) - Math.min(...prices);
-        return { product: mapped, spread };
+        if (available.length === 0) return null;
+
+        let crossMarketSavings = 0;
+        if (available.length >= 2) {
+          const priceVals = available.map((pr) => pr.price);
+          crossMarketSavings =
+            Math.max(...priceVals) - Math.min(...priceVals);
+        }
+
+        let bestSingleDiscount = 0;
+        for (const pr of available) {
+          if (pr.previousPrice != null && pr.previousPrice > pr.price) {
+            const saving = pr.previousPrice - pr.price;
+            if (saving > bestSingleDiscount) bestSingleDiscount = saving;
+          }
+        }
+
+        const savings = Math.max(crossMarketSavings, bestSingleDiscount);
+        if (savings <= 0) return null;
+        return { product: mapped, savings };
       })
-      .filter((x): x is { product: ProductResponseDto; spread: number } => x !== null)
-      .sort((a, b) => b.spread - a.spread)
+      .filter(
+        (x): x is { product: ProductResponseDto; savings: number } =>
+          x !== null,
+      )
+      .sort((a, b) => b.savings - a.savings)
       .slice(0, limit)
       .map((x) => x.product);
     return scored;

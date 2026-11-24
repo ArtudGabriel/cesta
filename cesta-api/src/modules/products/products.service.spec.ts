@@ -186,7 +186,13 @@ describe('ProductsService.featuredDeals', () => {
 
   const makeEntity = (
     id: string,
-    prices: Array<{ slug: string; price: number; available?: boolean }>,
+    prices: Array<{
+      slug: string;
+      price: number;
+      available?: boolean;
+      previousPrice?: number | null;
+      onPromotion?: boolean;
+    }>,
   ) => ({
     id,
     name: `Prod ${id}`,
@@ -220,8 +226,8 @@ describe('ProductsService.featuredDeals', () => {
       productId: id,
       supermarketId: pr.slug,
       currentPrice: pr.price,
-      previousPrice: null,
-      onPromotion: false,
+      previousPrice: pr.previousPrice ?? null,
+      onPromotion: pr.onPromotion ?? false,
       isAvailable: pr.available !== false,
       isStale: false,
       lastSyncedAt: new Date(),
@@ -274,21 +280,50 @@ describe('ProductsService.featuredDeals', () => {
     expect(result.map((p) => p.id)).toEqual(['spread-big', 'spread-mid']);
   });
 
-  it('filtra produtos com < 2 supermarkets disponíveis', async () => {
+  it('Sprint 155: solo supermercado SEM previousPrice fica fora; solo COM promo entra', async () => {
     repoMock.findManyWithPrices.mockResolvedValue([
-      makeEntity('solo', [{ slug: 'merc', price: 1.0 }]),
+      // solo sem previousPrice → savings=0 → fora
+      makeEntity('solo-no-promo', [{ slug: 'merc', price: 1.0 }]),
+      // solo com previousPrice > currentPrice → savings=0.5 → entra
+      makeEntity('solo-with-promo', [
+        { slug: 'merc', price: 1.0, previousPrice: 1.5, onPromotion: true },
+      ]),
+      // duo cross-market spread → savings=1.0 → entra, score maior
       makeEntity('duo', [
         { slug: 'merc', price: 1.0 },
         { slug: 'dia', price: 2.0 },
       ]),
-      makeEntity('duo-mas-1-off', [
-        { slug: 'merc', price: 1.0 },
-        { slug: 'dia', price: 2.0, available: false },
-      ]),
     ] as never);
 
     const result = await service.featuredDeals(10);
-    expect(result.map((p) => p.id)).toEqual(['duo']);
+    const ids = result.map((p) => p.id);
+    expect(ids).toContain('duo');
+    expect(ids).toContain('solo-with-promo');
+    expect(ids).not.toContain('solo-no-promo');
+    // duo (1.0 spread) ranqueia antes de solo-with-promo (0.5 saving)
+    expect(ids.indexOf('duo')).toBeLessThan(ids.indexOf('solo-with-promo'));
+  });
+
+  it('Sprint 155: supermarket unavailable é ignorado no cálculo', async () => {
+    repoMock.findManyWithPrices.mockResolvedValue([
+      makeEntity('duo-mas-1-off', [
+        { slug: 'merc', price: 1.0, previousPrice: 1.2, onPromotion: true },
+        { slug: 'dia', price: 2.0, available: false },
+      ]),
+    ] as never);
+    const result = await service.featuredDeals(10);
+    // Único available é merc com promo → savings=0.2 → entra
+    expect(result.map((p) => p.id)).toEqual(['duo-mas-1-off']);
+  });
+
+  it('Sprint 155: previousPrice <= currentPrice não conta como deal', async () => {
+    repoMock.findManyWithPrices.mockResolvedValue([
+      makeEntity('no-real-promo', [
+        { slug: 'merc', price: 2.0, previousPrice: 2.0, onPromotion: false },
+      ]),
+    ] as never);
+    const result = await service.featuredDeals(10);
+    expect(result).toHaveLength(0);
   });
 });
 
