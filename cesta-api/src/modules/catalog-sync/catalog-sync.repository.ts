@@ -37,7 +37,15 @@ export class CatalogSyncRepository {
   // Sprint 133: imageUrl sempre null na criação. Política Blob-only —
   // raw.imageUrl vira apenas sourceUrl pro BackfillImagesService.
   // Ver docs/adr/0008-image-pipeline-blob-only.md.
-  createProductFromRaw(raw: RawProduct, normalizedName: string): Promise<Product> {
+  //
+  // Sprint 142: categoryId resolvido via CategoryResolver no service.
+  // Audit revelou 99.7% produtos com category_id=NULL — adapters
+  // coletavam categoryHint mas o persist path ignorava.
+  createProductFromRaw(
+    raw: RawProduct,
+    normalizedName: string,
+    categoryId: string | null,
+  ): Promise<Product> {
     return this.prisma.product.create({
       data: {
         name: raw.name,
@@ -45,10 +53,43 @@ export class CatalogSyncRepository {
         brand: raw.brand ?? null,
         ean: raw.ean ?? null,
         imageUrl: null,
+        categoryId: categoryId ?? null,
         packageSize: new Prisma.Decimal(raw.packageSize),
         packageUnit: raw.packageUnit as unknown as MeasureUnit,
         comparisonUnit: raw.comparisonUnit as unknown as MeasureUnit,
       },
+    });
+  }
+
+  /** Sprint 142: atualiza categoryId pra produtos legacy (backfill) e
+   *  pra qualquer produto que o adapter rematchou sem categoria. */
+  async updateCategoryId(
+    productId: string,
+    categoryId: string,
+  ): Promise<void> {
+    await this.prisma.product.update({
+      where: { id: productId },
+      data: { categoryId },
+    });
+  }
+
+  /** Cache lookup Category.slug → id. Chamado 1× por sync run; map in
+   *  memória evita N queries durante iteração de produtos. */
+  async loadCategoryIdMap(): Promise<Map<string, string>> {
+    const rows = await this.prisma.category.findMany({
+      select: { id: true, slug: true },
+    });
+    return new Map(rows.map((r) => [r.slug, r.id]));
+  }
+
+  findProductsWithoutCategory(limit: number): Promise<
+    Array<{ id: string; name: string; brand: string | null }>
+  > {
+    return this.prisma.product.findMany({
+      where: { categoryId: null, deletedAt: null },
+      select: { id: true, name: true, brand: true },
+      take: limit,
+      orderBy: { createdAt: 'asc' },
     });
   }
 

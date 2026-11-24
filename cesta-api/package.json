@@ -29,6 +29,7 @@
     "sync:carrefour": "ts-node scripts/sync-carrefour.ts",
     "sync:alcampo": "ts-node scripts/sync-alcampo.ts",
     "sync:froiz": "ts-node scripts/sync-froiz.ts",
+    "backfill:categories": "ts-node scripts/backfill-categories.ts",
     "install:chrome": "puppeteer browsers install chrome",
     "postinstall": "prisma generate"
   },

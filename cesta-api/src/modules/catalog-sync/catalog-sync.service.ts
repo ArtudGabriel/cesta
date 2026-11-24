@@ -29,6 +29,7 @@ import type {
   RawProduct,
   SupermarketAdapter,
 } from './adapters/supermarket-adapter.interface';
+import { resolveCategorySlug } from './utils/category-resolver';
 import { slugifyName } from './utils/slugify';
 
 export interface SyncResult {
@@ -127,10 +128,17 @@ export class CatalogSyncService {
       );
       this.logger.log(`Sync ${supermarketSlug}: adapter retornou ${raws.length} raw products`);
 
+      // Sprint 142: cache Category slug→id uma vez por run.
+      const categoryIdMap = await this.repo.loadCategoryIdMap();
+
       for (const raw of raws) {
         stats.itemsProcessed += 1;
         try {
           let product = await this.matchProduct(raw);
+          const resolvedSlug = resolveCategorySlug(raw.name, raw.categoryHint);
+          const resolvedCategoryId = resolvedSlug
+            ? categoryIdMap.get(resolvedSlug) ?? null
+            : null;
           // Sprint 116: adapter oficial é fonte confiável → se o Product
           // não existe no catálogo, criamos em vez de só registrar candidato.
           // S115 revelou que 100% dos 4620 produtos da Mercadona viravam
@@ -139,7 +147,15 @@ export class CatalogSyncService {
           // adapters crowdsourced (futuro).
           if (!product) {
             const normalized = slugifyName(`${raw.brand ?? ''} ${raw.name}`);
-            product = await this.repo.createProductFromRaw(raw, normalized);
+            product = await this.repo.createProductFromRaw(
+              raw,
+              normalized,
+              resolvedCategoryId,
+            );
+          } else if (!product.categoryId && resolvedCategoryId) {
+            // Produto legacy sem categoria: atualiza se adapter resolve.
+            await this.repo.updateCategoryId(product.id, resolvedCategoryId);
+            product = { ...product, categoryId: resolvedCategoryId };
           }
 
           const { created } = await this.repo.upsertPrice({
