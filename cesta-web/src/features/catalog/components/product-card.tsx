@@ -69,23 +69,37 @@ export function ProductCard({
             )}
             {cheapest && (
               <>
-                <div className="mt-2 flex items-baseline gap-2">
+                <div className="mt-2">
                   {unitPrimary ? (
                     <>
-                      <span className="text-lg font-bold text-ink">
+                      <p
+                        className="text-lg font-bold text-ink leading-none"
+                        data-testid="product-card-primary-price"
+                      >
                         {unitPriceStr}
-                      </span>
-                      <span className="text-xs text-muted">
+                      </p>
+                      <p
+                        className="mt-1 text-xs text-muted"
+                        data-testid="product-card-secondary-price"
+                      >
                         {formatPrice(cheapest.price)}
-                      </span>
+                      </p>
                     </>
                   ) : (
                     <>
-                      <span className="text-lg font-bold text-ink">
+                      <p
+                        className="text-lg font-bold text-ink leading-none"
+                        data-testid="product-card-primary-price"
+                      >
                         {formatPrice(cheapest.price)}
-                      </span>
+                      </p>
                       {unitPriceStr && (
-                        <span className="text-xs text-muted">{unitPriceStr}</span>
+                        <p
+                          className="mt-1 text-xs text-muted"
+                          data-testid="product-card-secondary-price"
+                        >
+                          {unitPriceStr}
+                        </p>
                       )}
                     </>
                   )}

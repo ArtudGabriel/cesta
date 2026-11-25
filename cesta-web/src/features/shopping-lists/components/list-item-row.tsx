@@ -5,6 +5,8 @@ import Image from "next/image";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { formatUnitPrice } from "@/features/catalog/utils/format-unit-price";
+import { useLocale } from "@/hooks/use-locale";
 import { cn, formatPrice } from "@/lib/utils";
 import type { ShoppingListItem } from "../types/shopping-list.types";
 import { useRemoveItem, useUpdateItem } from "../hooks/use-shopping-lists";
@@ -19,11 +21,13 @@ export function ListItemRow({ listId, item }: ListItemRowProps) {
   const updateItem = useUpdateItem(listId);
   const removeItem = useRemoveItem(listId);
   const t = useTranslations("myList");
+  const locale = useLocale();
 
   const cheapest = item.product.prices.find(
     (p) => p.supermarketSlug === item.product.cheapestSupermarketSlug,
   );
   const subtotal = cheapest ? cheapest.price * qty : null;
+  const unitPriceStr = formatUnitPrice(item.product.cheapestUnitPrice, locale);
 
   function commit(next: number) {
     const rounded = Math.round(next * 1000) / 1000;
@@ -49,14 +53,24 @@ export function ListItemRow({ listId, item }: ListItemRowProps) {
           <p className="text-xs text-muted">{item.product.brand}</p>
         )}
         {cheapest && subtotal !== null && (
-          <p className="mt-1 text-xs">
-            <span className="text-muted">
-              {formatPrice(cheapest.price)} ·{" "}
-            </span>
-            <span className="font-medium text-cesta-green">
-              = {formatPrice(subtotal)}
-            </span>
-          </p>
+          <>
+            <p className="mt-1 text-xs">
+              <span className="text-muted">
+                {formatPrice(cheapest.price)} ·{" "}
+              </span>
+              <span className="font-medium text-cesta-green">
+                = {formatPrice(subtotal)}
+              </span>
+            </p>
+            {unitPriceStr && (
+              <p
+                className="text-[11px] text-muted"
+                data-testid="list-item-row-unit-price"
+              >
+                {unitPriceStr}
+              </p>
+            )}
+          </>
         )}
       </div>
 
