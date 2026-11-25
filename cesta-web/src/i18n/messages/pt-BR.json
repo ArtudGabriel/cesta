@@ -601,7 +601,9 @@
     "formNewTitle": "Deixe sua avaliação",
     "myReviewLabel": "Sua avaliação",
     "allHeader": "Todas as avaliações",
+    "filterCommentsOnly": "Só com comentário",
     "emptyList": "Ainda sem avaliações.",
+    "emptyListFiltered": "Nenhuma avaliação com comentário ainda.",
     "sort": {
       "recent": "Recentes",
       "helpful": "Mais úteis",

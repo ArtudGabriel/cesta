@@ -601,7 +601,9 @@
     "formNewTitle": "Deja tu opinión",
     "myReviewLabel": "Tu opinión",
     "allHeader": "Todas las opiniones",
+    "filterCommentsOnly": "Solo con comentario",
     "emptyList": "Aún sin opiniones.",
+    "emptyListFiltered": "Ninguna opinión con comentario todavía.",
     "sort": {
       "recent": "Recientes",
       "helpful": "Más útiles",
