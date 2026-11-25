@@ -337,6 +337,7 @@
     "itemUnmarkRequired": "Quitar obligatorio",
     "itemDelete": "Eliminar",
     "wizardProgressLabel": "Paso {step} de {total}",
+    "categoryFallback": "Otros",
     "wizardStep1": "1. Familia",
     "wizardStep2": "2. Hábitos",
     "wizardStep3": "3. Restricciones",

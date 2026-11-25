@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { BasketCategoryGroups } from "@/features/family-basket/components/basket-category-group";
 import { BestMarketList } from "@/features/family-basket/components/best-market-list";
 import { RegenerateConfirm } from "@/features/family-basket/components/regenerate-confirm";
 import { ReplaceItemSheet } from "@/features/family-basket/components/replace-item-sheet";
@@ -176,13 +177,12 @@ function ReadyBasket({
         >
           {t("productsHeader")}
         </h2>
-        <ul className="space-y-2">
-          {basket.items.map((item) => (
-            <li key={item.id}>
-              <BasketItemRow basketId={basket.id} item={item} />
-            </li>
-          ))}
-        </ul>
+        <BasketCategoryGroups
+          items={basket.items}
+          renderItem={(item) => (
+            <BasketItemRow basketId={basket.id} item={item} />
+          )}
+        />
       </section>
 
       <BestMarketList items={basket.items} />
