@@ -140,4 +140,66 @@ describe("CompareMatrix (Sprint 131)", () => {
     );
     getByTestId("compare-matrix-empty");
   });
+
+  // ────────────────────────────────────────────────────────────
+  // Sprint 174 — matrix polish
+  // ────────────────────────────────────────────────────────────
+
+  it("S174: cheapest cell usa bg-lima/15 + text-cesta-green (§3.3 ganho=Lima)", () => {
+    const products = [
+      makeProduct("p1", "Leche", [
+        { slug: "merc", name: "Mercadona", price: 1.0 },
+        { slug: "car", name: "Carrefour", price: 1.5 },
+      ]),
+    ];
+    const { getByTestId } = renderWithProviders(
+      <CompareMatrix products={products} onRemove={() => undefined} />,
+    );
+    const cheapestCell = getByTestId("compare-matrix-cell-p1-merc");
+    expect(cheapestCell.className).toMatch(/bg-lima\/15/);
+    expect(cheapestCell.className).toMatch(/text-cesta-green/);
+    expect(cheapestCell.getAttribute("data-cheapest")).toBe("true");
+  });
+
+  it("S174: unit price secondary cell renderiza quando price.unitPrice presente", () => {
+    const products = [
+      makeProduct("p1", "Leche 1L", [
+        { slug: "merc", name: "Mercadona", price: 1.2 },
+      ]),
+    ];
+    // Override unitPrice via mutating returned product (makeProduct passa null)
+    products[0].prices[0] = {
+      ...products[0].prices[0],
+      unitPrice: { value: 1.2, unit: "L" },
+    };
+    const { getByTestId } = renderWithProviders(
+      <CompareMatrix products={products} onRemove={() => undefined} />,
+    );
+    const unitCell = getByTestId("compare-matrix-cell-unit-p1-merc");
+    expect(unitCell.textContent).toContain("1,20");
+    expect(unitCell.textContent).toContain("L");
+  });
+
+  it("S174: sort toggle ASC→DESC inverte ordem colunas", () => {
+    const products = [
+      makeProduct("p1", "Leche", [
+        { slug: "cheap", name: "Barato", price: 1.0 },
+        { slug: "mid", name: "Médio", price: 2.0 },
+        { slug: "exp", name: "Caro", price: 3.0 },
+      ]),
+    ];
+    const { getByTestId, container } = renderWithProviders(
+      <CompareMatrix products={products} onRemove={() => undefined} />,
+    );
+    // ASC: cheap, mid, exp
+    let cols = container.querySelectorAll('[data-testid^="compare-matrix-col-"]');
+    expect(cols[0].getAttribute("data-testid")).toBe("compare-matrix-col-cheap");
+    expect(cols[2].getAttribute("data-testid")).toBe("compare-matrix-col-exp");
+
+    fireEvent.click(getByTestId("compare-matrix-sort-toggle"));
+    // DESC: exp, mid, cheap
+    cols = container.querySelectorAll('[data-testid^="compare-matrix-col-"]');
+    expect(cols[0].getAttribute("data-testid")).toBe("compare-matrix-col-exp");
+    expect(cols[2].getAttribute("data-testid")).toBe("compare-matrix-col-cheap");
+  });
 });
