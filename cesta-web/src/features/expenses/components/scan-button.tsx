@@ -85,28 +85,37 @@ export function ScanButton() {
             alt=""
             className="h-16 w-16 flex-shrink-0 rounded-btn object-cover"
           />
-          <div className="min-w-0 flex-1 text-xs text-muted" data-sentry-unmask>
+          <div className="min-w-0 flex-1 text-xs text-muted">
+            {/* Sprint 176 AJUSTE Reviewer: wrapper preview tem data-sentry-mask
+                (ticket image + file.name/size = PII per CLAUDE.md §GDPR Sprint 59).
+                data-sentry-unmask é granular apenas nos state indicators abaixo
+                (text i18n fixo + progress %) — file.name + file.size HERDAM mask
+                do wrapper, nunca vazam Sentry Replay. */}
             <p className="truncate font-medium text-ink">{pending.file.name}</p>
             <p>{(pending.file.size / 1024).toFixed(0)} KB</p>
             {busy && upload.progress < 100 && (
-              <p className="mt-0.5 text-cesta-green">
+              <p className="mt-0.5 text-cesta-green" data-sentry-unmask>
                 {t("uploading")} {upload.progress}%
               </p>
             )}
             {busy && upload.progress >= 100 && (
               <p
                 className="mt-0.5 text-cesta-green"
+                data-sentry-unmask
                 data-testid="scan-button-ocr-processing"
               >
                 {t("parsing")}
               </p>
             )}
             {uploadCompleteButRouting && (
-              <p className="mt-0.5 text-cesta-green">{t("parsing")}</p>
+              <p className="mt-0.5 text-cesta-green" data-sentry-unmask>
+                {t("parsing")}
+              </p>
             )}
             {errored && (
               <p
                 className="mt-0.5 text-coral"
+                data-sentry-unmask
                 data-testid="scan-button-error-text"
               >
                 {upload.error?.message ?? t("parseFailed")}
