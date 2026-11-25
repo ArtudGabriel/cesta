@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Loader2, Plus, Scale } from "lucide-react";
+import { ArrowLeft, Loader2, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -12,6 +12,7 @@ import { useNutriPreferences } from "@/features/profile/hooks/use-nutri-preferen
 import { useSortUnitPreference } from "@/features/profile/hooks/use-sort-unit-preference";
 import { useCompare } from "../hooks/use-compare";
 import type { Product } from "../types/catalog.types";
+import { ComparisonEmptyState } from "@/features/compare/components/comparison-empty-state";
 import { CompareAddSheet } from "./compare-add-sheet";
 import { CompareGrid, type ViewMode } from "./compare-grid";
 import { CompareMatrix } from "./compare-matrix";
@@ -107,7 +108,10 @@ export function CompareClient({ initialIds, initialData }: CompareClientProps) {
             <Loader2 className="h-6 w-6 animate-spin text-cesta-green" />
           </div>
         ) : ids.length < 2 ? (
-          <EmptyState count={ids.length} onAdd={() => setSheetOpen(true)} />
+          <ComparisonEmptyState
+            count={ids.length}
+            onAdd={() => setSheetOpen(true)}
+          />
         ) : (
           <>
             <div
@@ -220,33 +224,3 @@ export function CompareClient({ initialIds, initialData }: CompareClientProps) {
   );
 }
 
-function EmptyState({
-  count,
-  onAdd,
-}: {
-  count: number;
-  onAdd: () => void;
-}) {
-  const title =
-    count === 0
-      ? "Compara hasta 4 productos"
-      : "Agrega al menos 1 producto más";
-  const subtitle =
-    count === 0
-      ? "Agrega productos para ver precios lado a lado."
-      : "Necesitas 2 productos como mínimo para comparar.";
-
-  return (
-    <div className="flex flex-col items-center gap-3 rounded-card bg-white px-6 py-10 text-center shadow-sm">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-cesta-green/10">
-        <Scale className="h-8 w-8 text-cesta-green opacity-70" />
-      </div>
-      <p className="font-display text-base font-bold text-ink">{title}</p>
-      <p className="max-w-xs text-sm text-muted">{subtitle}</p>
-      <Button type="button" size="sm" onClick={onAdd}>
-        <Plus className="h-4 w-4" />
-        Agregar producto
-      </Button>
-    </div>
-  );
-}

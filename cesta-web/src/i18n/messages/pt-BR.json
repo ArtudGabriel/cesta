@@ -195,6 +195,14 @@
     "login": "Entrar"
   },
   "compare": {
+    "empty": {
+      "title": "Compare até 4 produtos",
+      "titleCount1": "Adicione pelo menos +1 produto",
+      "body": "Adicione produtos pra ver preços lado a lado.",
+      "bodyCount1": "Você precisa de 2 produtos no mínimo pra comparar.",
+      "ctaAdd": "Adicionar produto",
+      "ctaExplore": "Explorar produtos"
+    },
     "sortAbsolute": "Preço total",
     "sortUnit": "Preço por unidade",
     "winnerBadge": "Melhor preço geral",

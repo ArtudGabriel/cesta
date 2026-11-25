@@ -115,9 +115,23 @@ export default function PerfilPage() {
   function pickLocale(next: "es" | "pt-BR") {
     if (next === profile?.locale) return;
     document.cookie = `cesta:locale=${next}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
-    update.mutate({ locale: next }, {
-      onSuccess: () => router.refresh(),
-    });
+    update.mutate(
+      { locale: next },
+      {
+        onSuccess: () => {
+          // Sprint 169 fix: router.refresh() dispara revalidação RSC que
+          // corrida com useProfile cache + useEffect auth guard em page.tsx
+          // L71-83 — resultado em prod QA foi redirect falso-positivo pra
+          // /login mesmo com auth cookie httpOnly preservado. window.reload
+          // é a saída segura: browser re-envia todos cookies (auth httpOnly
+          // + cesta:locale novo), next-intl middleware pega o locale novo
+          // via cookie, página remonta do zero sem estado React pendente.
+          // Trade-off: full reload > client-nav, mas trocar idioma é ação
+          // rara e correctness > latência aqui.
+          window.location.reload();
+        },
+      },
+    );
   }
 
   return (
