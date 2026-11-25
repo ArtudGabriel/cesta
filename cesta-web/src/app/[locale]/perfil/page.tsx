@@ -149,7 +149,7 @@ export default function PerfilPage() {
           onClick={() => logout.mutate()}
           disabled={logout.isPending}
           aria-label={t("account.logout")}
-          className="inline-flex h-11 w-11 items-center justify-center rounded-full text-rose-600 hover:bg-rose-50 cursor-pointer disabled:opacity-60"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full text-coral hover:bg-coral/10 cursor-pointer disabled:opacity-60"
           data-testid="perfil-header-logout"
         >
           <LogOut className="h-5 w-5" />
@@ -297,7 +297,7 @@ export default function PerfilPage() {
               type="button"
               onClick={() => logout.mutate()}
               disabled={logout.isPending}
-              className="flex min-h-[48px] w-full items-center gap-3 px-4 py-3 text-sm font-semibold text-rose-600 hover:bg-rose-50 cursor-pointer disabled:opacity-60"
+              className="flex min-h-[48px] w-full items-center gap-3 px-4 py-3 text-sm font-semibold text-coral hover:bg-coral/10 cursor-pointer disabled:opacity-60"
             >
               <LogOut className="h-5 w-5" />
               <span className="flex-1 text-left">{t("account.logout")}</span>

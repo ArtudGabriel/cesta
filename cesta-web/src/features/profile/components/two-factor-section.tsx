@@ -230,7 +230,7 @@ export function TwoFactorSection() {
           </div>
           <Button
             variant="secondary"
-            className={cn("mt-4 w-full border-rose-600 text-rose-600")}
+            className={cn("mt-4 w-full border-coral text-coral")}
             onClick={() => disable.mutate()}
             disabled={
               disable.isPending ||
