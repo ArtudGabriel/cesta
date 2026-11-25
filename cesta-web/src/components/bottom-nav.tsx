@@ -104,8 +104,12 @@ export function BottomNav() {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 aria-label={label}
+                data-testid={`bottom-nav-${key}`}
                 className={cn(
                   "flex min-h-14 flex-col items-center justify-center gap-0.5 py-1.5",
+                  // Sprint 171: tap feedback micro-interaction (cesta-identidade-visual §8).
+                  // Respeita prefers-reduced-motion — zero scale/transition quando user opta.
+                  "transition-transform duration-100 active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100",
                   active
                     ? "text-cesta-green"
                     : "text-neutral-500 hover:text-ink",
@@ -113,7 +117,7 @@ export function BottomNav() {
               >
                 <Icon
                   className={cn(
-                    "h-5 w-5 transition-transform",
+                    "h-5 w-5 transition-transform motion-reduce:transition-none",
                     active && (Icon === Heart ? "fill-current" : "stroke-[2.5] scale-110"),
                   )}
                   aria-hidden
