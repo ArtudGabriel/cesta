@@ -336,6 +336,7 @@
     "itemMarkRequired": "Marcar obligatorio",
     "itemUnmarkRequired": "Quitar obligatorio",
     "itemDelete": "Eliminar",
+    "wizardProgressLabel": "Paso {step} de {total}",
     "wizardStep1": "1. Familia",
     "wizardStep2": "2. Hábitos",
     "wizardStep3": "3. Restricciones",

@@ -136,8 +136,24 @@ export default function PerfilPage() {
 
   return (
     <main className="pb-16">
-      <header className="sticky top-0 z-10 bg-cream px-4 py-3">
-        <h1 className="font-display text-lg font-bold text-ink">Mi cuenta</h1>
+      <header className="sticky top-0 z-10 flex items-center gap-3 bg-cream px-4 py-3">
+        <h1 className="flex-1 font-display text-lg font-bold text-ink">
+          Mi cuenta
+        </h1>
+        {/* Sprint 170: Cerrar sesión above-the-fold. S168 P3 identificou
+            discoverability — user precisava scroll ~1000px pra achar logout
+            no fim da página. Header icon button mantém item Account section
+            preservado (user acostumado), mas ponto de entrada direto no topo. */}
+        <button
+          type="button"
+          onClick={() => logout.mutate()}
+          disabled={logout.isPending}
+          aria-label={t("account.logout")}
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full text-rose-600 hover:bg-rose-50 cursor-pointer disabled:opacity-60"
+          data-testid="perfil-header-logout"
+        >
+          <LogOut className="h-5 w-5" />
+        </button>
       </header>
 
       {/* Información */}
