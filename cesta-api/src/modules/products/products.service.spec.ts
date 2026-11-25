@@ -566,7 +566,7 @@ describe('ProductsService.findMany — nutriScore filter + sort', () => {
     }
   });
 
-  it('S167: nutriScore oversample invoca repo com skip=0 + limit=2000 (não limit original)', async () => {
+  it('S167: nutriScore oversample invoca repo com skip=0 + limit=20000 (não limit original)', async () => {
     repoMock.findMany.mockResolvedValue({
       items: [makeNutri('green', { calories: 40, sugar: 1, salt: 0.05, saturatedFat: 0, protein: 10, fiber: 5 })],
       total: 1,
@@ -580,8 +580,21 @@ describe('ProductsService.findMany — nutriScore filter + sort', () => {
     } as any);
 
     expect(repoMock.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skip: 0, limit: 2000 }),
+      expect.objectContaining({ skip: 0, limit: 20000 }),
     );
+  });
+
+  it('S167 AJUSTE: rawTotal > cap → throw AppException (fail-fast, não fallback silencioso)', async () => {
+    repoMock.findMany.mockResolvedValue({
+      items: [makeNutri('green', { calories: 40, sugar: 1, salt: 0.05, saturatedFat: 0, protein: 10, fiber: 5 })],
+      total: 20001, // acima cap 20000
+    });
+
+    await expect(
+      service.findMany({ nutriScore: 'A', page: 1, limit: 20, skip: 0 } as any),
+    ).rejects.toMatchObject({
+      errorCode: 'PRODUCTS.NUTRI_FILTER_CAP_EXCEEDED',
+    });
   });
 
   it('S167: filter sem match → total=0 items=[]', async () => {
