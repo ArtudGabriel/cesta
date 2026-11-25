@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MemberCounter } from "@/features/family-basket/components/member-counter";
 import { QuestionCard } from "@/features/family-basket/components/question-card";
+import { WizardStepIndicator } from "@/features/family-basket/components/wizard-step-indicator";
 import {
   useDietaryQuestions,
   useFamilyProfile,
@@ -183,7 +184,8 @@ export default function ConfigurarCestaPage() {
         <h1 className="font-display text-lg font-bold text-ink">{t("title")}</h1>
       </header>
 
-      <div className="px-4 py-2" data-sentry-unmask>
+      <div className="space-y-3 px-4 py-2" data-sentry-unmask>
+        <WizardStepIndicator step={step} total={STEP_LABELS.length} />
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
           {STEP_LABELS.map((label, i) => (
             <span key={label} className="flex items-center gap-2">
