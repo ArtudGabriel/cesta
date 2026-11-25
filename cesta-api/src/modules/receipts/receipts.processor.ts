@@ -1,7 +1,19 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job, Queue } from 'bullmq';
-import sharp from 'sharp';
+// Sprint 177 hotfix: sharp é CJS puro (module.exports = sharpFn). cesta-api
+// tsconfig sem esModuleInterop → `import sharp from 'sharp'` compila pra
+// `sharp_1.default` que é undefined em runtime, crashando com
+// `(0, sharp_1.default) is not a function` ao chamar sharp(imagePath).
+// Pattern memory feedback-ts-cjs-default-import — require() + unwrap default
+// se existir (safety) resolve CJS puro. Cast final pra Sharp factory type
+// pq typeof import('sharp') resolve namespace (não callable).
+import type { Sharp } from 'sharp';
+type SharpFactory = (input?: Buffer | string) => Sharp;
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const sharpPkg = require('sharp') as unknown;
+const sharp = ((sharpPkg as { default?: unknown }).default ??
+  sharpPkg) as SharpFactory;
 import { createWorker } from 'tesseract.js';
 import { PrismaService } from '../../database/prisma.service';
 import { fuzzyMatchProduct } from './fuzzy-match';
