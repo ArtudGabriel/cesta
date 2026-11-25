@@ -623,6 +623,10 @@
       "receipts": "Carregando tickets"
     },
     "empty": "Você ainda não escaneou nenhum ticket.",
+    "emptyState": {
+      "title": "Você ainda não tem tickets",
+      "body": "Escaneie seu primeiro ticket pra ver seus gastos do mês, comparar supermercados e descobrir os produtos que mais gasta."
+    },
     "unknownMarket": "Supermercado desconhecido",
     "processing": "Processando…",
     "failed": "Falhou",
@@ -648,7 +652,12 @@
       "purchasesCount": "{count} compras",
       "deltaVsPrevious": "{pct}% vs período anterior",
       "byCategory": "Por categoria",
-      "bySupermarket": "Por supermercado"
+      "bySupermarket": "Por supermercado",
+      "topProducts": {
+        "title": "Top produtos",
+        "quantity": "{count, plural, =1 {# unidade} other {# unidades}}",
+        "empty": "Ainda não há dados suficientes."
+      }
     },
     "ocr": {
       "scanCta": "Escanear nota",

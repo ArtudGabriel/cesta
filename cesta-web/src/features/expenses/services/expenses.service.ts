@@ -2,6 +2,7 @@ import { api } from "@/lib/api";
 import type {
   ExpenseBucket,
   ExpenseSummary,
+  ExpenseTopProduct,
   Period,
   Receipt,
 } from "../types/expense.types";
@@ -118,6 +119,15 @@ export const expensesService = {
   async bySupermarket(period: Period): Promise<ExpenseBucket[]> {
     const { data } = await api.get<Envelope<ExpenseBucket[]>>(
       "/expenses/by-supermarket",
+      { params: { period } },
+    );
+    return data.data;
+  },
+
+  // Sprint 162
+  async topProducts(period: Period): Promise<ExpenseTopProduct[]> {
+    const { data } = await api.get<Envelope<ExpenseTopProduct[]>>(
+      "/expenses/top-products",
       { params: { period } },
     );
     return data.data;

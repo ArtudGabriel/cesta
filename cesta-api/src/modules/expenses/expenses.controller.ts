@@ -44,4 +44,13 @@ export class ExpensesController {
   ) {
     return this.service.bySupermarket(userId, parsePeriod(period));
   }
+
+  @Get('top-products')
+  @ApiOperation({ summary: 'Sprint 162 — top produtos caros no período' })
+  topProducts(
+    @CurrentUser('id') userId: string,
+    @Query('period') period?: string,
+  ) {
+    return this.service.topProducts(userId, parsePeriod(period));
+  }
 }
