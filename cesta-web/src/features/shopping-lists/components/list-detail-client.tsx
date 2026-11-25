@@ -22,6 +22,7 @@ import {
 } from "../hooks/use-shopping-lists";
 import type { ShoppingList } from "../types/shopping-list.types";
 import { AddProductModal } from "./add-product-modal";
+import { HybridBasketCard } from "./hybrid-basket-card";
 import { ListItemRow } from "./list-item-row";
 import { TotalsByMarket } from "./totals-by-market";
 
@@ -155,6 +156,15 @@ export function ListDetailClient({ initialList }: ListDetailClientProps) {
             {t("totalsHeader")}
           </h2>
           <TotalsByMarket totals={totals} />
+        </section>
+      )}
+
+      {totals && list.items && list.items.length > 0 && (
+        <section
+          className="px-4 pb-4"
+          data-testid="hybrid-basket-section"
+        >
+          <HybridBasketCard totals={totals} />
         </section>
       )}
 
