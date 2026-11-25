@@ -41,3 +41,12 @@ export interface ExpenseBucket {
   total: number;
   count: number;
 }
+
+// Sprint 162 — top produtos caros no período
+export interface ExpenseTopProduct {
+  productId: string | null;
+  name: string;
+  imageUrl: string | null;
+  total: number;
+  quantity: number;
+}

@@ -66,6 +66,42 @@ export class ExpensesRepository {
     }));
   }
 
+  // Sprint 162 — top produtos caros no período
+  async findItemsForTopProducts(
+    userId: string,
+    from: Date,
+    to: Date,
+  ): Promise<
+    Array<{
+      productId: string | null;
+      productName: string | null;
+      productImageUrl: string | null;
+      normalizedName: string;
+      total: number;
+      quantity: number;
+    }>
+  > {
+    const items = await this.prisma.receiptItem.findMany({
+      where: {
+        receipt: {
+          userId,
+          deletedAt: null,
+          status: 'ready',
+          purchaseDate: { gte: from, lte: to },
+        },
+      },
+      include: { product: true },
+    });
+    return items.map((item) => ({
+      productId: item.productId,
+      productName: item.product?.name ?? null,
+      productImageUrl: item.product?.imageUrl ?? null,
+      normalizedName: item.normalizedName,
+      total: Number(item.total),
+      quantity: Number(item.quantity),
+    }));
+  }
+
   async findReceiptsForMarketBreakdown(
     userId: string,
     from: Date,

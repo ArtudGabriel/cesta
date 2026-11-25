@@ -20,6 +20,8 @@ export const EXPENSES_KEYS = {
     ["expenses", "byCategory", period] as const,
   bySupermarket: (period: Period) =>
     ["expenses", "bySupermarket", period] as const,
+  topProducts: (period: Period) =>
+    ["expenses", "topProducts", period] as const,
 };
 
 export function useReceipts() {
@@ -242,5 +244,13 @@ export function useExpensesBySupermarket(period: Period) {
   return useQuery({
     queryKey: EXPENSES_KEYS.bySupermarket(period),
     queryFn: () => expensesService.bySupermarket(period),
+  });
+}
+
+// Sprint 162
+export function useExpensesTopProducts(period: Period) {
+  return useQuery({
+    queryKey: EXPENSES_KEYS.topProducts(period),
+    queryFn: () => expensesService.topProducts(period),
   });
 }

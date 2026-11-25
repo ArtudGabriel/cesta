@@ -10,6 +10,7 @@ import {
   useExpensesBySupermarket,
 } from "../hooks/use-expenses";
 import type { Period } from "../types/expense.types";
+import { TopProductsCard } from "./top-products-card";
 
 export function ExpenseDashboard() {
   const t = useTranslations("expenses.dashboard");
@@ -47,15 +48,30 @@ export function ExpenseDashboard() {
         <div
           className="rounded-card bg-cesta-green p-4 text-white"
           data-sentry-mask
+          data-testid="expenses-hero"
         >
           <p className="text-xs opacity-80">{t("totalSpent")}</p>
           <p className="font-display text-3xl font-extrabold">
             {formatPrice(summary.data.total)}
           </p>
-          <div className="mt-2 flex items-center gap-2 text-xs opacity-80">
-            <span>{t("purchasesCount", { count: summary.data.count })}</span>
+          <div className="mt-2 flex items-center gap-2 text-xs">
+            <span className="opacity-80">
+              {t("purchasesCount", { count: summary.data.count })}
+            </span>
             {summary.data.previousTotal > 0 && (
-              <span className="inline-flex items-center gap-1">
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-pill px-2 py-0.5 font-bold",
+                  // deltaPct > 0 = gastando mais (ruim) → coral; < 0 = menos (bom) → lima;
+                  // == 0 → neutro (opacity).
+                  summary.data.deltaPct > 0
+                    ? "bg-coral/90 text-white"
+                    : summary.data.deltaPct < 0
+                      ? "bg-lima/90 text-ink"
+                      : "opacity-80",
+                )}
+                data-testid="expenses-hero-delta"
+              >
                 {summary.data.deltaPct >= 0 ? (
                   <TrendingUp className="h-3 w-3" />
                 ) : (
@@ -74,6 +90,8 @@ export function ExpenseDashboard() {
       {bySupermarket.data && bySupermarket.data.length > 0 && (
         <BucketList title={t("bySupermarket")} buckets={bySupermarket.data} />
       )}
+
+      <TopProductsCard period={period} />
     </div>
   );
 }

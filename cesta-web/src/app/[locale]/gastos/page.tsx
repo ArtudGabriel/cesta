@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { ExpenseDashboard } from "@/features/expenses/components/expense-summary";
+import { ExpensesEmptyState } from "@/features/expenses/components/expenses-empty-state";
 import { ReceiptCardSkeleton } from "@/features/expenses/components/receipt-card-skeleton";
 import { ScanButton } from "@/features/expenses/components/scan-button";
 import { useReceipts } from "@/features/expenses/hooks/use-expenses";
@@ -47,13 +48,24 @@ export default function GastosPage() {
       </header>
 
       <div className="px-4 py-4 space-y-6">
-        <ScanButton />
+        {!receipts.isLoading &&
+        (!receipts.data || receipts.data.length === 0) ? (
+          <ExpensesEmptyState />
+        ) : (
+          <ScanButton />
+        )}
 
-        {/* Sprint 59 GDPR: dashboard de gastos + lista de tickets com valores. */}
-        <div data-sentry-mask>
-          <ExpenseDashboard />
-        </div>
+        {/* Sprint 59 GDPR: dashboard de gastos + lista de tickets com valores.
+            Sprint 162: dashboard só renderiza se user tem pelo menos 1 receipt
+            — evita hero "€0,00" com delta vazio pra user novo. */}
+        {receipts.data && receipts.data.length > 0 && (
+          <div data-sentry-mask>
+            <ExpenseDashboard />
+          </div>
+        )}
 
+        {(receipts.isLoading ||
+          (receipts.data && receipts.data.length > 0)) && (
         <section data-sentry-mask>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">
             {t("recentReceipts")}
@@ -71,13 +83,9 @@ export default function GastosPage() {
                 </li>
               ))}
             </ul>
-          ) : !receipts.data || receipts.data.length === 0 ? (
-            <div className="rounded-card border border-dashed border-border bg-white/50 p-6 text-center text-sm text-muted">
-              {t("empty")}
-            </div>
           ) : (
             <ul className="space-y-2">
-              {receipts.data.map((r) => (
+              {(receipts.data ?? []).map((r) => (
                 <li key={r.id}>
                   <Link
                     href={`/gastos/${r.id}`}
@@ -112,6 +120,7 @@ export default function GastosPage() {
             </ul>
           )}
         </section>
+        )}
       </div>
     </main>
   );
