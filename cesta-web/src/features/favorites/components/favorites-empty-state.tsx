@@ -13,7 +13,7 @@ export function FavoritesEmptyState() {
       data-testid="favorites-empty-state"
     >
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface">
-        <Heart className="h-8 w-8 text-coral" aria-hidden="true" />
+        <Heart className="h-8 w-8 text-cesta-green" aria-hidden="true" />
       </div>
       <p className="font-display text-base font-bold text-ink">
         {t("emptyTitle")}

@@ -267,7 +267,11 @@ export default function FavoritosPage() {
         ) : filtered.length === 0 ? (
           <FavoritesFilteredEmptyState onClear={clearFilters} />
         ) : (
-          <ul className="space-y-3">
+          <ul
+            className="space-y-3"
+            data-sentry-mask
+            data-testid="favorites-list"
+          >
             {sorted.map((fav) => {
               const isSelected = selected.includes(fav.productId);
               return (
