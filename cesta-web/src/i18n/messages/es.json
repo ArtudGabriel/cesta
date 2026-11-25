@@ -298,7 +298,8 @@
       "hybridTitle": "Lista híbrida",
       "hybridSubtitle": "Comprar cada producto en el supermercado más barato",
       "hybridTotal": "Total híbrido",
-      "hybridSavings": "Ahorras {amount} vs el supermercado más barato ({market})"
+      "hybridSavings": "Ahorras {amount} vs el supermercado más barato ({market})",
+      "hybridPromoBadge": "Promo"
     }
   },
   "familyBasket": {

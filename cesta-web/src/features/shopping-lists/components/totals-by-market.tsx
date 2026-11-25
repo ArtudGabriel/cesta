@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Minus, TrendingDown } from "lucide-react";
+import { Check, Minus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn, formatPrice } from "@/lib/utils";
 import type { ListTotals } from "../types/shopping-list.types";
@@ -23,11 +23,20 @@ export function TotalsByMarket({ totals }: TotalsByMarketProps) {
     return a.total - b.total;
   });
 
+  // Sprint 163 — most-expensive só destaca se houver ≥2 markets complete;
+  // evita colorir único market coral só por ser o único.
+  const completeMarkets = sorted.filter((m) => m.missingItems === 0);
+  const mostExpensiveSlug =
+    completeMarkets.length >= 2
+      ? completeMarkets[completeMarkets.length - 1].supermarketSlug
+      : null;
+
   return (
     <div className="space-y-2">
       {sorted.map((market) => {
         const isCheapest =
           market.supermarketSlug === totals.cheapestSupermarketSlug;
+        const isMostExpensive = market.supermarketSlug === mostExpensiveSlug;
         const isComplete = market.missingItems === 0;
         return (
           <div
@@ -36,9 +45,12 @@ export function TotalsByMarket({ totals }: TotalsByMarketProps) {
               "flex items-center gap-3 rounded-card border p-3",
               isCheapest
                 ? "border-cesta-green bg-cesta-green/5"
-                : "border-border bg-white",
+                : isMostExpensive
+                  ? "border-coral bg-coral/5"
+                  : "border-border bg-white",
               !isComplete && "opacity-70",
             )}
+            data-testid={`totals-market-${market.supermarketSlug}`}
           >
             <span
               className="h-10 w-10 flex-shrink-0 rounded-btn flex items-center justify-center text-xs font-bold text-white"
@@ -67,7 +79,11 @@ export function TotalsByMarket({ totals }: TotalsByMarketProps) {
             <span
               className={cn(
                 "text-lg font-bold",
-                isCheapest ? "text-cesta-green" : "text-ink",
+                isCheapest
+                  ? "text-cesta-green"
+                  : isMostExpensive
+                    ? "text-coral"
+                    : "text-ink",
               )}
             >
               {formatPrice(market.total)}
@@ -75,32 +91,6 @@ export function TotalsByMarket({ totals }: TotalsByMarketProps) {
           </div>
         );
       })}
-
-      {totals.hybridItems.length > 0 && totals.cheapestTotal !== null && (
-        <div className="mt-4 rounded-card border border-violet bg-violet/5 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingDown className="h-5 w-5 text-violet" />
-            <h4 className="font-display font-bold text-ink">
-              {t("hybridTitle")}
-            </h4>
-          </div>
-          <p className="text-xs text-muted mb-3">{t("hybridSubtitle")}</p>
-          <div className="flex items-baseline justify-between">
-            <span className="text-sm text-muted">{t("hybridTotal")}</span>
-            <span className="text-xl font-extrabold text-violet">
-              {formatPrice(totals.hybridTotal)}
-            </span>
-          </div>
-          {totals.hybridSavings > 0 && (
-            <p className="mt-2 text-xs text-cesta-green">
-              {t("hybridSavings", {
-                amount: formatPrice(totals.hybridSavings),
-                market: totals.cheapestSupermarketSlug ?? "",
-              })}
-            </p>
-          )}
-        </div>
-      )}
     </div>
   );
 }
