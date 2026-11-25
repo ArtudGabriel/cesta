@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { ExpenseDashboard } from "@/features/expenses/components/expense-summary";
+import { ReceiptCardSkeleton } from "@/features/expenses/components/receipt-card-skeleton";
 import { ScanButton } from "@/features/expenses/components/scan-button";
 import { useReceipts } from "@/features/expenses/hooks/use-expenses";
 import { formatPrice } from "@/lib/utils";
@@ -58,9 +59,18 @@ export default function GastosPage() {
             {t("recentReceipts")}
           </h2>
           {receipts.isLoading ? (
-            <div className="flex justify-center py-6">
-              <Loader2 className="h-5 w-5 animate-spin text-cesta-green" />
-            </div>
+            <ul
+              className="space-y-2"
+              aria-busy="true"
+              aria-label={t("loading.receipts")}
+              data-testid="receipts-loading-skeleton"
+            >
+              {Array.from({ length: 3 }).map((_, i) => (
+                <li key={i}>
+                  <ReceiptCardSkeleton />
+                </li>
+              ))}
+            </ul>
           ) : !receipts.data || receipts.data.length === 0 ? (
             <div className="rounded-card border border-dashed border-border bg-white/50 p-6 text-center text-sm text-muted">
               {t("empty")}

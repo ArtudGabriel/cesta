@@ -619,6 +619,9 @@
     "loginRequired": "Entre para ver seus gastos.",
     "loginCta": "Entrar",
     "recentReceipts": "Últimos tickets",
+    "loading": {
+      "receipts": "Carregando tickets"
+    },
     "empty": "Você ainda não escaneou nenhum ticket.",
     "unknownMarket": "Supermercado desconhecido",
     "processing": "Processando…",
@@ -698,6 +701,10 @@
     "activeHeader": "Alertas ativos",
     "triggeredHeader": "Alertas disparados",
     "badgeTriggered": "Disparado",
+    "loading": {
+      "alerts": "Carregando alertas",
+      "rules": "Carregando regras"
+    },
     "empty": "Você ainda não tem alertas. Adicione na página de produto.",
     "emptyState": {
       "title": "Você ainda não tem alertas",

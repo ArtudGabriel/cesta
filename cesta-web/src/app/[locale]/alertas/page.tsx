@@ -7,7 +7,9 @@ import { useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { AlertCard } from "@/features/alerts/components/alert-card";
+import { AlertCardSkeleton } from "@/features/alerts/components/alert-card-skeleton";
 import { AlertRuleCard } from "@/features/alerts/components/alert-rule-card";
+import { AlertRuleCardSkeleton } from "@/features/alerts/components/alert-rule-card-skeleton";
 import { AlertsEmptyState } from "@/features/alerts/components/alerts-empty-state";
 import {
   useAlertRules,
@@ -107,10 +109,18 @@ export default function AlertsPage() {
       )}
 
       {alerts.isLoading ? (
-        <section className="px-4">
-          <div className="flex justify-center py-10">
-            <Loader2 className="h-5 w-5 animate-spin text-cesta-green" />
-          </div>
+        <section
+          className="px-4 pt-2"
+          aria-busy="true"
+          aria-label={t("loading.alerts")}
+        >
+          <ul className="space-y-2" data-testid="alerts-loading-skeleton">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <li key={i}>
+                <AlertCardSkeleton />
+              </li>
+            ))}
+          </ul>
         </section>
       ) : showEmptyState ? (
         <section className="px-4 pt-2">
@@ -161,9 +171,18 @@ export default function AlertsPage() {
           {tRules("sectionHeader")}
         </h2>
         {rules.isLoading ? (
-          <div className="flex justify-center py-6">
-            <Loader2 className="h-5 w-5 animate-spin text-cesta-green" />
-          </div>
+          <ul
+            className="space-y-2"
+            aria-busy="true"
+            aria-label={t("loading.rules")}
+            data-testid="alert-rules-loading-skeleton"
+          >
+            {Array.from({ length: 2 }).map((_, i) => (
+              <li key={i}>
+                <AlertRuleCardSkeleton />
+              </li>
+            ))}
+          </ul>
         ) : !rules.data || rules.data.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted">
             {tRules("empty")}
