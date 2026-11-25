@@ -216,6 +216,8 @@
     "viewMatrix": "Tabla",
     "viewNutrition": "Nutrición",
     "matrixProductHeader": "Producto",
+    "matrixSortAsc": "Más barato primero",
+    "matrixSortDesc": "Más caro primero",
     "matrixNoPrices": "Sin precios disponibles por ahora.",
     "remove": "Eliminar",
     "nutritionNote": "Valores por 100g / 100ml / unidad según embalaje",
