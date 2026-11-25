@@ -685,7 +685,10 @@
       "parseFailed": "Não conseguimos ler a nota. Tente outra foto.",
       "invalidFormat": "Só JPG ou PNG",
       "maxSize": "Imagem máx {mb}MB",
-      "rateLimited": "Você enviou notas demais. Tente em 1 hora."
+      "rateLimited": "Você enviou notas demais. Tente em 1 hora.",
+      "sendCta": "Enviar",
+      "cancelCta": "Cancelar",
+      "retryCta": "Tentar novamente"
     },
     "edit": {
       "itemsHeading": "Produtos ({count})",
