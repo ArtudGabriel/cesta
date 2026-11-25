@@ -102,4 +102,20 @@ describe("ScanButton (Sprint 176)", () => {
     const scan = getByLabelText(/Escanear ticket/);
     expect(scan.className).toContain("min-h-[44px]");
   });
+
+  it("S176 AJUSTE GDPR: preview wrapper masked + file.name/size SEM data-sentry-unmask inline (herda mask)", () => {
+    const { container, getByTestId } = renderWithProviders(<ScanButton />);
+    const file = new File(["x"], "ticket-pii-filename.jpg", {
+      type: "image/jpeg",
+    });
+    pickFile(container, file);
+    const preview = getByTestId("scan-button-preview");
+    expect(preview.hasAttribute("data-sentry-mask")).toBe(true);
+    // file.name <p> renderiza dentro do wrapper SEM data-sentry-unmask próprio
+    const fileNameEl = Array.from(preview.querySelectorAll("p")).find((p) =>
+      p.textContent?.includes("ticket-pii-filename.jpg"),
+    );
+    expect(fileNameEl).toBeTruthy();
+    expect(fileNameEl?.hasAttribute("data-sentry-unmask")).toBe(false);
+  });
 });
