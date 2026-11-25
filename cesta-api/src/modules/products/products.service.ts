@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Injectable } from '@nestjs/common';
 import { AppException } from '../../common/exceptions/app-exception';
 import { ProductFiltersDto } from './dtos/product-filters.dto';
 import { ProductResponseDto } from './dtos/product-response.dto';
@@ -12,14 +12,15 @@ import { ProductsRepository } from './products.repository';
 const GRADE_ORDER: Record<string, number> = { A: 0, B: 1, C: 2, D: 3, E: 4 };
 
 // Sprint 167 — oversample cap quando precisamos filtrar pós-fetch (nutriScore
-// é computado no DTO). 2000 cobre todo MVP (<2k produtos reais prod). Log
-// warn quando atinge cap pra sinalizar necessidade de denormalizar grade.
-const POST_FILTER_OVERSAMPLE = 2000;
+// é computado no DTO). 20000 cobre o catálogo real prod (S142 audit: ~8580
+// produtos) com 2.3x headroom pra crescimento. Se exceder, fail-fast via
+// AppException — fallback silencioso banido (Reviewer AJUSTE S167): usuário
+// recebe erro explícito que denormalização de grade virou prerequisite
+// (schema change necessário), ao invés de total enganoso de volta.
+const POST_FILTER_OVERSAMPLE = 20000;
 
 @Injectable()
 export class ProductsService {
-  private readonly logger = new Logger(ProductsService.name);
-
   constructor(private readonly repo: ProductsRepository) {}
 
   async findMany(filters: ProductFiltersDto) {
@@ -62,8 +63,14 @@ export class ProductsService {
     );
 
     if (rawTotal > POST_FILTER_OVERSAMPLE) {
-      this.logger.warn(
-        `[Sprint 167] nutriScore oversample cap atingido: rawTotal=${rawTotal} cap=${POST_FILTER_OVERSAMPLE}. Considerar denormalizar grade para evitar undercount.`,
+      // Fail-fast (Reviewer AJUSTE S167): nunca retorna total pós-filtro
+      // undercounted. Schema change (denormalizar `nutri_score_grade` em
+      // Product) é prerequisite antes de catalog crescer além do cap.
+      throw new AppException(
+        'PRODUCTS.NUTRI_FILTER_CAP_EXCEEDED',
+        `nutriScore filter undercount risk: ${rawTotal} produtos excedem cap ${POST_FILTER_OVERSAMPLE}. Denormalizar grade antes de habilitar filtro em escala.`,
+        HttpStatus.SERVICE_UNAVAILABLE,
+        { rawTotal, cap: POST_FILTER_OVERSAMPLE },
       );
     }
 
