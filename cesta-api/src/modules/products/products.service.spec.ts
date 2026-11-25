@@ -448,11 +448,14 @@ describe('ProductsService.findMany — nutriScore filter + sort', () => {
       total: 2,
     });
 
-    const res = await service.findMany({ nutriScore: 'B', page: 1, limit: 20 } as any);
+    const res = await service.findMany({ nutriScore: 'B', page: 1, limit: 20, skip: 0 } as any);
     const grades = res.items.map((p) => p.nutriScore?.grade ?? null);
     for (const g of grades) {
       expect(['A', 'B']).toContain(g);
     }
+    // Sprint 167: total reflete universo pós-filtro (filtered.length),
+    // não página slice length. Neste mock, oversample retorna 2 itens;
+    // 1 passa filter B → filteredTotal = 1 = items.length.
     expect(res.total).toBe(res.items.length);
   });
 
@@ -463,6 +466,164 @@ describe('ProductsService.findMany — nutriScore filter + sort', () => {
     });
     const res = await service.findMany({ page: 1, limit: 20 } as any);
     expect(res.total).toBe(42);
+  });
+
+  // ────────────────────────────────────────────────────────────
+  // Sprint 167 — pagination bug fix
+  // ────────────────────────────────────────────────────────────
+
+  it('S167: nutriScore ativo → total = universo pós-filtro, NÃO page.length', async () => {
+    // 10 produtos: 6 verdes (grade A/B) + 4 vermelhos (grade D/E).
+    // User pede page=1, limit=3, nutriScore=B. Resultado esperado:
+    // - total = 6 (universo filtrado)
+    // - items.length = 3 (page slice)
+    const items = [
+      ...Array.from({ length: 6 }).map((_, i) =>
+        makeNutri(`green-${i}`, {
+          calories: 40,
+          sugar: 1,
+          salt: 0.05,
+          saturatedFat: 0,
+          protein: 10,
+          fiber: 5,
+        }),
+      ),
+      ...Array.from({ length: 4 }).map((_, i) =>
+        makeNutri(`red-${i}`, {
+          calories: 400,
+          sugar: 30,
+          salt: 1.5,
+          saturatedFat: 15,
+          protein: 2,
+          fiber: 0,
+        }),
+      ),
+    ];
+    repoMock.findMany.mockResolvedValue({ items, total: 10 });
+
+    const res = await service.findMany({
+      nutriScore: 'B',
+      page: 1,
+      limit: 3,
+      skip: 0,
+    } as any);
+
+    expect(res.total).toBe(6);
+    expect(res.items.length).toBe(3);
+    for (const p of res.items) {
+      expect(['A', 'B']).toContain(p.nutriScore?.grade);
+    }
+  });
+
+  it('S167: page 2 retorna slice consistente + total unchanged', async () => {
+    // Mesmo mock de 10 itens (6 A/B + 4 D/E). page=2, limit=3.
+    const items = [
+      ...Array.from({ length: 6 }).map((_, i) =>
+        makeNutri(`green-${i}`, {
+          calories: 40,
+          sugar: 1,
+          salt: 0.05,
+          saturatedFat: 0,
+          protein: 10,
+          fiber: 5,
+        }),
+      ),
+      ...Array.from({ length: 4 }).map((_, i) =>
+        makeNutri(`red-${i}`, {
+          calories: 400,
+          sugar: 30,
+          salt: 1.5,
+          saturatedFat: 15,
+          protein: 2,
+          fiber: 0,
+        }),
+      ),
+    ];
+    repoMock.findMany.mockResolvedValue({ items, total: 10 });
+
+    const page1 = await service.findMany({
+      nutriScore: 'B',
+      page: 1,
+      limit: 3,
+      skip: 0,
+    } as any);
+    const page2 = await service.findMany({
+      nutriScore: 'B',
+      page: 2,
+      limit: 3,
+      skip: 3,
+    } as any);
+
+    expect(page1.total).toBe(page2.total);
+    expect(page1.total).toBe(6);
+    expect(page1.items.length).toBe(3);
+    expect(page2.items.length).toBe(3);
+    // Itens das duas páginas devem ser disjoint.
+    const ids1 = new Set(page1.items.map((p) => p.id));
+    const ids2 = page2.items.map((p) => p.id);
+    for (const id of ids2) {
+      expect(ids1.has(id)).toBe(false);
+    }
+  });
+
+  it('S167: nutriScore oversample invoca repo com skip=0 + limit=2000 (não limit original)', async () => {
+    repoMock.findMany.mockResolvedValue({
+      items: [makeNutri('green', { calories: 40, sugar: 1, salt: 0.05, saturatedFat: 0, protein: 10, fiber: 5 })],
+      total: 1,
+    });
+
+    await service.findMany({
+      nutriScore: 'A',
+      page: 3,
+      limit: 20,
+      skip: 40,
+    } as any);
+
+    expect(repoMock.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 0, limit: 2000 }),
+    );
+  });
+
+  it('S167: filter sem match → total=0 items=[]', async () => {
+    repoMock.findMany.mockResolvedValue({
+      items: [
+        makeNutri('red', {
+          calories: 500,
+          sugar: 40,
+          salt: 2,
+          saturatedFat: 20,
+          protein: 2,
+          fiber: 0,
+        }),
+      ],
+      total: 1,
+    });
+
+    const res = await service.findMany({
+      nutriScore: 'A',
+      page: 1,
+      limit: 20,
+      skip: 0,
+    } as any);
+    expect(res.total).toBe(0);
+    expect(res.items).toEqual([]);
+  });
+
+  it('S167: sem nutriScore filter → path original paginado (repo recebe skip/limit solicitados)', async () => {
+    repoMock.findMany.mockResolvedValue({
+      items: [makeNutri('p1', {})],
+      total: 42,
+    });
+
+    await service.findMany({
+      page: 2,
+      limit: 20,
+      skip: 20,
+    } as any);
+
+    expect(repoMock.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: 20, limit: 20 }),
+    );
   });
 
   it('sortBy=nutriScore ordena A→E com nulls ao fim', async () => {

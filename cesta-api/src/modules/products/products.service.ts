@@ -1,4 +1,4 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { AppException } from '../../common/exceptions/app-exception';
 import { ProductFiltersDto } from './dtos/product-filters.dto';
 import { ProductResponseDto } from './dtos/product-response.dto';
@@ -9,36 +9,101 @@ import {
 import { SuggestResponseDto, SuggestionDto } from './dtos/suggest-query.dto';
 import { ProductsRepository } from './products.repository';
 
+const GRADE_ORDER: Record<string, number> = { A: 0, B: 1, C: 2, D: 3, E: 4 };
+
+// Sprint 167 — oversample cap quando precisamos filtrar pós-fetch (nutriScore
+// é computado no DTO). 2000 cobre todo MVP (<2k produtos reais prod). Log
+// warn quando atinge cap pra sinalizar necessidade de denormalizar grade.
+const POST_FILTER_OVERSAMPLE = 2000;
+
 @Injectable()
 export class ProductsService {
+  private readonly logger = new Logger(ProductsService.name);
+
   constructor(private readonly repo: ProductsRepository) {}
 
   async findMany(filters: ProductFiltersDto) {
-    const { items, total } = await this.repo.findMany(filters);
-    let mapped = items.map(ProductResponseDto.fromEntity);
-
-    // Sprint 147: filtro Nutri-Score pós-fetch (grade calculada no DTO).
-    // Inclusivo: A → só A; B → A+B; C → A+B+C; etc. Produtos sem grade
-    // (nutriScore=null) saem quando filtro aplicado.
-    const GRADE_ORDER: Record<string, number> = { A: 0, B: 1, C: 2, D: 3, E: 4 };
+    // Sprint 167 fix: nutriScore é computado no DTO (não é coluna indexada).
+    // Antes: repo.findMany(skip/take) → filter in-memory sobre página atual →
+    // total = mapped.length. Semantica quebrada: total refletia apenas a
+    // página, não o universo filtrado global. User via "15 resultados" quando
+    // total real podia ser 200 em páginas subsequentes.
+    //
+    // Novo contrato: nutriScore ativo → oversample todo match do WHERE
+    // (até POST_FILTER_OVERSAMPLE), filtra em memória, sort em memória
+    // (determinístico cross-page), aplica slice(skip, skip+limit) manual.
+    // Total = universo pós-filtro. Pagination consistente entre páginas.
     if (filters.nutriScore) {
-      const threshold = GRADE_ORDER[filters.nutriScore];
-      mapped = mapped.filter((p) => {
-        const grade = p.nutriScore?.grade;
-        if (!grade) return false;
-        return GRADE_ORDER[grade] <= threshold;
-      });
+      return this.findManyWithPostFilter(filters);
     }
 
-    const sortBy = filters.sortBy ?? 'cheapest';
-    if (sortBy === 'cheapest') {
-      mapped = mapped.sort((a, b) => {
+    const { items, total } = await this.repo.findMany(filters);
+    const mapped = this.applySort(
+      items.map(ProductResponseDto.fromEntity),
+      filters.sortBy,
+    );
+
+    return {
+      items: mapped,
+      total,
+      page: filters.page,
+      limit: filters.limit,
+    };
+  }
+
+  private async findManyWithPostFilter(filters: ProductFiltersDto) {
+    const oversampleFilters: ProductFiltersDto = {
+      ...filters,
+      skip: 0,
+      limit: POST_FILTER_OVERSAMPLE,
+    };
+    const { items, total: rawTotal } = await this.repo.findMany(
+      oversampleFilters,
+    );
+
+    if (rawTotal > POST_FILTER_OVERSAMPLE) {
+      this.logger.warn(
+        `[Sprint 167] nutriScore oversample cap atingido: rawTotal=${rawTotal} cap=${POST_FILTER_OVERSAMPLE}. Considerar denormalizar grade para evitar undercount.`,
+      );
+    }
+
+    let mapped = items.map(ProductResponseDto.fromEntity);
+    const threshold = GRADE_ORDER[filters.nutriScore!];
+    mapped = mapped.filter((p) => {
+      const grade = p.nutriScore?.grade;
+      if (!grade) return false;
+      return GRADE_ORDER[grade] <= threshold;
+    });
+
+    const filteredTotal = mapped.length;
+    mapped = this.applySort(mapped, filters.sortBy);
+
+    const skip = filters.skip ?? 0;
+    const limit = filters.limit;
+    const sliced = mapped.slice(skip, skip + limit);
+
+    return {
+      items: sliced,
+      total: filteredTotal,
+      page: filters.page,
+      limit: filters.limit,
+    };
+  }
+
+  private applySort(
+    mapped: ProductResponseDto[],
+    sortBy: ProductFiltersDto['sortBy'],
+  ): ProductResponseDto[] {
+    const effective = sortBy ?? 'cheapest';
+    if (effective === 'cheapest') {
+      return mapped.sort((a, b) => {
         const ap = a.cheapestPrice ?? Number.POSITIVE_INFINITY;
         const bp = b.cheapestPrice ?? Number.POSITIVE_INFINITY;
         return ap - bp;
       });
-    } else if (sortBy === 'nutriScore') {
-      mapped = mapped.sort((a, b) => {
+    }
+    if (effective === 'nutriScore') {
+      return mapped.sort((a, b) => {
         const ag = a.nutriScore?.grade;
         const bg = b.nutriScore?.grade;
         const av = ag ? GRADE_ORDER[ag] : Number.POSITIVE_INFINITY;
@@ -46,13 +111,7 @@ export class ProductsService {
         return av - bv;
       });
     }
-
-    return {
-      items: mapped,
-      total: filters.nutriScore ? mapped.length : total,
-      page: filters.page,
-      limit: filters.limit,
-    };
+    return mapped;
   }
 
   async findById(id: string): Promise<ProductResponseDto> {
