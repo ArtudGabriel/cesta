@@ -1,6 +1,10 @@
 "use client";
 
 import { ArrowLeft, Check, Heart, Scale, X } from "lucide-react";
+import {
+  FavoritesEmptyState,
+  FavoritesFilteredEmptyState,
+} from "@/features/favorites/components/favorites-empty-state";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -191,6 +195,14 @@ export default function FavoritosPage() {
         </Button>
         <h1 className="flex-1 font-display text-lg font-bold text-ink">
           {t("title")}
+          {favorites.length > 0 && !hasActiveFilters && (
+            <span
+              className="ml-2 text-xs font-normal text-muted"
+              data-testid="favorites-count-badge"
+            >
+              · {t("countBadge", { count: favorites.length })}
+            </span>
+          )}
           {hasActiveFilters && favorites.length > 0 && (
             <span className="ml-2 text-xs font-normal text-muted">
               ({t("filteredCount", { visible: filtered.length, total: favorites.length })})
@@ -251,9 +263,9 @@ export default function FavoritosPage() {
             ))}
           </ul>
         ) : favorites.length === 0 ? (
-          <EmptyState />
+          <FavoritesEmptyState />
         ) : filtered.length === 0 ? (
-          <FilteredEmptyState onClear={clearFilters} />
+          <FavoritesFilteredEmptyState onClear={clearFilters} />
         ) : (
           <ul className="space-y-3">
             {sorted.map((fav) => {
@@ -405,39 +417,3 @@ export default function FavoritosPage() {
   );
 }
 
-function EmptyState() {
-  const t = useTranslations("favorites");
-  return (
-    <div className="flex flex-col items-center gap-3 rounded-card bg-white px-6 py-10 text-center shadow-sm">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface">
-        <Heart className="h-8 w-8 text-muted" />
-      </div>
-      <p className="font-display text-base font-bold text-ink">
-        {t("emptyTitle")}
-      </p>
-      <p className="max-w-xs text-sm text-muted">
-        {t("emptyBody")}
-      </p>
-      <Button asChild size="sm">
-        <Link href="/">{t("emptyCta")}</Link>
-      </Button>
-    </div>
-  );
-}
-
-function FilteredEmptyState({ onClear }: { onClear: () => void }) {
-  const t = useTranslations("favorites");
-  return (
-    <div className="flex flex-col items-center gap-3 rounded-card bg-white px-6 py-10 text-center shadow-sm">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface">
-        <Heart className="h-8 w-8 text-muted" />
-      </div>
-      <p className="font-display text-base font-bold text-ink">
-        {t("emptyFilteredTitle")}
-      </p>
-      <Button type="button" size="sm" variant="secondary" onClick={onClear}>
-        {t("emptyFilteredCta")}
-      </Button>
-    </div>
-  );
-}

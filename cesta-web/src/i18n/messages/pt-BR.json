@@ -252,6 +252,7 @@
   "favorites": {
     "title": "Meus favoritos",
     "filteredCount": "{visible} de {total}",
+    "countBadge": "{count, plural, =1 {# produto} other {# produtos}}",
     "emptyFilteredTitle": "Você não tem favoritos que cumpram suas restrições",
     "emptyFilteredCta": "Remover filtros",
     "compare": "Comparar",
