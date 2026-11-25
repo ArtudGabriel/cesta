@@ -685,7 +685,10 @@
       "parseFailed": "No pudimos leer el ticket. Prueba con otra foto.",
       "invalidFormat": "Solo JPG o PNG",
       "maxSize": "Imagen máx {mb}MB",
-      "rateLimited": "Has subido demasiados tickets. Intenta en 1 hora."
+      "rateLimited": "Has subido demasiados tickets. Intenta en 1 hora.",
+      "sendCta": "Enviar",
+      "cancelCta": "Cancelar",
+      "retryCta": "Reintentar"
     },
     "edit": {
       "itemsHeading": "Productos ({count})",
