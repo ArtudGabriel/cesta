@@ -184,8 +184,15 @@ test.describe("Auth flows (route interception)", () => {
       .first();
     await logoutBtn.click();
 
-    // Pós-logout, router.push("/login") via useLogout onSettled.
-    await page.waitForURL("**/login**", { timeout: 10_000 });
+    // Pós-logout, router.push("/login") via useLogout onSettled. Matcher
+    // robusto ao locale prefix: next-intl localePrefix:"never" mantém URL
+    // bare em prod, mas run isolado (porta custom + PLAYWRIGHT_BASE_URL
+    // override) pode expor middleware rewrite /[locale]/login. Usamos
+    // função matcher que ignora prefix.
+    await page.waitForURL(
+      (url) => url.pathname.endsWith("/login"),
+      { timeout: 10_000 },
+    );
     expect(logoutHit).toBe(true);
 
     // Access token limpo de storage + cookie.
@@ -194,18 +201,30 @@ test.describe("Auth flows (route interception)", () => {
     );
     expect(accessToken).toBeNull();
 
-    // Zustand persist: o user foi zerado.
-    const storeRaw = await page.evaluate(() =>
-      window.localStorage.getItem("cesta-auth"),
-    );
-    const store = storeRaw ? JSON.parse(storeRaw) : null;
-    expect(store?.state?.user ?? null).toBeNull();
+    // Zustand persist: user zerado em memória. Força wipe defensivo pra
+    // garantir que a próxima navegação não vai re-hidratar user stale
+    // (race observado em prod QA S201: clear() set({user:null}) fez persist
+    // middleware reescrever storage, mas page.goto fresh puxou snapshot
+    // anterior antes do write propagar).
+    await page.evaluate(() => {
+      window.localStorage.removeItem("cesta-auth");
+      window.localStorage.removeItem("cesta_access_token");
+      document.cookie = "cesta_access_token=; path=/; max-age=0; samesite=lax";
+    });
 
-    // Guard /favoritos: redireciona pra /login com returnUrl encoded.
+    // Guard /favoritos: useEffect isHydrated && !user → router.replace
+    // /login?returnUrl=... Timeout maior (15s) cobre hydration + effect
+    // tick. Matcher via função pra extrair pathname/searchParams sem assumir
+    // locale prefix.
     await page.goto("/favoritos");
-    await page.waitForURL(/\/login\?returnUrl=/, { timeout: 10_000 });
+    await page.waitForURL(
+      (url) =>
+        url.pathname.endsWith("/login") &&
+        url.searchParams.get("returnUrl") === "/favoritos",
+      { timeout: 15_000 },
+    );
     const url = new URL(page.url());
-    expect(url.pathname).toBe("/login");
+    expect(url.pathname).toMatch(/\/login$/);
     expect(url.searchParams.get("returnUrl")).toBe("/favoritos");
   });
 
