@@ -45,6 +45,24 @@ Diagnose Neon prod empírico (S181) revelou que `similarity()` falha quando nome
 
 **Fix S181:** `$queryRaw` usa `word_similarity(${q}, "name") > 0.3` + `word_similarity(${q}, "brand") > 0.3`. GIN `gin_trgm_ops` acelera ambos operadores.
 
+### Sprint 182 — Ordering boost direct-match
+
+Nit P3 S181: `q='lecge'` retornava `'Surtido bombones chocolate con leche Navidad'` antes de `'Leche entera brik 1L'`. `word_similarity` ranqueia por density — produto longo com target em contexto ganha vs produto curto standalone. User espera direct match (produto começando com palavra correspondente) no topo.
+
+**Fix cumulativo** (boost aditivo sobre word_similarity base):
+
+| Boost trigger | Valor | Cobre |
+|---|---|---|
+| `LOWER(name) LIKE LOWER(q) \|\| '%'` OU `LOWER(name) ~ '(^\|\s)LOWER(q)'` | +0.3 | Baseline sem typo (q='leche' → "Leche entera*") |
+| `word_similarity(q, SPLIT_PART(name, ' ', 1)) >= 0.5` | +0.3 | Typo cases (q='lecge' → first_word="Leche" word_sim=0.5) |
+
+Baseline sem typo acumula +0.6 (ambos triggers); typo case acumula +0.3 (só first-word fuzzy). Threshold filter `WHERE word_similarity > 0.3` preservado; boost só afeta ORDER BY.
+
+**Empírico Neon pós-fix:**
+- `"lecge"` top 8 → todos "Leche*" / "Lechuga*" (first-word fuzzy), "Chocolate con leche" fora do top ✓
+- `"yogrt"` top 8 → todos "Yogur*" ✓
+- Baseline `"leche"` / `"yogur"` top 8 preservado (score 1.60 cumulativo) ✓
+
 Futuro: ajustar via env `PG_TRGM_THRESHOLD` se telemetria mostrar falsos positivos (threshold mais alto = menos recall).
 
 ## Consequences
