@@ -14,7 +14,9 @@
     "test:coverage": "vitest run --coverage",
     "test:coverage:gate": "vitest run --coverage --reporter=default",
     "test:ui": "vitest --ui",
-    "i18n:parity": "node scripts/i18n-parity.mjs"
+    "i18n:parity": "node scripts/i18n-parity.mjs",
+    "a11y:audit": "node scripts/a11y-audit.mjs",
+    "a11y:audit:ci": "node scripts/a11y-audit.mjs --skip-build"
   },
   "dependencies": {
     "@hookform/resolvers": "^7.0.5",
@@ -54,6 +56,7 @@
     "@vitejs/plugin-react": "^6.3.0",
     "@vitest/coverage-v8": "^5.1.0",
     "@vitest/ui": "^5.1.0",
+    "axe-core": "^4.14.1",
     "cross-env": "^10.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
