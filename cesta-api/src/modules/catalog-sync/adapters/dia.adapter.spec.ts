@@ -249,4 +249,21 @@ describe('DiaAdapter', () => {
     const products = await adapter.fetchProducts();
     expect(products).toEqual([]);
   });
+
+  // S218 — regression guard for query-expansion coverage. Cosmetic drops of
+  // seeds would silently shrink catalog growth; lock a minimum here.
+  it('dispara pelo menos 70 queries distintas', async () => {
+    const seen = new Set<string>();
+    mockedPoliteFetch.mockImplementation((url: string) => {
+      const q = url.match(/[?&]q=([^&]+)/)?.[1] ?? '';
+      seen.add(decodeURIComponent(q));
+      return Promise.resolve({
+        pagination: { page_number: 1, page_size: 30, total_pages: 1 },
+        search_items: [],
+      }) as any;
+    });
+
+    await adapter.fetchProducts();
+    expect(seen.size).toBeGreaterThanOrEqual(70);
+  });
 });

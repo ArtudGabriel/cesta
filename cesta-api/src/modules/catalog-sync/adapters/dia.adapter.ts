@@ -18,17 +18,24 @@ const BASE_URL = 'https://www.dia.es/api/v1/search-back/search';
 const IMAGE_HOST = 'https://www.dia.es';
 const MAX_PAGES_PER_QUERY = 5;
 
+// Sprint 218 — expanded from 41 to 75 seeds to fill Spanish grocery gaps
+// (dairy variants, bakery subs, cured meat, shellfish, more produce staples,
+// pantry basics, snacks, cleaning/hygiene breadth, baby/pet category). Pattern
+// mirrors S186 LIDL expansion. Ceiling per query ~150 (page_size 30 × 5p cap).
 const SEED_QUERIES = [
-  'leche', 'yogur', 'queso', 'huevos', 'mantequilla',
-  'pan', 'cereales', 'galletas',
-  'pollo', 'carne picada', 'jamon', 'chorizo',
-  'salmon', 'atun', 'merluza',
+  'leche', 'yogur', 'queso', 'huevos', 'mantequilla', 'nata', 'batido', 'kefir',
+  'pan', 'cereales', 'galletas', 'tostadas', 'bollo', 'croissant', 'magdalena',
+  'pollo', 'carne picada', 'jamon', 'chorizo', 'bacon', 'salchicha', 'hamburguesa', 'lomo',
+  'salmon', 'atun', 'merluza', 'bacalao', 'gambas', 'mejillones',
   'platano', 'tomate', 'patatas', 'manzana', 'naranja', 'lechuga',
-  'agua', 'zumo', 'coca cola', 'cerveza', 'vino',
+  'cebolla', 'pimiento', 'ajo', 'limon', 'zanahoria', 'pepino', 'aguacate', 'brocoli',
+  'agua', 'zumo', 'coca cola', 'cerveza', 'vino', 'refresco', 'cafe', 'te',
   'aceite oliva', 'arroz', 'pasta', 'azucar', 'sal', 'harina',
-  'pizza congelada', 'helado',
-  'detergente', 'papel higienico', 'bolsas basura',
-  'champu', 'gel', 'pasta dentifrica', 'desodorante',
+  'vinagre', 'mayonesa', 'ketchup', 'chocolate', 'miel', 'garbanzos', 'lentejas',
+  'pizza congelada', 'helado', 'patatas fritas', 'frutos secos',
+  'detergente', 'papel higienico', 'bolsas basura', 'lavavajillas', 'suavizante',
+  'champu', 'gel', 'pasta dentifrica', 'desodorante', 'toallitas', 'panales',
+  'pienso perro', 'pienso gato',
 ];
 
 interface DiaPrices {
