@@ -207,6 +207,52 @@ export class ProductsRepository {
       },
     });
 
+    // Sprint 180 fuzzy fallback: ILIKE zero matches → tenta pg_trgm similarity.
+    // GIN index idx_product_name_trgm + idx_product_brand_trgm aceleram operador %.
+    // Threshold 0.3 Postgres default; tolera ~1-2 typos em palavra 5-6 chars.
+    if (rows.length === 0 && q.trim().length >= 3) {
+      const trgmIds = await this.prisma.$queryRaw<Array<{ id: string }>>`
+        SELECT "id"
+        FROM "Product"
+        WHERE "deletedAt" IS NULL
+          AND (
+            similarity("name", ${q}) > 0.3
+            OR ("brand" IS NOT NULL AND similarity("brand", ${q}) > 0.3)
+          )
+        ORDER BY GREATEST(
+          similarity("name", ${q}),
+          COALESCE(similarity("brand", ${q}), 0)
+        ) DESC
+        LIMIT ${take}
+      `;
+      if (trgmIds.length > 0) {
+        const trgmRows = await this.prisma.product.findMany({
+          where: { id: { in: trgmIds.map((r) => r.id) }, deletedAt: null },
+          select: {
+            id: true,
+            name: true,
+            brand: true,
+            imageUrl: true,
+            prices: {
+              where: { isAvailable: true, supermarket: { isActive: true } },
+              orderBy: { currentPrice: 'asc' },
+              take: 1,
+              select: {
+                currentPrice: true,
+                supermarket: true,
+              },
+            },
+          },
+        });
+        // Preserva ordem similaridade DESC retornada pelo raw query
+        const byId = new Map(trgmRows.map((r) => [r.id, r]));
+        return trgmIds
+          .map((t) => byId.get(t.id))
+          .filter((r): r is NonNullable<typeof r> => r !== undefined)
+          .slice(0, limit);
+      }
+    }
+
     const qLower = q.toLowerCase();
     const scored = rows.map((r) => {
       const name = r.name.toLowerCase();
