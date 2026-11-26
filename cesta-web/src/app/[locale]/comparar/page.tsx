@@ -1,3 +1,4 @@
+import * as Sentry from "@sentry/nextjs";
 import type { Product } from "@/features/catalog/types/catalog.types";
 import { CompareClient } from "@/features/catalog/components/compare-client";
 import { fetchCompareSSR } from "@/features/catalog/services/compare.server";
@@ -20,11 +21,19 @@ export default async function CompararPage({ searchParams }: PageProps) {
   // gracioso pra initialData=[] — CompareClient hidrata + useCompare
   // client-side refetch dispara (enabled quando ids>=2). Pior caso: usuário
   // vê o loader em vez de erro, API volta, dados aparecem.
+  //
+  // Sprint 202 AJUSTE Reviewer: capture via Sentry (não silent-swallow).
+  // claude-geral-consolidado "no-silent-swallow" + silent-failure-hunter
+  // rule — catch block precisa observar o erro, não só degradar.
   let initialData: Product[] = [];
   if (ids.length >= 2) {
     try {
       initialData = await fetchCompareSSR(ids);
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err, {
+        tags: { source: "comparar-ssr" },
+        extra: { productIds: ids },
+      });
       initialData = [];
     }
   }
