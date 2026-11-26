@@ -201,21 +201,29 @@ test.describe("Auth flows (route interception)", () => {
     );
     expect(accessToken).toBeNull();
 
-    // Zustand persist: user zerado em memória. Força wipe defensivo pra
-    // garantir que a próxima navegação não vai re-hidratar user stale
-    // (race observado em prod QA S201: clear() set({user:null}) fez persist
-    // middleware reescrever storage, mas page.goto fresh puxou snapshot
-    // anterior antes do write propagar).
-    await page.evaluate(() => {
-      window.localStorage.removeItem("cesta-auth");
-      window.localStorage.removeItem("cesta_access_token");
-      document.cookie = "cesta_access_token=; path=/; max-age=0; samesite=lax";
+    // AJUSTE 2 QA S201: wipe runtime (page.evaluate removeItem) era INÚTIL
+    // porque seedAuth() usou page.addInitScript() — scripts init re-executam
+    // ANTES de CADA page.goto(), re-semeando storage com user truthy antes
+    // da página hidratar. Fix real: adicionar OUTRO addInitScript que roda
+    // DEPOIS do seed (ordem de add respeitada) e sobrescreve com remove.
+    // Além disso, context().clearCookies() mata cookie cesta_access_token
+    // + cesta:locale pra garantia (init script roda inside page context,
+    // não apaga cookies HTTP-only se houver — mas aqui não há, defensivo).
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.removeItem("cesta-auth");
+        window.localStorage.removeItem("cesta_access_token");
+      } catch {
+        // storage pode falhar em modo privado/strict — teste assertiona depois.
+      }
     });
+    await page.context().clearCookies();
 
     // Guard /favoritos: useEffect isHydrated && !user → router.replace
-    // /login?returnUrl=... Timeout maior (15s) cobre hydration + effect
-    // tick. Matcher via função pra extrair pathname/searchParams sem assumir
-    // locale prefix.
+    // /login?returnUrl=... Timeout 15s cobre hydration + effect tick.
+    // Matcher via função pra extrair pathname/searchParams sem assumir
+    // locale prefix (next-intl localePrefix:"never" bare em prod, pode
+    // variar em setup QA port custom).
     await page.goto("/favoritos");
     await page.waitForURL(
       (url) =>
