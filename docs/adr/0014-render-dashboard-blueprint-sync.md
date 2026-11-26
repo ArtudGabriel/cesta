@@ -147,6 +147,24 @@ Only `buildCommand` was changed, so no other field needs restoring.
   (env var loading, dry-run flag, exit codes).
 - Memory entry pointing future terminals at `ops/README.md`.
 
+## Sprint 185 cleanup
+
+Reviewer gate 3 on S184 (PR #143) flagged three P3 nits; all three
+landed on S185:
+
+- **`findServiceId` removed.** The dashboard service name is `cesta`,
+  the blueprint name is `cesta-api`; the name-based lookup always
+  failed and was dead code. `CESTA_API_SERVICE_ID` is now required
+  (previously optional-override). Fail-fast when absent.
+- **TypeScript + `@types/node` pinned to stable mainstream.**
+  `typescript ^5.7` and `@types/node ^22` replace the pre-release
+  `^7.0.2` and non-existent `^26.6.11` that `npm install` produced.
+- **Double-cd guard.** `desiredBuildCommand(bp, dashboardRootDir)`
+  aborts if the dashboard `rootDir` is set to a value other than the
+  blueprint `rootDir`; composing `cd ${rootDir} && ...` while the
+  dashboard also `cd`s first would land the build in
+  `cesta-api/cesta-api/`.
+
 ## References
 
 - ADR 0013 — Prisma Neon deploy resilience (the change this script

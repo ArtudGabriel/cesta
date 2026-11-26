@@ -89,4 +89,48 @@ describe('ProductsRepository.findSuggestions (Sprint 180 fuzzy fallback)', () =>
     // Ordem preservada do raw: A primeiro
     expect(res.map((r) => r.id)).toEqual(['p-a', 'p-b']);
   });
+
+  // Sprint 185 — rerank determinístico (S182 P3 nit: lecge→Lechuga top1 Leche #2).
+  // O boost3 "short direct-typo" (LEFT(first_word,3)=LEFT(q,3) + |len diff|<=1)
+  // + tiebreak char_length ASC + alfabético é SQL-side; esses specs cobrem o
+  // contrato acima dele (preservação da ordem retornada pelo raw).
+  it('fuzzy fallback S185: honra ordem raw com 3 candidatos (lecge→Leche top sobre Lechuga)', async () => {
+    prisma.product.findMany
+      .mockResolvedValueOnce([]) // ILIKE zero
+      .mockResolvedValueOnce([
+        {
+          id: 'p-lechuga',
+          name: 'Lechuga iceberg 500g',
+          brand: null,
+          imageUrl: null,
+          prices: [],
+        },
+        {
+          id: 'p-leche',
+          name: 'Leche entera 1L',
+          brand: null,
+          imageUrl: null,
+          prices: [],
+        },
+        {
+          id: 'p-lechon',
+          name: 'Lechón asado',
+          brand: null,
+          imageUrl: null,
+          prices: [],
+        },
+      ]);
+    // Raw ORDER BY (score + boosts) DESC, char_length ASC, name ASC:
+    // - Leche (len 5, diff 0) boost3 fires + word_sim boost2 fires → top
+    // - Lechón (len 6, diff 1) boost3 fires mas word_sim first_word ~0.3 → #2
+    // - Lechuga (len 7, diff 2) boost3 NÃO fires → #3
+    prisma.$queryRaw.mockResolvedValueOnce([
+      { id: 'p-leche' },
+      { id: 'p-lechon' },
+      { id: 'p-lechuga' },
+    ]);
+
+    const res = await repo.findSuggestions('lecge', 8);
+    expect(res.map((r) => r.id)).toEqual(['p-leche', 'p-lechon', 'p-lechuga']);
+  });
 });
