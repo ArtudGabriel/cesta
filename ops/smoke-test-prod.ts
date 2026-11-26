@@ -2,18 +2,20 @@
 /**
  * smoke-test-prod.ts
  *
- * Automated regression suite S179-S187 contra prod cesta-gsvc.onrender.com.
+ * Automated regression suite S179-S189 contra prod cesta-gsvc.onrender.com.
  * Executar pós-restoration (ADR 0017) para confirmar retorno antes de:
  *   1. Marcar sprints S187/S186/S185 empíricos como validated em vault
  *   2. Publicar próxima feature sprint (unblock loop)
  *
- * Checks (G1 S188):
- *   - /health 200
- *   - /products total ≥8500 (baseline S186: ~9500; threshold -10%)
- *   - 6 supers ativos (mercadona, dia, eroski, froiz, aldi, lidl)
- *   - fuzzy chain determinístico 3-runs: lecge→Leche top, yogrt→Yogur top,
- *     yoguer→Yogur top (S185 tiebreak char_length ASC)
- *   - imageUrl coverage ≥70% dos top produtos (S133 blob pipeline preservado)
+ * Checks:
+ *   - /health 200 (S188)
+ *   - /auth/health JSON shape (S189 G1 c)
+ *   - /products total ≥8500 (S188; baseline S186 ~9500; threshold -10%)
+ *   - 6 supers ativos (mercadona, dia, eroski, froiz, aldi, lidl) (S188)
+ *   - per-super thresholds mínimos (S189 G1 b; -30% da baseline)
+ *   - fuzzy chain determinístico 3-runs (S189 G1 a): 3 sections individuais
+ *     lecge→Leche, yogrt→Yogur, yoguer→Yogur (S185 tiebreak char_length ASC)
+ *   - imageUrl coverage ≥70% (S188; S133 blob pipeline preservado)
  *
  * Output: pass/fail por seção, resumo final, exit code 0=pass 1=fail.
  *
