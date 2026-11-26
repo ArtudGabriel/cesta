@@ -7,7 +7,15 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiTooManyRequestsResponse,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -17,6 +25,12 @@ import { AuthResponseDto, AuthWireResponse } from '../dtos/auth-response.dto';
 import { ChallengeTwoFactorDto } from './dtos/challenge.dto';
 import { DisableTwoFactorDto } from './dtos/disable.dto';
 import { RecoveryTwoFactorDto } from './dtos/recovery.dto';
+import {
+  DisableResponseDto,
+  EnrollResponseDto,
+  TwoFactorAuthWireResponseDto,
+  VerifyResponseDto,
+} from './dtos/responses.dto';
 import { VerifyTwoFactorDto } from './dtos/verify.dto';
 import { TwoFactorService } from './two-factor.service';
 
@@ -47,6 +61,11 @@ function toWire(result: AuthResponseDto): AuthWireResponse {
   };
 }
 
+/**
+ * Sprint 208 — @ApiResponse coverage expand two-factor (ADR 0021 13→17).
+ * challenge/recovery retornam tokens via body + refresh em cookie httpOnly;
+ * refreshToken não aparece no response schema (cookie-only, ver AuthWireResponse).
+ */
 @ApiTags('Auth 2FA')
 @Controller('auth/2fa')
 export class TwoFactorController {
@@ -56,6 +75,9 @@ export class TwoFactorController {
   @Post('enroll')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Inicia enroll TOTP (gera secret + QR)' })
+  @ApiOkResponse({ type: EnrollResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT inválido ou ausente' })
+  @ApiTooManyRequestsResponse({ description: 'Rate limit 10/min' })
   @HttpCode(HttpStatus.OK)
   enroll(@CurrentUser('id') userId: string) {
     return this.service.enroll(userId);
@@ -67,6 +89,13 @@ export class TwoFactorController {
   @Post('verify')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Confirma enroll com código TOTP' })
+  @ApiOkResponse({
+    type: VerifyResponseDto,
+    description: 'Backup codes retornados UMA vez; não há endpoint pra re-listar',
+  })
+  @ApiBadRequestResponse({ description: 'Código TOTP inválido ou enroll expirado' })
+  @ApiUnauthorizedResponse({ description: 'JWT inválido ou ausente' })
+  @ApiTooManyRequestsResponse({ description: 'Rate limit 30/dia (ADR 0002)' })
   @HttpCode(HttpStatus.OK)
   verify(
     @CurrentUser('id') userId: string,
@@ -79,6 +108,12 @@ export class TwoFactorController {
   @Throttle({ default: { limit: 5, ttl: 15 * 60_000 } })
   @Post('challenge')
   @ApiOperation({ summary: '2ª fase do login quando 2FA habilitado' })
+  @ApiOkResponse({
+    type: TwoFactorAuthWireResponseDto,
+    description: 'Access token + user; refresh setado em cookie httpOnly',
+  })
+  @ApiUnauthorizedResponse({ description: 'partialToken expirado ou código inválido' })
+  @ApiTooManyRequestsResponse({ description: 'Rate limit 5/15min' })
   @HttpCode(HttpStatus.OK)
   async challenge(
     @Body() dto: ChallengeTwoFactorDto,
@@ -98,6 +133,12 @@ export class TwoFactorController {
   @Throttle({ default: { limit: 5, ttl: 15 * 60_000 } })
   @Post('recovery')
   @ApiOperation({ summary: 'Login via backup code' })
+  @ApiOkResponse({
+    type: TwoFactorAuthWireResponseDto,
+    description: 'Backup code consumido (one-time); refresh em cookie httpOnly',
+  })
+  @ApiUnauthorizedResponse({ description: 'partialToken expirado ou backup code inválido/usado' })
+  @ApiTooManyRequestsResponse({ description: 'Rate limit 5/15min' })
   @HttpCode(HttpStatus.OK)
   async recovery(
     @Body() dto: RecoveryTwoFactorDto,
@@ -117,6 +158,10 @@ export class TwoFactorController {
   @Post('disable')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Desabilita 2FA (senha + código)' })
+  @ApiOkResponse({ type: DisableResponseDto })
+  @ApiBadRequestResponse({ description: 'Senha ou código TOTP inválido' })
+  @ApiUnauthorizedResponse({ description: 'JWT inválido ou ausente' })
+  @ApiTooManyRequestsResponse({ description: 'Rate limit 10/15min' })
   @HttpCode(HttpStatus.OK)
   disable(
     @CurrentUser('id') userId: string,
