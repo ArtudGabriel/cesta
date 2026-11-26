@@ -21,6 +21,25 @@ import type {
 const BASE_URL = 'https://www.lidl.es/q/search';
 const MAX_QUERIES = 40;
 
+/**
+ * S187 (nit S186 P3): upper bound do [\s\S]{0,N}? em parseSegment price regex.
+ *
+ * Tradeoff ReDoS vs yield empírico:
+ * - N muito baixo (e.g. 500) → price dentro de "price":{...} com packaging
+ *   sub-object + discount + specialTaxes extensos não casa → yield cai (bug
+ *   origem S186, com padrão [^}]* yielding 0/48).
+ * - N muito alto / sem bound → backtracking exponencial em payload LIDL malformed
+ *   (segments ~8000 chars; `[\s\S]*?` sem cap pode scan todo o segment N vezes
+ *   em edge cases de nested quotes/escapes).
+ * - 2000 chars empiricamente cobriu 48/48 produtos no probe pós-S186 (LIDL
+ *   payload observado: ~400-800 chars entre abertura "price":{ e price numérico
+ *   interno; 2.5x safety margin).
+ *
+ * Follow-up pós-MVP: migrar parser regex → JSON.parse do segment (shape
+ * estável). Tracking: GitHub issue "LIDL: migrate regex to JSON parser".
+ */
+const MAX_PRICE_BLOCK_BYTES = 2000;
+
 const SEED_QUERIES = [
   'leche', 'yogur', 'queso', 'huevos', 'mantequilla',
   'pan', 'cereales', 'galletas', 'bolleria',
@@ -126,7 +145,11 @@ export class LidlAdapter implements SupermarketAdapter {
     // "specialTaxes":[]) que agora aparecem dentro do objeto price entre a abertura
     // "price":{ e o campo price numérico interno. Antes usava [^}]*? que falhava no
     // primeiro } de "packaging":{}, zerando o yield prod (0/48 por query).
-    const priceMatch = segment.match(/"price":\{[\s\S]{0,2000}?"price":(\d+(?:\.\d+)?)/);
+    // S187: upper bound N extraído pra const MAX_PRICE_BLOCK_BYTES (ver topo arquivo).
+    const priceRegex = new RegExp(
+      `"price":\\{[\\s\\S]{0,${MAX_PRICE_BLOCK_BYTES}}?"price":(\\d+(?:\\.\\d+)?)`,
+    );
+    const priceMatch = segment.match(priceRegex);
     if (!priceMatch) return null;
     const price = Number(priceMatch[1]);
     if (!Number.isFinite(price) || price <= 0) return null;

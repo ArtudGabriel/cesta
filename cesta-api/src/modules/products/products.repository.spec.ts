@@ -94,6 +94,74 @@ describe('ProductsRepository.findSuggestions (Sprint 180 fuzzy fallback)', () =>
   // O boost3 "short direct-typo" (LEFT(first_word,3)=LEFT(q,3) + |len diff|<=1)
   // + tiebreak char_length ASC + alfabético é SQL-side; esses specs cobrem o
   // contrato acima dele (preservação da ordem retornada pelo raw).
+  // Sprint 187 (nit S185 P3 a): spec valida SQL contract que compõe o rerank
+  // (não só pass-through da ordem retornada). Quebra se S188+ remover/renomear
+  // boost CASE, tiebreak columns ou cap LEAST.
+  it('fuzzy fallback S187: SQL rerank inclui 3 boosts + LEAST cap + tiebreak', async () => {
+    prisma.product.findMany
+      .mockResolvedValueOnce([]) // ILIKE zero
+      .mockResolvedValueOnce([
+        { id: 'p1', name: 'Leche entera 1L', brand: null, imageUrl: null, prices: [] },
+      ]);
+    prisma.$queryRaw.mockResolvedValueOnce([{ id: 'p1' }]);
+
+    await repo.findSuggestions('lecge', 8);
+
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    const [strings] = prisma.$queryRaw.mock.calls[0] as [TemplateStringsArray, ...unknown[]];
+    const sql = Array.from(strings).join(' ');
+
+    // Baseline fuzzy: word_similarity em name + brand, threshold 0.3
+    expect(sql).toMatch(/word_similarity\(/);
+    expect(sql).toMatch(/> 0\.3/);
+    expect(sql).toMatch(/GREATEST\(/);
+
+    // Boost (a) prefix exact: LOWER LIKE '%' prefix + regex boundary
+    expect(sql).toMatch(/LOWER\("name"\) LIKE LOWER\(/);
+
+    // Boost (b) first-word word_similarity >= 0.5
+    expect(sql).toMatch(/SPLIT_PART\("name", ' ', 1\)/);
+    expect(sql).toMatch(/>= 0\.5/);
+
+    // Boost (c) S185 short direct-typo: LEFT(first_word,3) + ABS len diff <=1
+    expect(sql).toMatch(/LEFT\(LOWER\(SPLIT_PART/);
+    expect(sql).toMatch(/ABS\(char_length\(SPLIT_PART/);
+    expect(sql).toMatch(/<= 1/);
+
+    // Boost cap S187: LEAST(..., 1.0) envolvendo soma dos 3 boosts
+    expect(sql).toMatch(/\+ LEAST\(/);
+    expect(sql).toMatch(/, 1\.0\)/);
+
+    // Tiebreak S185: char_length ASC, name ASC
+    expect(sql).toMatch(/char_length\("name"\) ASC/);
+    expect(sql).toMatch(/"name" ASC/);
+
+    // DESC score + LIMIT bound
+    expect(sql).toMatch(/\) DESC,/);
+    expect(sql).toMatch(/LIMIT/);
+  });
+
+  // Sprint 187 (nit S185 P3 a cont.): valida interpolação de valores no raw tag.
+  // Mock recebe (strings, ...values) — garante query q entra como param + take.
+  it('fuzzy fallback S187: $queryRaw recebe q + take como interpolações', async () => {
+    prisma.product.findMany
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        { id: 'p1', name: 'Leche entera 1L', brand: null, imageUrl: null, prices: [] },
+      ]);
+    prisma.$queryRaw.mockResolvedValueOnce([{ id: 'p1' }]);
+
+    await repo.findSuggestions('lecge', 5);
+
+    const call = prisma.$queryRaw.mock.calls[0];
+    const values = (call as unknown[]).slice(1);
+    // q aparece 6x no SQL (where name, where brand, GREATEST name, GREATEST brand,
+    // LIKE boost, word_sim boost (b), LEFT boost (c) etc.); take 1x. Checa presença.
+    expect(values).toContain('lecge');
+    // take = min(limit*2, 40) pra sampling ampliado antes do rerank client-side
+    expect(values).toContain(10);
+  });
+
   it('fuzzy fallback S185: honra ordem raw com 3 candidatos (lecge→Leche top sobre Lechuga)', async () => {
     prisma.product.findMany
       .mockResolvedValueOnce([]) // ILIKE zero

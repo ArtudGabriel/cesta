@@ -165,6 +165,30 @@ describe('MercadonaAdapter', () => {
     );
   });
 
+  // Sprint 187 (nit S108 P3): spec assimétrica — cobria só bcn1 (postal 08) mas
+  // não default mad1 em outros códigos. Falha silenciosa se pivot mapping mudar.
+  it('uses mad1 warehouse by default when postal code is omitted', async () => {
+    mockedPoliteFetch.mockResolvedValue({ results: [] } as any);
+
+    await adapter.fetchProducts();
+
+    expect(mockedPoliteFetch).toHaveBeenCalledWith(
+      expect.stringContaining('wh=mad1'),
+      expect.any(Object),
+    );
+  });
+
+  it('uses mad1 warehouse for madrid postal code 28xxx', async () => {
+    mockedPoliteFetch.mockResolvedValue({ results: [] } as any);
+
+    await adapter.fetchProducts({ postalCode: '28001' });
+
+    expect(mockedPoliteFetch).toHaveBeenCalledWith(
+      expect.stringContaining('wh=mad1'),
+      expect.any(Object),
+    );
+  });
+
   it('returns empty array when tree fetch returns no categories', async () => {
     mockedPoliteFetch.mockResolvedValue({ results: [] } as any);
 

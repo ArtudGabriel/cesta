@@ -242,6 +242,12 @@ export class ProductsRepository {
       //     indicam typo direto.
       // Boost cumulativo todos triggers; threshold WHERE 0.3 raw preservado.
       //
+      // Sprint 187 (nit S185 P3): soma dos 3 boosts envolvida em LEAST(..., 1.0)
+      // como ceiling defensivo. Hoje max teórico = 0.3*3 = 0.9 (<1.0, no-op),
+      // mas se boost rules crescerem (b4, b5...) o cap previne score inflation
+      // que possa drownar o sinal word_similarity base. Não aplica cap no score
+      // total (base + boosts) pra preservar o range original word_similarity.
+      //
       // Sprint 185 tiebreak determinístico: scores empatados → nome mais curto
       // primeiro, depois alfabético. Garante ordenação estável independente do
       // plano de execução Postgres (seen in prod: Lechuga top1 Leche #2 com
@@ -259,23 +265,25 @@ export class ProductsRepository {
             word_similarity(${q}, "name"),
             COALESCE(word_similarity(${q}, "brand"), 0)
           )
-          + CASE
-              WHEN LOWER("name") LIKE LOWER(${q}) || '%'
-                OR LOWER("name") ~ ('(^|\s)' || LOWER(${q}))
-              THEN 0.3
-              ELSE 0
-            END
-          + CASE
-              WHEN word_similarity(${q}, SPLIT_PART("name", ' ', 1)) >= 0.5
-              THEN 0.3
-              ELSE 0
-            END
-          + CASE
-              WHEN LEFT(LOWER(SPLIT_PART("name", ' ', 1)), 3) = LEFT(LOWER(${q}), 3)
-                AND ABS(char_length(SPLIT_PART("name", ' ', 1)) - char_length(${q})) <= 1
-              THEN 0.3
-              ELSE 0
-            END
+          + LEAST(
+              CASE
+                WHEN LOWER("name") LIKE LOWER(${q}) || '%'
+                  OR LOWER("name") ~ ('(^|\s)' || LOWER(${q}))
+                THEN 0.3
+                ELSE 0
+              END
+              + CASE
+                  WHEN word_similarity(${q}, SPLIT_PART("name", ' ', 1)) >= 0.5
+                  THEN 0.3
+                  ELSE 0
+                END
+              + CASE
+                  WHEN LEFT(LOWER(SPLIT_PART("name", ' ', 1)), 3) = LEFT(LOWER(${q}), 3)
+                    AND ABS(char_length(SPLIT_PART("name", ' ', 1)) - char_length(${q})) <= 1
+                  THEN 0.3
+                  ELSE 0
+                END
+            , 1.0)
         ) DESC,
         char_length("name") ASC,
         "name" ASC

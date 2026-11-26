@@ -104,7 +104,11 @@ async function bootstrap(): Promise<void> {
   // Render matava o container por healthcheck timeout → restart loop. Agora
   // envolvemos em Promise.race com 30s timeout; se Redis não liga, logamos
   // warn e SKIP enqueue (app segue em listening).
-  if (process.env.AUTO_SYNC_ON_BOOT === 'true') {
+  // Sprint 187 (nit S109 P3): parse robusta do flag — aceita 'true', 'TRUE',
+  // '1', com trailing/leading whitespace. Strict === 'true' silenciava no-op
+  // em misconfig ops (variação de case / espaço no dashboard).
+  const autoSyncFlag = (process.env.AUTO_SYNC_ON_BOOT ?? '').trim().toLowerCase();
+  if (autoSyncFlag === 'true' || autoSyncFlag === '1') {
     const REDIS_READY_TIMEOUT_MS = 30_000;
     // Sprint 119: expande bootstrap pra múltiplos adapters.
     // Sprint 121: pivot default para 'mercadona,dia' — Carrefour removido do
@@ -127,22 +131,25 @@ async function bootstrap(): Promise<void> {
     logger.log(
       `AUTO_SYNC_ON_BOOT=true → waiting Redis ready (timeout 30s) for slugs=[${slugs.join(',')}]...`,
     );
+    // Sprint 187 (nit S111 P3): captura handle + clearTimeout no winner. Antes
+    // o setTimeout continuava agendado 30s mesmo após waitUntilReady vencer a
+    // race, mantendo o event loop vivo e atrasando graceful shutdown.
+    let timeoutHandle: NodeJS.Timeout | undefined;
     try {
       const queue = app.get<Queue>(getQueueToken(CATALOG_SYNC_QUEUE));
-      await Promise.race([
-        queue.waitUntilReady(),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () =>
-              reject(
-                new Error(
-                  `Redis waitUntilReady timeout ${REDIS_READY_TIMEOUT_MS}ms`,
-                ),
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(
+          () =>
+            reject(
+              new Error(
+                `Redis waitUntilReady timeout ${REDIS_READY_TIMEOUT_MS}ms`,
               ),
-            REDIS_READY_TIMEOUT_MS,
-          ),
-        ),
-      ]);
+            ),
+          REDIS_READY_TIMEOUT_MS,
+        );
+      });
+      await Promise.race([queue.waitUntilReady(), timeoutPromise]);
+      if (timeoutHandle) clearTimeout(timeoutHandle);
       for (const slug of slugs) {
         try {
           await queue.add(
@@ -159,6 +166,7 @@ async function bootstrap(): Promise<void> {
         }
       }
     } catch (err) {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
       const message = err instanceof Error ? err.message : String(err);
       logger.warn(`AUTO_SYNC_ON_BOOT skip enqueue: ${message}`);
     }
