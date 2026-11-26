@@ -197,6 +197,84 @@ describe('MercadonaAdapter', () => {
     expect(products).toEqual([]);
   });
 
+  // Sprint 217: audit (scripts/audit-mercadona-queries.mjs) found mad1 tree
+  // is ≤2 deep today, but the earlier flatten only walked 1 level and would
+  // silently drop products nested deeper if Mercadona ever restructures. Lock
+  // recursive depth-first walk via a 3-deep fixture.
+  it('recursively collects products nested 3+ levels deep (future-proof)', async () => {
+    const DEEP_FIXTURE = {
+      id: 500,
+      name: 'deep-root',
+      products: [
+        {
+          id: 'lvl0',
+          display_name: 'at root',
+          price_instructions: { unit_price: '1.00', size_format: '1 ud' },
+          active: true,
+        },
+      ],
+      categories: [
+        {
+          id: 501,
+          name: 'lvl1',
+          products: [
+            {
+              id: 'lvl1a',
+              display_name: 'at depth 1',
+              price_instructions: { unit_price: '2.00', size_format: '1 ud' },
+              active: true,
+            },
+          ],
+          categories: [
+            {
+              id: 502,
+              name: 'lvl2',
+              products: [
+                {
+                  id: 'lvl2a',
+                  display_name: 'at depth 2',
+                  price_instructions: { unit_price: '3.00', size_format: '1 ud' },
+                  active: true,
+                },
+              ],
+              categories: [
+                {
+                  id: 503,
+                  name: 'lvl3',
+                  products: [
+                    {
+                      id: 'lvl3a',
+                      display_name: 'at depth 3',
+                      price_instructions: { unit_price: '4.00', size_format: '1 ud' },
+                      active: true,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    mockedPoliteFetch.mockImplementation((url: string) => {
+      if (url.includes('/v1_1/categories/')) {
+        return Promise.resolve({
+          results: [{ id: 400, name: 'root', categories: [{ id: 500, name: 'deep-root' }] }],
+        }) as any;
+      }
+      if (url.includes('/categories/500/')) {
+        return Promise.resolve(DEEP_FIXTURE) as any;
+      }
+      return Promise.resolve(null) as any;
+    });
+
+    const products = await adapter.fetchProducts();
+    expect(products.map((p) => p.externalId).sort()).toEqual(
+      ['lvl0', 'lvl1a', 'lvl2a', 'lvl3a'].sort(),
+    );
+  });
+
   it('skips products with missing or invalid prices', async () => {
     mockedPoliteFetch.mockImplementation((url: string) => {
       if (url.includes('/v1_1/categories/')) {
