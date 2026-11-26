@@ -12,8 +12,17 @@ import { defineConfig, devices } from "@playwright/test";
  * reportar bug cross-browser (maioria mobile Chrome na Espanha).
  *
  * Trace:
- *   - on-first-retry em CI (debug playbook sem overhead em happy path).
+ *   - retain-on-failure em CI (S201 bump — captura trace mesmo quando teste
+ *     falha sem retry, e descarta em happy path pra manter artifact leve).
  *   - off em local (velocidade dev).
+ *
+ * Timeouts (S201):
+ *   - test 30s, expect 5s (defaults razoáveis).
+ *   - actionTimeout 10s + navigationTimeout 15s: cap explícito para click/
+ *     fill/goto não herdar o test timeout inteiro quando backend está lento.
+ *     Alinha com "timing retry se cesta-api lento" na DoD S201 — tests com
+ *     mocks terminam bem abaixo disso; limite só morde em runs contra API
+ *     real (preview deploy / prod empírico via PLAYWRIGHT_BASE_URL).
  *
  * Reporter:
  *   - list (stdout CI legível).
@@ -39,9 +48,11 @@ export default defineConfig({
     : [["list"]],
   use: {
     baseURL: BASE_URL,
-    trace: "on-first-retry",
+    trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
+    actionTimeout: 10_000,
+    navigationTimeout: 15_000,
   },
   projects: [
     {

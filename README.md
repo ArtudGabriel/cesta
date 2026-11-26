@@ -230,11 +230,27 @@ cd cesta-web && npm run build && npm run bundle:size
 npm run bundle:size -- --json | jq '.routes[] | select(.violations | length > 0)'
 ```
 
-### Playwright E2E (Sprint 198)
+### Playwright E2E (Sprint 198 + Sprint 201)
 
 Infra setup inicial pra E2E — chromium headless + Playwright test runner. CI roda em workflow separado (`.github/workflows/e2e.yml`) via schedule noturno + `workflow_dispatch` manual pra não adicionar ~5min no PR CI principal.
 
-**Primeiro smoke** (`tests/e2e/home.spec.ts`): home carrega + search combobox + type `'leche'` + dropdown abre (aria-expanded=true). Assertions mínimas pra não depender de backend (smoke confirma wiring Next + Playwright, não suggestions content).
+**Smoke** (`tests/e2e/home.spec.ts`, S198): home carrega + search combobox + type `'leche'` + dropdown abre (aria-expanded=true). Assertions mínimas pra não depender de backend (smoke confirma wiring Next + Playwright, não suggestions content).
+
+**Auth flows** (`tests/e2e/auth.spec.ts`, S201):
+
+| Flow | Cobertura |
+|---|---|
+| (a) register valid submit | Form preenche + POST `/auth/register` mock → redirect `/` + access token persist |
+| (b) logout + guard redirect | POST `/auth/logout` mock + session clear + `/favoritos` guard redireciona `/login?returnUrl=/favoritos` |
+| (c) login + reload persist | POST `/auth/login` mock + page reload + session sobrevive (zustand persist + localStorage access token) |
+| (d) i18n toggle não invalida session | PATCH `/users/me` mock + toggle PT-BR em `/perfil` + `window.location.reload()` (S169 fix pra regressão S168 P1) — URL continua `/perfil`, user intacto |
+
+**Fixtures strategy — route interception (não docker-compose):**
+
+- Testes usam `page.route("**/auth/*")` + `route.fulfill` para mockar auth endpoints (`/auth/register`, `/auth/login`, `/auth/logout`, `/auth/me`) + `/users/me` (profile GET + PATCH).
+- Shapes seguem `cesta-web/src/features/auth/types/auth.types.ts` + `cesta-web/src/features/profile` — mocks carregam contrato suficiente pra exercer o frontend sem rodar `cesta-api`.
+- **Justificativa (não docker-compose):** (1) determinístico em CI, zero DB state leak entre runs; (2) tempo de run ~5s por spec vs ~2-3min pra spin-up Postgres+Redis+API+migrate+seed; (3) workflow `e2e.yml` já não roda API — mocks alinham com infra existente; (4) contrato backend já é coberto por `cesta-api` jest suite (coverage gate 55%). E2E aqui testa **frontend behavior** (redirects, form validation, session persist, i18n side-effects), não happy path do backend.
+- **Trade-off:** mocks podem derivar do contrato real se backend mudar sem atualizar os shapes aqui. Mitigação: shapes tipados via `@ts-expect-error`-able types + jest unit tests em `features/auth/services/*.test.ts` validam serializer + ApiError normalization. S20X: adicionar OpenAPI contract check CI step que valida mocks vs schema.
 
 **Local run:**
 
@@ -259,11 +275,11 @@ PLAYWRIGHT_BASE_URL=https://cesta-web.vercel.app npm run e2e
 - Artifacts: `playwright-report` (14d) + `playwright-trace` on-failure (7d).
 - Manual: Actions tab → E2E → Run workflow → pode passar `base_url` pra prod.
 
-**S199+ roadmap:**
+**S202+ roadmap:**
 - Fuzzy suggest com backend live (requer prod restored).
 - PDP `/produto/[pid]` journey.
 - /comparar flow (adicionar 2 produtos + ver diff).
-- Login/register happy path.
+- OpenAPI contract check CI (valida mocks vs schema; fecha trade-off S201 route interception).
 - A11y assertions via `@axe-core/playwright` (replace jsdom-based S197 pra paint rules).
 
 ### Accessibility audit (Sprint 197)
