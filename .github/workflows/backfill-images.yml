@@ -1,0 +1,64 @@
+name: Backfill images (nightly cron)
+
+# Sprint 216 (ADR 0026) — move cron backfill-images pro runner GitHub Actions
+# pra tirar o outbound R2 (~1GB/mês) de dentro do Render Hobby (ADR 0025).
+#
+# Free tier GHA: 2000min/mês runners Linux. Estimativa run:
+#   checkout + setup Node + npm ci + npm run build + script ~3-5min.
+#   Nightly 30 runs/mês → ~90-150min. Dentro do orçamento.
+#
+# BACKFILL_IMAGES_ENABLED stays `false` em prod Render. Esta workflow NÃO
+# precisa dela (scheduler BullMQ não é usado; chama service.scanAndBackfill
+# direto).
+
+on:
+  schedule:
+    # 03:00 UTC = 04:00 CET / 05:00 CEST (Europe/Madrid, low-traffic window).
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Max produtos por run'
+        required: false
+        default: '100'
+
+concurrency:
+  group: backfill-images
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    name: Scan + upload
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: cesta-api
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET: ${{ secrets.R2_BUCKET }}
+      R2_PUBLIC_BASE_URL: ${{ secrets.R2_PUBLIC_BASE_URL }}
+      R2_S3_ENDPOINT: ${{ secrets.R2_S3_ENDPOINT }}
+      BACKFILL_LIMIT: ${{ github.event.inputs.limit || '100' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: cesta-api/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build dist
+        run: npm run build
+
+      - name: Run backfill
+        run: node scripts/backfill-images-standalone.mjs --limit=${{ env.BACKFILL_LIMIT }}
