@@ -181,6 +181,35 @@ jobs:
         env:
           API_URL: http://localhost:3001/api/v1
           NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+          NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE: '0.1'
+          NEXT_PUBLIC_SENTRY_RELEASE: ${{ github.sha }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      # Sprint 197: a11y-audit gate post-build. Starts Next server background,
+      # fetches 6 rotas via axe-core/jsdom. continue-on-error em primeiro ciclo
+      # pré-baseline — follow-up sprint tighten após primeira run capturar
+      # violations reais (API backend offline em CI = SSR pode render error
+      # page pra rotas protegidas, inflate artificial violations).
+      - name: a11y-audit (next start + axe-core 6 rotas)
+        run: npm run a11y:audit:ci
+        continue-on-error: true
+        env:
+          API_URL: http://localhost:3001/api/v1
+          NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+          BASE_URL: http://localhost:3000
+      - name: Upload a11y-audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: a11y-audit
+          path: cesta-web/a11y-audit-report.json
+          retention-days: 14
+          if-no-files-found: ignore
+        env:
+          API_URL: http://localhost:3001/api/v1
+          NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
           # Sprint 55: Sentry source maps upload — secrets undefined → sourcemaps.disable
           # em withSentryConfig (next.config.ts) garante build normal sem upload.
           NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}

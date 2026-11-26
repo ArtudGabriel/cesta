@@ -204,6 +204,49 @@ cd cesta-web && npm run test:coverage:gate
 - Moderate devDeps aceitos defer temporário até sprint sweep próximo (CI filter `--audit-level=high` cobre prod).
 - HIGH/CRITICAL em `--omit=dev` é blocker — sprint hotfix imediato.
 
+### Accessibility audit (Sprint 197)
+
+`cesta-web/scripts/a11y-audit.mjs` auditia 6 rotas principais (/, /produto/[pid], /comparar, /favoritos, /login, /perfil) via axe-core + jsdom contra HTML SSR de `next start`. CI job Web roda como step pós-build com continue-on-error em primeiro ciclo (baseline-gathering).
+
+**Threshold:** `0 critical + ≤5 serious`. Moderate/minor sem gate (visíveis no report; incentive fix mas não bloqueia).
+
+**Scope limitation (jsdom):** rules dependentes de paint (`color-contrast`, viewport queries) **não rodam** — false positives em jsdom. Real browser testing deferred pós-MVP (Playwright sprint dedicado).
+
+**Local verify:**
+
+```bash
+cd cesta-web && npm run a11y:audit         # full flow (build + start + audit)
+# OR com build cache existente:
+cd cesta-web && npm run a11y:audit:ci      # skip build, assume .next pronto
+```
+
+Output: `a11y-audit-report.json` no cwd + stdout per-route counts.
+
+**Regen baseline procedure** (quando tightening threshold):
+
+```bash
+# 1. Rodar audit local com Next backend offline (mesmo env CI):
+cd cesta-web && npm run build && npm run a11y:audit:ci
+
+# 2. Parse JSON report:
+jq '.totals' a11y-audit-report.json
+# {"critical":0,"serious":3,"moderate":12,"minor":8}
+
+# 3. Update DEFAULT_THRESHOLD em scripts/a11y-audit.mjs
+#    baseline - margem razoável (ex: serious=3 observado → max=5).
+
+# 4. Flip continue-on-error: false no CI step (gate real).
+
+# 5. Document mudança em CHANGELOG + ADR se threshold change
+#    muda policy (ex: critical=1 permitido temp vs always-0).
+```
+
+**Policy:**
+- Feature nova que adicione rota pública = adicionar ao ROUTES em a11y-audit.mjs.
+- 0 critical é hard limit — nunca relaxar.
+- Serious gate relaxável durante feature sprint, mas tightening sprint obrigatório a cada 10 sprints.
+- Report artifact CI retention 14d pra trend tracking.
+
 ### i18n parity enforcement (Sprint 196)
 
 `cesta-web` suporta `es` (default) + `pt-BR`. Messages em `cesta-web/src/i18n/messages/{es,pt-BR}.json`. CI job Web roda `npm run i18n:parity` como gate obrigatório — falha se qualquer drift entre as locales.
