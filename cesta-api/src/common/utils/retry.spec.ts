@@ -163,13 +163,32 @@ describe('withRetry (Sprint 189 G2)', () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  it('AbortError lançado de dentro de fn propaga sem retry', async () => {
+  it('AbortError (classe sentinel) lançado de fn propaga sem retry', async () => {
     const fn = jest
       .fn<Promise<string>, [number]>()
       .mockRejectedValueOnce(new AbortError('caller aborted'));
     const promise = withRetry(fn, { attempts: 5, backoffMs: [5] });
     await expect(promise).rejects.toBeInstanceOf(AbortError);
     expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  // Sprint 190: AbortError POR NOME (não da classe sentinel) é retryable.
+  // fetch-side timeouts jogam Error com name='AbortError'; caller quer retry.
+  it('Error com name="AbortError" (sem instanceof) é retryable', async () => {
+    const fetchAbort = new Error('aborted');
+    fetchAbort.name = 'AbortError';
+    const fn = jest
+      .fn<Promise<string>, [number]>()
+      .mockRejectedValueOnce(fetchAbort)
+      .mockRejectedValueOnce(fetchAbort)
+      .mockResolvedValueOnce('late-success');
+
+    const promise = withRetry(fn, { attempts: 3, backoffMs: [5, 10] });
+    await Promise.resolve();
+    await jest.advanceTimersByTimeAsync(5);
+    await jest.advanceTimersByTimeAsync(10);
+    await expect(promise).resolves.toBe('late-success');
+    expect(fn).toHaveBeenCalledTimes(3);
   });
 
   it('backoff array menor que attempts-1 reusa último valor', async () => {

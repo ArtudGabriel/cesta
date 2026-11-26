@@ -104,8 +104,16 @@ export async function withRetry<T>(
       return await fn(i + 1);
     } catch (err) {
       lastError = err;
-      // Abort inside fn propagates immediately (any AbortError, whether ours or caller's).
-      if (err instanceof AbortError || (err as { name?: string })?.name === 'AbortError') {
+      // Caller-initiated abort via signal takes precedence: stop immediately
+      // regardless of what fn threw. In-fn AbortError (e.g. fetch internal
+      // timeout controller) is treated as a regular error — caller can mark
+      // it non-retryable via isRetryable if they want short-circuit.
+      if (signal?.aborted) {
+        throw new AbortError();
+      }
+      // Our own AbortError sentinel still propagates (caller signals abort by
+      // throwing it explicitly from fn as an alternative to signal).
+      if (err instanceof AbortError) {
         throw err;
       }
       const isLast = i === attempts - 1;
