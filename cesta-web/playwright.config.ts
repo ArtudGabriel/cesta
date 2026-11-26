@@ -39,10 +39,15 @@ export default defineConfig({
   expect: {
     timeout: 5_000,
   },
-  fullyParallel: true,
+  // Sprint 202 AJUSTE Boss: workers=1 top-level (CI + local). Workers=6 local
+  // causou flakiness (~2h loop debugando home.spec count=0 race de hydration
+  // paralelo). Specs E2E compartilham next-server único + mocks state — não
+  // são hermeticamente isolados entre workers. 1 worker trade-off serialização
+  // por determinismo.
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,
   reporter: process.env.CI
     ? [["list"], ["html", { open: "never" }]]
     : [["list"]],

@@ -214,11 +214,15 @@ test.describe("Favoritos flows (route interception)", () => {
       .first();
     await heartBtn.click();
 
-    // Dialog destructive — ConfirmDialog usa role="alertdialog" OR dialog.
-    // Click confirm. Texto padrão "Eliminar" / "Quitar" / "Confirmar".
-    const confirmBtn = page.getByRole("button", {
-      name: /eliminar|quitar|confirmar|remover|aceptar/i,
-    }).last();
+    // Dialog destructive — ConfirmDialog usa role="alertdialog".
+    // S202 AJUSTE QA: regex anterior incluía 'aceptar' que casava com
+    // "Aceptar todo" do CookieBanner. Fix: (1) seedAuth já dismissa banner
+    // via cookie cesta:consent, (2) scope busca ao role=dialog pra garantir
+    // escopo correto mesmo se banner reaparecer.
+    const dialog = page.getByRole("dialog").last();
+    const confirmBtn = dialog.getByRole("button", {
+      name: /eliminar|quitar|confirmar|remover/i,
+    });
     await confirmBtn.click();
 
     // onMutate do useRemoveFavorite remove do cache IMEDIATAMENTE antes

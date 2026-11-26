@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { envelope, fulfillJson } from "./helpers/auth";
+import { dismissCookieBanner, envelope, fulfillJson } from "./helpers/auth";
 
 /**
  * Sprint 202 — E2E /comparar flows.
@@ -152,6 +152,10 @@ async function mockCompare(page: Page, products: MockProduct[]) {
 }
 
 test.describe("Comparar flows (route interception)", () => {
+  test.beforeEach(async ({ page }) => {
+    await dismissCookieBanner(page);
+  });
+
   test("(a) /comparar sem products → empty state CTA explorar", async ({
     page,
   }) => {

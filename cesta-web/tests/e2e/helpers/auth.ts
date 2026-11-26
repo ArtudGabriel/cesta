@@ -55,17 +55,43 @@ export async function fulfillJson(
 }
 
 /**
+ * Pre-dismiss cookie-consent banner via `cesta:consent=essential` cookie.
+ * Sprint 202 AJUSTE: QA flow (c) regex catava "Aceptar todo" do
+ * CookieBanner no DOM antes do ConfirmDialog real. Dismissing o banner
+ * remove o overlay das queries subsequentes.
+ *
+ * Reuse-safe: called antes de page.goto. localePrefix:"never" + cookie
+ * é como o app real reconhece preferência (ver features/consent/hooks/
+ * use-consent.ts L13 pattern `cesta:consent=(all|essential)`).
+ */
+export async function dismissCookieBanner(page: Page) {
+  await page.addInitScript(() => {
+    try {
+      document.cookie =
+        "cesta:consent=essential; path=/; max-age=31536000; samesite=lax";
+    } catch {
+      // cookie API falha em modos restritos — teste segue, banner pode
+      // reaparecer e assertions específicas lidam com a presença.
+    }
+  });
+}
+
+/**
  * Pre-seeds zustand + access token BEFORE the first navigation. Uses
  * addInitScript so the app boots already authenticated. Note: init scripts
  * re-run on EVERY page.goto — if a test needs to logout + re-nav, it must
  * add a new init script with removeItem to override this seed (see
  * S201 AJUSTE 2 fix em auth.spec.ts flow (b)).
+ *
+ * Sprint 202 AJUSTE: também dispara dismissCookieBanner (todo user autenticado
+ * no e2e já é considerado post-consent — matches prod default UX).
  */
 export async function seedAuth(
   page: Page,
   user: MockUser = baseUser(),
   token: string = DEFAULT_ACCESS_TOKEN,
 ) {
+  await dismissCookieBanner(page);
   await page.addInitScript(
     ({ user, token }) => {
       try {
