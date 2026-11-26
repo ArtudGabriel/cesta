@@ -35,8 +35,11 @@ main() {
   DATABASE_URL_UNPOOLED="$(derive_unpooled_url "$DATABASE_URL")"
   echo ">>> derived DATABASE_URL_UNPOOLED (host stripped of -pooler, connect_timeout=30)"
 
-  echo ">>> npm ci"
-  npm ci
+  echo ">>> npm ci --include=dev"
+  # NODE_ENV=production on Render → npm ci omits devDependencies by default.
+  # @nestjs/cli lives in devDependencies; without --include=dev the "nest build"
+  # step below fails with "sh: 1: nest: not found" (seen on dep-dc41p38u01pc73ekeftg).
+  npm ci --include=dev
 
   echo ">>> prisma generate"
   npx prisma generate
