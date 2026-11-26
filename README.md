@@ -204,6 +204,42 @@ cd cesta-web && npm run test:coverage:gate
 - Moderate devDeps aceitos defer temporário até sprint sweep próximo (CI filter `--audit-level=high` cobre prod).
 - HIGH/CRITICAL em `--omit=dev` é blocker — sprint hotfix imediato.
 
+### Playwright E2E (Sprint 198)
+
+Infra setup inicial pra E2E — chromium headless + Playwright test runner. CI roda em workflow separado (`.github/workflows/e2e.yml`) via schedule noturno + `workflow_dispatch` manual pra não adicionar ~5min no PR CI principal.
+
+**Primeiro smoke** (`tests/e2e/home.spec.ts`): home carrega + search combobox + type `'leche'` + dropdown abre (aria-expanded=true). Assertions mínimas pra não depender de backend (smoke confirma wiring Next + Playwright, não suggestions content).
+
+**Local run:**
+
+```bash
+cd cesta-web
+npm run e2e:install            # primeira vez — baixa chromium (~170MB)
+npm run build && npx next start &
+npm run e2e                    # roda specs
+npm run e2e:report             # abre HTML report (último run)
+npm run e2e:ui                 # Playwright UI mode (debug interactive)
+```
+
+**Env override pra apontar prod/preview:**
+
+```bash
+PLAYWRIGHT_BASE_URL=https://cesta-web.vercel.app npm run e2e
+```
+
+**CI (nightly 06:00 UTC + manual):**
+- Workflow `.github/workflows/e2e.yml`.
+- Chromium cache por `package-lock.json` hash (invalida em bump `@playwright/test`).
+- Artifacts: `playwright-report` (14d) + `playwright-trace` on-failure (7d).
+- Manual: Actions tab → E2E → Run workflow → pode passar `base_url` pra prod.
+
+**S199+ roadmap:**
+- Fuzzy suggest com backend live (requer prod restored).
+- PDP `/produto/[pid]` journey.
+- /comparar flow (adicionar 2 produtos + ver diff).
+- Login/register happy path.
+- A11y assertions via `@axe-core/playwright` (replace jsdom-based S197 pra paint rules).
+
 ### Accessibility audit (Sprint 197)
 
 `cesta-web/scripts/a11y-audit.mjs` auditia 6 rotas principais (/, /produto/[pid], /comparar, /favoritos, /login, /perfil) via axe-core + jsdom contra HTML SSR de `next start`. CI job Web roda como step pós-build com continue-on-error em primeiro ciclo (baseline-gathering).

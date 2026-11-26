@@ -1,0 +1,92 @@
+name: E2E (Playwright)
+
+# Sprint 198 — separate workflow pra não blocar PR CI (browser install + run
+# adiciona ~5min). Nightly schedule + manual trigger.
+#
+# S199+ pode mover specific smoke tests pro CI principal (cheaper, sem fuzzy
+# backend dep) e deixar full suite aqui.
+
+on:
+  schedule:
+    # 06:00 UTC = 07:00 Madrid winter / 08:00 summer (manhã dev review).
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Base URL (prod/preview override)"
+        required: false
+        default: ""
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Playwright E2E (chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: cesta-web
+    env:
+      API_URL: http://localhost:3001/api/v1
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+      PLAYWRIGHT_BASE_URL: ${{ github.event.inputs.base_url || 'http://localhost:3000' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: cesta-web/package-lock.json
+      - run: npm ci
+      # Playwright browser cache (chromium ~170MB). Key por versão pra invalidar
+      # quando bump @playwright/test.
+      - name: Playwright browsers cache
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-pw-${{ hashFiles('cesta-web/package-lock.json') }}
+      - name: Install Playwright chromium (if cache miss)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npm run e2e:install
+      - name: Install Playwright system deps
+        run: npx playwright install-deps chromium
+      # Next build + start background pra servir rotas.
+      # Env SENTRY vazio OK pq next.config desabilita upload sourcemaps quando
+      # token ausente (Sprint 55).
+      - name: Next build
+        run: npm run build
+      - name: Next start (background)
+        run: npx next start &
+      - name: Wait for server
+        run: |
+          for i in {1..60}; do
+            if curl -sSf http://localhost:3000 -o /dev/null; then
+              echo "Server ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server did not come up within 60s"
+          exit 1
+      - name: Playwright test
+        run: npm run e2e
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: cesta-web/playwright-report/
+          retention-days: 14
+          if-no-files-found: ignore
+      - name: Upload trace/screenshots (on-failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-trace
+          path: cesta-web/test-results/
+          retention-days: 7
+          if-no-files-found: ignore

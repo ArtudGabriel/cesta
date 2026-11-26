@@ -40,3 +40,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 /a11y-audit-report.json
+
+# Playwright (Sprint 198)
+/playwright-report/
+/test-results/
+/playwright/.cache/
