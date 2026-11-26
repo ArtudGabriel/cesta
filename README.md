@@ -51,6 +51,8 @@ cd cesta-api
 npm install
 npx prisma migrate dev
 npm run start:dev          # http://localhost:3001
+                           # Swagger UI local: http://localhost:3001/api/docs
+                           # OpenAPI JSON:     http://localhost:3001/api/docs-json
 
 # 4. Frontend (em outro terminal)
 cd cesta-web
@@ -415,6 +417,29 @@ cd cesta-web && npm run i18n:parity
 - Adicionar feature nova = adicionar key EM AMBAS locales no mesmo PR.
 - Zero drift aceito merge main. CI gate bloqueia.
 - `TODO:` prefix permitido temporário em pt-BR quando string ambígua culturalmente; rastreado via log WARN + sprint follow-up pra traduzir.
+
+---
+
+## API Docs (Swagger UI) — Sprint 204
+
+Autogen via `@nestjs/swagger`. Mount `/api/docs` (UI) + `/api/docs-json` (OpenAPI 3 spec).
+
+**Env gate** (`cesta-api/src/swagger/swagger.setup.ts`):
+- `SWAGGER_ENABLED=true` → force enabled (prod opt-in).
+- `SWAGGER_ENABLED=false` → force disabled (dev opt-out).
+- Default: `NODE_ENV=production` → disabled; outros → enabled.
+
+**Decorator coverage S204** (`@ApiTags` + `@ApiOperation`):
+- `auth` (10) · `products` (8) · `supermarkets` (3) · `health` (4)
+
+**Progressive rollout S205+** (ver `docs/adr/0021-openapi-swagger-scope.md`):
+- S205: `alerts`, `favorites`, `shopping-lists`
+- S206: `receipts` (multipart), `family-baskets` (wizard examples)
+- S207: `expenses`, `catalog-sync`
+- S208: `imports`, `admin`, `two-factor`, `family-profiles`, `reviews`, `notifications`
+- S20X paralelo: `openapi-typescript` CI gate contra `/api/docs-json` → fecha S201 trade-off (mocks E2E validados vs schema real).
+
+**Prod unblock** (pós Render billing resolve): setar `SWAGGER_ENABLED=true` em Render env dashboard se time quiser docs públicas; default = disabled (surface opt-in).
 
 ---
 
