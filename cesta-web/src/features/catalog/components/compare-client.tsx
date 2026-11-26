@@ -110,15 +110,15 @@ export function CompareClient({ initialIds, initialData }: CompareClientProps) {
       </header>
 
       <section className="px-4 pt-2">
-        {isPending && ids.length > 0 ? (
-          <div className="flex min-h-[40vh] items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-cesta-green" />
-          </div>
-        ) : ids.length < 2 ? (
+        {ids.length < 2 ? (
           <ComparisonEmptyState
             count={ids.length}
             onAdd={() => setSheetOpen(true)}
           />
+        ) : isPending ? (
+          <div className="flex min-h-[40vh] items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-cesta-green" />
+          </div>
         ) : (
           <>
             <div
