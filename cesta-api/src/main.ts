@@ -35,7 +35,10 @@ async function bootstrap(): Promise<void> {
   app.use(cookieParser());
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
   app.setGlobalPrefix('api/v1', {
-    exclude: ['uploads/(.*)', 'health', 'health/deep'],
+    // Sprint 193: /ready adicionado pro K8s/Render readiness probe convention
+    // (controller /ready alias de /health/deep). Sem exclude a rota cai em
+    // /api/v1/ready, quebra idiom prometido no PR body.
+    exclude: ['uploads/(.*)', 'health', 'health/deep', 'ready'],
   });
   app.enableShutdownHooks();
   const corsWhitelist = parseCorsWhitelist(
