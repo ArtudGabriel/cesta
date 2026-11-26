@@ -211,6 +211,15 @@ export class ProductsRepository {
     // GIN index idx_product_name_trgm + idx_product_brand_trgm aceleram operador %.
     // Threshold 0.3 Postgres default; tolera ~1-2 typos em palavra 5-6 chars.
     if (rows.length === 0 && q.trim().length >= 3) {
+      // Sprint 181 fix: similarity() compara trigrams da string inteira.
+      // Nome real ("Leche entera 1L" 15 chars) vs query ("lecge" 5 chars) →
+      // overhead chars extras derruba score pra 0.158 (abaixo threshold 0.3).
+      // Baseline Neon prod diagnose:
+      //   similarity('lecge','leche')              = 0.33
+      //   similarity('lecge','Leche entera 1L')    = 0.158 ← FALHA
+      //   word_similarity('lecge','Leche entera 1L') = 0.5 ← OK
+      // word_similarity(query, text) compara trigrams da query vs melhor
+      // substring do text, ignora resto. GIN gin_trgm_ops acelera ambos.
       // Prisma @@map: Product → "products"; @map("deleted_at") → "deleted_at"
       // (name/brand sem @map ficam camelCase default).
       const trgmIds = await this.prisma.$queryRaw<Array<{ id: string }>>`
@@ -218,12 +227,12 @@ export class ProductsRepository {
         FROM "products"
         WHERE "deleted_at" IS NULL
           AND (
-            similarity("name", ${q}) > 0.3
-            OR ("brand" IS NOT NULL AND similarity("brand", ${q}) > 0.3)
+            word_similarity(${q}, "name") > 0.3
+            OR ("brand" IS NOT NULL AND word_similarity(${q}, "brand") > 0.3)
           )
         ORDER BY GREATEST(
-          similarity("name", ${q}),
-          COALESCE(similarity("brand", ${q}), 0)
+          word_similarity(${q}, "name"),
+          COALESCE(word_similarity(${q}, "brand"), 0)
         ) DESC
         LIMIT ${take}
       `;
