@@ -1,3 +1,12 @@
+import type { Schemas } from "@/types/api";
+
+/**
+ * Sprint 210 — request payload adota baseline Schemas["CreateAlertDto"]
+ * (S209 ADR 0022). Response shape handcrafted (Alert, AlertTrigger,
+ * AlertRule) — baseline sofre `Record<string, never> | null` leak em
+ * campos nullable (ADR 0023). Alvo S211+: backend @ApiProperty fix.
+ */
+
 export type AlertType =
   | "promotion"
   | "target_price"
@@ -27,12 +36,7 @@ export interface Alert {
   triggers: AlertTrigger[];
 }
 
-export interface CreateAlertPayload {
-  productId: string;
-  supermarketId?: string;
-  type: AlertType;
-  targetPrice?: number;
-}
+export type CreateAlertPayload = Schemas["CreateAlertDto"];
 
 // ──────────────────────────────────────────────────────────────
 // Sprint 105 — alert rules compostas

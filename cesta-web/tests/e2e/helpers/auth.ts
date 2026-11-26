@@ -1,7 +1,9 @@
 import { expect, type Page, type Route } from "@playwright/test";
+import type { AuthUser } from "@/features/auth/types/auth.types";
 
 /**
  * Sprint 202 — shared E2E helpers extracted from auth.spec.ts (S201).
+ * Sprint 210 — MockUser alias de AuthUser (feature type, shape canônica).
  *
  * Centraliza fixture pattern (seed auth storage pre-navigation + mock
  * /auth/me + /users/me) pra reuso em favoritos.spec.ts + comparar.spec.ts
@@ -10,16 +12,7 @@ import { expect, type Page, type Route } from "@playwright/test";
  * Route interception strategy — ver README "Playwright E2E" seção Fixtures.
  */
 
-export interface MockUser {
-  id: string;
-  email: string | null;
-  phone: string | null;
-  name: string | null;
-  locale: "es" | "pt-BR";
-  roles: string[];
-  emailVerifiedAt: string | null;
-  createdAt: string;
-}
+export type MockUser = AuthUser;
 
 export const DEFAULT_ACCESS_TOKEN = "e2e-access-token-xyz";
 export const DEFAULT_USER_EMAIL = "e2e@cesta.test";

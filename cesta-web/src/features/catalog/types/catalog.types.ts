@@ -83,25 +83,37 @@ export interface Product {
   cheapestUnitPrice: UnitPrice | null;
 }
 
-export interface ProductFilters {
-  search?: string;
-  category?: string;
-  supermarket?: string;
-  brand?: string;
-  maxPrice?: number;
-  onPromotion?: boolean;
-  isVegan?: boolean;
-  isVegetarian?: boolean;
-  isGlutenFree?: boolean;
-  isLactoseFree?: boolean;
+import type { Operations } from "@/types/api";
+
+/**
+ * Sprint 210 — filtros tipados via baseline query params (S209 ADR 0022).
+ *
+ * Pick<> mantém restrição frontend S151 (rollback campos avançados):
+ * minPrice/supermarkets[]/nutriScore/sortBy=nutriScore são aceitos pelo
+ * backend mas NÃO expostos pela UI — reintroduzir quando shell de filtros
+ * voltar. sortBy mantém subset `cheapest | newest | name` por intersecção.
+ */
+type FindManyQuery = NonNullable<
+  Operations["ProductsController_findMany"]["parameters"]["query"]
+>;
+
+export type ProductFilters = Pick<
+  FindManyQuery,
+  | "search"
+  | "category"
+  | "supermarket"
+  | "brand"
+  | "maxPrice"
+  | "onPromotion"
+  | "isVegan"
+  | "isVegetarian"
+  | "isGlutenFree"
+  | "isLactoseFree"
+  | "page"
+  | "limit"
+> & {
   sortBy?: "cheapest" | "newest" | "name";
-  page?: number;
-  limit?: number;
-  // Sprint 151 rollback: campos avançados (S147) removidos frontend-side.
-  // Backend aceita `minPrice`/`supermarkets[]`/`nutriScore`/sortBy=nutriScore
-  // mas não são consumidos aqui — reintroduzir quando o shell de filtros
-  // for retomado.
-}
+};
 
 export interface Paginated<T> {
   items: T[];

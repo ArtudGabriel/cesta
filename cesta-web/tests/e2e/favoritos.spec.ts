@@ -6,9 +6,11 @@ import {
   mockMeEndpoints,
   seedAuth,
 } from "./helpers/auth";
+import type { Favorite } from "@/features/favorites/types/favorite.types";
 
 /**
  * Sprint 202 — E2E favoritos flows (reuse seedAuth S201 helpers).
+ * Sprint 210 — mock shapes importam feature types (zero paralelo).
  *
  * (a) logged navega /favoritos renderiza grid OU empty state.
  * (b) adicionar favorito via API (simula FavoriteToggle do PDP/grid) → /favoritos
@@ -20,34 +22,7 @@ import {
  *     onMutate remove do cache antes do POST).
  * (d) GDPR mask — favoritos-list tem data-sentry-mask (regra Sprint 59
  *     memory `GDPR / Privacy S59` em CLAUDE.md).
- *
- * Shapes seguem cesta-web/src/features/favorites/types/favorite.types.ts.
  */
-
-interface FavoriteProduct {
-  id: string;
-  name: string;
-  brand: string | null;
-  imageUrl: string | null;
-  isVegan: boolean;
-  isVegetarian: boolean;
-  isGlutenFree: boolean;
-  isLactoseFree: boolean;
-  nutriScore: { score: number; grade: "A" | "B" | "C" | "D" | "E" } | null;
-}
-
-interface Favorite {
-  id: string;
-  productId: string;
-  createdAt: string;
-  product?: FavoriteProduct;
-  cheapestPrice?: {
-    price: number;
-    supermarketSlug: string;
-    supermarketName: string;
-    unitPrice: { value: number; unit: "L" | "kg" | "100g" | "100ml" | "un" } | null;
-  } | null;
-}
 
 function fav(id: string, productId: string, name: string): Favorite {
   return {
