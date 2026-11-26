@@ -1,10 +1,23 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac } from 'node:crypto';
+import { withRetry } from '../utils/retry';
 
 const REVALIDATE_TIMEOUT_MS = 5000;
 const MAX_ATTEMPTS = 3;
 const BASE_DELAY_MS = 1000;
+// Sprint 190: backoff array match comportamento prévio (exp 1s/2s). Total 3
+// attempts = 2 gaps (entre att1→att2 e att2→att3). Último valor reusado se
+// attempts crescerem via options future.
+const BACKOFF_MS = [BASE_DELAY_MS, BASE_DELAY_MS * 2];
+
+/** Erro marcador: 4xx response — não deve retry (sentinel pra isRetryable). */
+class PermanentHttpError extends Error {
+  constructor() {
+    super('permanent');
+    this.name = 'PermanentHttpError';
+  }
+}
 
 /**
  * Invalida cache Next.js (RSC `fetch` tags) após mutations server-side.
@@ -15,6 +28,7 @@ const BASE_DELAY_MS = 1000;
  * Sprint 57: body assinado via HMAC-SHA256 pra detectar tampering em trânsito
  * (replace in place do header `x-revalidate-secret` da Sprint 47/48). Retry
  * 3x exp backoff (1s/2s/4s) em 5xx/timeout; 4xx são permanentes (sem retry).
+ * Sprint 190: retry delegado ao `withRetry` util (DRY com ADR 0013 + outros).
  */
 @Injectable()
 export class RevalidateService {
@@ -48,64 +62,79 @@ export class RevalidateService {
     const count = tags.length;
     const started = Date.now();
 
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      const controller = new AbortController();
-      const timer = setTimeout(
-        () => controller.abort(),
-        REVALIDATE_TIMEOUT_MS,
+    try {
+      await withRetry(
+        async (attempt) => {
+          const controller = new AbortController();
+          const timer = setTimeout(
+            () => controller.abort(),
+            REVALIDATE_TIMEOUT_MS,
+          );
+          try {
+            const res = await fetch(`${webUrl}/api/revalidate`, {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+                'x-revalidate-hmac': hmac,
+              },
+              body,
+              signal: controller.signal,
+            });
+            const elapsed = Date.now() - started;
+            if (res.ok) {
+              this.logger.debug(
+                `Revalidate OK ${count} tags attempt:${attempt} (${elapsed}ms)`,
+              );
+              return;
+            }
+            if (res.status >= 400 && res.status < 500) {
+              // Permanent — auth/body ruim; retry não resolve.
+              this.logger.warn(
+                `Revalidate HTTP ${res.status} ${count} tags permanent (${elapsed}ms)`,
+              );
+              throw new PermanentHttpError();
+            }
+            this.logger.warn(
+              `Revalidate HTTP ${res.status} ${count} tags attempt:${attempt} (${elapsed}ms)`,
+            );
+            throw new Error(`HTTP ${res.status}`);
+          } catch (err: unknown) {
+            if (err instanceof PermanentHttpError) throw err;
+            const elapsed = Date.now() - started;
+            const reason =
+              err instanceof Error && err.name === 'AbortError'
+                ? `timeout ${REVALIDATE_TIMEOUT_MS}ms`
+                : err instanceof Error
+                  ? err.message
+                  : String(err);
+            // Log attempt-level só quando ainda não logado como HTTP response
+            // (caminho fetch rejected — timeout ou network). Erros de HTTP
+            // status já foram logados acima antes do throw.
+            if (!(err instanceof Error && err.message.startsWith('HTTP '))) {
+              this.logger.warn(
+                `Revalidate failed ${count} tags attempt:${attempt} (${elapsed}ms): ${reason}`,
+              );
+            }
+            throw err;
+          } finally {
+            clearTimeout(timer);
+          }
+        },
+        {
+          attempts: MAX_ATTEMPTS,
+          backoffMs: [...BACKOFF_MS],
+          isRetryable: (err) => !(err instanceof PermanentHttpError),
+        },
       );
-      try {
-        const res = await fetch(`${webUrl}/api/revalidate`, {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            'x-revalidate-hmac': hmac,
-          },
-          body,
-          signal: controller.signal,
-        });
-        const elapsed = Date.now() - started;
-        if (res.ok) {
-          this.logger.debug(
-            `Revalidate OK ${count} tags attempt:${attempt} (${elapsed}ms)`,
-          );
-          return;
-        }
-        if (res.status >= 400 && res.status < 500) {
-          // Permanent — auth/body ruim; retry não resolve.
-          this.logger.warn(
-            `Revalidate HTTP ${res.status} ${count} tags permanent (${elapsed}ms)`,
-          );
-          return;
-        }
-        this.logger.warn(
-          `Revalidate HTTP ${res.status} ${count} tags attempt:${attempt} (${elapsed}ms)`,
-        );
-      } catch (err: unknown) {
-        const elapsed = Date.now() - started;
-        const reason =
-          err instanceof Error && err.name === 'AbortError'
-            ? `timeout ${REVALIDATE_TIMEOUT_MS}ms`
-            : err instanceof Error
-              ? err.message
-              : String(err);
-        this.logger.warn(
-          `Revalidate failed ${count} tags attempt:${attempt} (${elapsed}ms): ${reason}`,
-        );
-      } finally {
-        clearTimeout(timer);
+    } catch (err) {
+      if (err instanceof PermanentHttpError) {
+        // Já logamos como "permanent" no fn; não loga exhausted.
+        return;
       }
-
-      if (attempt < MAX_ATTEMPTS) {
-        await new Promise((r) =>
-          setTimeout(r, BASE_DELAY_MS * 2 ** (attempt - 1)),
-        );
-      }
+      const total = Date.now() - started;
+      this.logger.warn(
+        `Revalidate exhausted ${MAX_ATTEMPTS} attempts ${count} tags (${total}ms)`,
+      );
     }
-
-    const total = Date.now() - started;
-    this.logger.warn(
-      `Revalidate exhausted ${MAX_ATTEMPTS} attempts ${count} tags (${total}ms)`,
-    );
   }
 }
