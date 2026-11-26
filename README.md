@@ -230,11 +230,13 @@ cd cesta-web && npm run build && npm run bundle:size
 npm run bundle:size -- --json | jq '.routes[] | select(.violations | length > 0)'
 ```
 
-### Playwright E2E (Sprint 198 + Sprint 201 + Sprint 202)
+### Playwright E2E (Sprint 198 + Sprint 201 + Sprint 202 + Sprint 203)
 
 Infra setup inicial pra E2E — chromium headless + Playwright test runner. CI roda em workflow separado (`.github/workflows/e2e.yml`) via schedule noturno + `workflow_dispatch` manual pra não adicionar ~5min no PR CI principal.
 
-**Shared helpers** (`tests/e2e/helpers/auth.ts`, S202): `seedAuth`, `mockMeEndpoints`, `baseUser`, `envelope`, `fulfillJson` — reusados pelas specs auth/favoritos/comparar.
+**Shared helpers** (`tests/e2e/helpers/auth.ts`, S202+S203): `seedAuth` (auto-dismisses cookie banner), `mockMeEndpoints`, `baseUser`, `envelope`, `fulfillJson`, `dismissCookieBanner` — reusados cross-spec.
+
+**Playwright config** (S202 AJUSTE Boss): `workers: 1` + `fullyParallel: false` — E2E não são hermeticamente isolados (next-server único + mocks state compartilhado). Determinismo > latência pra MVP; sharding por browser context em S20X.
 
 **Smoke** (`tests/e2e/home.spec.ts`, S198): home carrega + search combobox + type `'leche'` + dropdown abre (aria-expanded=true). Assertions mínimas pra não depender de backend (smoke confirma wiring Next + Playwright, não suggestions content).
 
@@ -301,11 +303,38 @@ PLAYWRIGHT_BASE_URL=https://cesta-web.vercel.app npm run e2e
 - Artifacts: `playwright-report` (14d) + `playwright-trace` on-failure (7d).
 - Manual: Actions tab → E2E → Run workflow → pode passar `base_url` pra prod.
 
-**S203+ roadmap:**
+**Gastos flows** (`tests/e2e/gastos.spec.ts`, S203):
+
+| Flow | Cobertura |
+|---|---|
+| (a) empty state + CTA scan | `/gastos` mock GET `/receipts`=[] → "Aún no tienes tickets" + ScanButton visible |
+| (b) upload nota → 202 jobId | `setInputFiles` TINY_JPEG → preview visible → submit → POST /receipts mock 202 `{jobId, receiptId}` → router.push `/gastos/:receiptId` + response status assertion |
+
+**Minha-lista flows** (`tests/e2e/minha-lista.spec.ts`, S203):
+
+| Flow | Cobertura |
+|---|---|
+| (a) empty + CTA criar | "Aún no tienes listas" + "Crear nueva lista" button |
+| (b) criar lista + redirect | Click CTA + input "Lista Semanal" + Crear → POST /shopping-lists mock → URL `/minha-lista/:id` |
+| (c) totals por mercado | Lista com `cheapestTotal: 24.50` renderiza preço + "desde" no card top-level |
+
+**Alertas flows** (`tests/e2e/alertas.spec.ts`, S203):
+
+| Flow | Cobertura |
+|---|---|
+| (a) /alertas empty state | GET /alerts + /alerts/rules mock → heading "Mis alertas" visible |
+| (b) /alertas/novo wizard 3 opts | `rule-wizard-type-picker` + `rule-type-combo/trend/bundle` todos visíveis + click combo → `rule-wizard-form` monta |
+
+**S203 gating conhecido (SSR dependente):**
+- Detail pages (`/gastos/[id]`, `/minha-lista/[id]`, `/produto/[pid]`) usam SSR fetch sem resilience patch (como comparar S202). Backend offline → notFound() OR error boundary. E2E flows cobrem até redirect URL; conteúdo detail post-redirect out of scope.
+- "Add produto" (parte DoD b minha-lista) requer detail page SSR → SKIPPED, follow-up S204+.
+
+**S204+ roadmap:**
+- SSR resilience patch cross-page: aplicar comparar/page.tsx pattern (try/catch + Sentry.captureException) em `gastos/[id]`, `minha-lista/[id]`, `produto/[pid]` server components.
 - Fuzzy suggest com backend live (requer prod restored).
-- PDP `/produto/[pid]` journey (SSR fetch stub via MSW ou mock Next server).
-- /minha-lista add+remove flow.
-- /gastos upload nota → OCR edit flow.
+- /gastos receipt detail OCR edit flow (depois SSR resilience).
+- /minha-lista add produto + compare totals cross-market (depois SSR resilience).
+- /alertas wizard full flow (fill + submit + redirect /alertas).
 - OpenAPI contract check CI (valida mocks vs schema; fecha trade-off S201 route interception).
 - A11y assertions via `@axe-core/playwright` (replace jsdom-based S197 pra paint rules).
 
