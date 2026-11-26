@@ -7,10 +7,14 @@
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
+-- Prisma @@map: model Product → table "products" (snake_case plural).
+-- Colunas sem @map ficam camelCase (name, brand); com @map ficam snake_case
+-- (deleted_at). Raw SQL + migration precisam ref table/colunas reais.
+
 -- Índice GIN em name (coluna principal de busca)
 CREATE INDEX IF NOT EXISTS "idx_product_name_trgm"
-  ON "Product" USING GIN ("name" gin_trgm_ops);
+  ON "products" USING GIN ("name" gin_trgm_ops);
 
 -- Índice GIN em brand (secundário, menor volume)
 CREATE INDEX IF NOT EXISTS "idx_product_brand_trgm"
-  ON "Product" USING GIN ("brand" gin_trgm_ops);
+  ON "products" USING GIN ("brand" gin_trgm_ops);

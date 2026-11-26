@@ -211,10 +211,12 @@ export class ProductsRepository {
     // GIN index idx_product_name_trgm + idx_product_brand_trgm aceleram operador %.
     // Threshold 0.3 Postgres default; tolera ~1-2 typos em palavra 5-6 chars.
     if (rows.length === 0 && q.trim().length >= 3) {
+      // Prisma @@map: Product → "products"; @map("deleted_at") → "deleted_at"
+      // (name/brand sem @map ficam camelCase default).
       const trgmIds = await this.prisma.$queryRaw<Array<{ id: string }>>`
         SELECT "id"
-        FROM "Product"
-        WHERE "deletedAt" IS NULL
+        FROM "products"
+        WHERE "deleted_at" IS NULL
           AND (
             similarity("name", ${q}) > 0.3
             OR ("brand" IS NOT NULL AND similarity("brand", ${q}) > 0.3)
