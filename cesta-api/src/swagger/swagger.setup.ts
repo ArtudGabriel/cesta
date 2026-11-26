@@ -1,5 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { Logger } from '@nestjs/common';
+import type { OpenAPIObject } from '@nestjs/swagger';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 /**
@@ -30,14 +31,14 @@ export function isSwaggerEnabled(env: NodeJS.ProcessEnv): boolean {
   return env.NODE_ENV !== 'production';
 }
 
-export function setupSwagger(
-  app: INestApplication,
-  env: NodeJS.ProcessEnv = process.env,
-): boolean {
-  if (!isSwaggerEnabled(env)) {
-    return false;
-  }
-  const document = SwaggerModule.createDocument(
+/**
+ * Sprint 209 — extraído de setupSwagger pra permitir dump offline do spec
+ * (scripts/dump-openapi.ts consume isso pra client types generation CI gate,
+ * ADR 0022). A config vive em uma única fonte — tags + description + servers
+ * compartilhados entre /api/docs mount e openapi.json export.
+ */
+export function buildSwaggerDocument(app: INestApplication): OpenAPIObject {
+  return SwaggerModule.createDocument(
     app,
     new DocumentBuilder()
       .setTitle('Cesta API')
@@ -75,6 +76,16 @@ export function setupSwagger(
       .addTag('Notifications', 'Push subscriptions (VAPID key fetch)')
       .build(),
   );
+}
+
+export function setupSwagger(
+  app: INestApplication,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  if (!isSwaggerEnabled(env)) {
+    return false;
+  }
+  const document = buildSwaggerDocument(app);
   SwaggerModule.setup(DOCS_PATH, app, document, {
     swaggerOptions: {
       persistAuthorization: true,

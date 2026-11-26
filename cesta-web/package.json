@@ -21,7 +21,9 @@
     "e2e:ui": "playwright test --ui",
     "e2e:install": "playwright install --with-deps chromium",
     "e2e:report": "playwright show-report",
-    "bundle:size": "node scripts/bundle-size.mjs"
+    "bundle:size": "node scripts/bundle-size.mjs",
+    "types:api": "node scripts/generate-api-types.mjs",
+    "types:api:check": "node scripts/generate-api-types.mjs --check"
   },
   "dependencies": {
     "@hookform/resolvers": "^7.0.5",
@@ -68,6 +70,7 @@
     "eslint-config-next": "16.4.6",
     "jsdom": "^29.1.1",
     "msw": "^3.0.5",
+    "openapi-typescript": "^7.9.1",
     "tailwindcss": "4.3.3",
     "typescript": "^5",
     "vite": "^8.3.8",

@@ -86,6 +86,17 @@ jobs:
           path: cesta-api/coverage/
           retention-days: 7
       - run: npm run build
+      # Sprint 209 (ADR 0022): openapi-typescript CI gate. Dumpa spec canônico
+      # via scripts/dump-openapi.ts, instala openapi-typescript em cesta-web
+      # on-demand (sem npm ci full), e roda types:api:check — falha PR se
+      # cesta-web/src/types/generated/api.baseline.d.ts divergiu do spec live.
+      - name: Dump OpenAPI spec (ADR 0022)
+        run: npm run --silent openapi:dump -- /tmp/openapi.json
+      - name: types:api:check (openapi-typescript drift gate)
+        working-directory: cesta-web
+        run: |
+          npm install --no-save --no-audit --no-fund openapi-typescript@^7.9.1
+          node scripts/generate-api-types.mjs --check --from /tmp/openapi.json
       - name: Upload coverage to Codecov (api)
         if: always()
         uses: codecov/codecov-action@v4

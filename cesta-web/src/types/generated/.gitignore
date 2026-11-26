@@ -1,0 +1,5 @@
+# Sprint 209 — openapi-typescript CI gate (ADR 0022).
+# Apenas o baseline file é committed; artefatos regen/scratch ficam ignorados.
+*
+!.gitignore
+!api.baseline.d.ts
