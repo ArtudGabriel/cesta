@@ -160,6 +160,50 @@ cd cesta-web && npm run test:coverage:gate
 
 Download CI report: GH Actions run → Artifacts → `coverage-report` / `coverage-api`.
 
+### Dependency security audit (Sprint 79 + Sprint 195 sweep)
+
+CI gate ativo em prod deps (`npm audit --omit=dev --audit-level=high`) nos dois jobs API + Web. Advisory allowlist pra `picomatch` ReDoS (GHSA-fc5q-39xc-vjpf) build-time only (filter inline no workflow Web).
+
+**Schedule periódico** (sweep completo):
+- Toda `main` merge dispara CI audit (automático — bloqueia PR se HIGH+).
+- **Sprint sweep manual: a cada 4-6 sprints OR sempre que Dependabot alertar.**
+- Ad-hoc: antes de prod deploy major ou quando CVSS >= 7.0 reportada.
+
+**Sweep procedure** (manual, template:):
+
+```bash
+# 1. Audit por projeto (todos levels):
+cd cesta-api && npm audit --json > /tmp/audit-api.json
+cd cesta-web && npm audit --json > /tmp/audit-web.json
+cd ops && npm audit --json > /tmp/audit-ops.json
+
+# 2. Capture HIGH+ / moderate counts no PR body:
+node -e "const j=require('/tmp/audit-api.json');console.log(j.metadata.vulnerabilities)"
+
+# 3. npm audit fix (semver-safe only):
+cd cesta-api && npm audit fix
+cd cesta-web && npm audit fix
+
+# 4. Verify lock diff sensato — rejeitar se bump unexpected em dep direta
+#    sem justify (ex: patch em transitive OK; major em dep direta deferred).
+git diff --stat cesta-api/package-lock.json cesta-web/package-lock.json
+
+# 5. Re-run audit pra confirmar count baixou:
+cd cesta-api && npm audit --json | node -e "..."
+
+# 6. Majors restantes NÃO auto-fix. Abrir GH issue "Defer <pkg> major
+#    bump (S<NN>)" com CHANGELOG link + impact assessment.
+
+# 7. Regression gate obrigatório:
+cd cesta-api && npm run test:coverage:gate
+cd cesta-web && npm run test:coverage:gate
+```
+
+**Policy**:
+- `npm audit fix --force` **PROIBIDO** sem Dev review. Major bumps são sempre manual review + GH issue tracking.
+- Moderate devDeps aceitos defer temporário até sprint sweep próximo (CI filter `--audit-level=high` cobre prod).
+- HIGH/CRITICAL em `--omit=dev` é blocker — sprint hotfix imediato.
+
 ---
 
 ## Deploy
