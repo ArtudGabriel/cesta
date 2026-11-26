@@ -1,19 +1,11 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job, Queue } from 'bullmq';
-// Sprint 177 hotfix: sharp é CJS puro (module.exports = sharpFn). cesta-api
-// tsconfig sem esModuleInterop → `import sharp from 'sharp'` compila pra
-// `sharp_1.default` que é undefined em runtime, crashando com
-// `(0, sharp_1.default) is not a function` ao chamar sharp(imagePath).
-// Pattern memory feedback-ts-cjs-default-import — require() + unwrap default
-// se existir (safety) resolve CJS puro. Cast final pra Sharp factory type
-// pq typeof import('sharp') resolve namespace (não callable).
-import type { Sharp } from 'sharp';
-type SharpFactory = (input?: Buffer | string) => Sharp;
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const sharpPkg = require('sharp') as unknown;
-const sharp = ((sharpPkg as { default?: unknown }).default ??
-  sharpPkg) as SharpFactory;
+// Sprint 178 — tsconfig esModuleInterop:true (root fix) tornou S177 require
+// unwrap desnecessário. TS agora emite __importDefault helper que faz
+// `mod.__esModule ? mod : { default: mod }` em runtime — CJS puro (sharp)
+// e ESM libs ambos funcionam via default import canônico. ADR 0011.
+import sharp from 'sharp';
 import { createWorker } from 'tesseract.js';
 import { PrismaService } from '../../database/prisma.service';
 import { fuzzyMatchProduct } from './fuzzy-match';

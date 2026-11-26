@@ -1,4 +1,4 @@
-import * as JSZip from 'jszip';
+import JSZip from 'jszip';
 
 // CSV parser inline. Formato é o produzido por users-export.util.ts
 // (RFC 4180-ish: UTF-8 BOM, CRLF separator, double-quote escape).
