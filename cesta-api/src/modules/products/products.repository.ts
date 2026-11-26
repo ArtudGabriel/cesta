@@ -222,6 +222,19 @@ export class ProductsRepository {
       // substring do text, ignora resto. GIN gin_trgm_ops acelera ambos.
       // Prisma @@map: Product → "products"; @map("deleted_at") → "deleted_at"
       // (name/brand sem @map ficam camelCase default).
+      // Sprint 182 rerank boost: word_similarity ranqueia por word-match density;
+      // produto longo com target em contexto ganha vs produto curto standalone.
+      // Ex S181 nit P3: q='lecge' → 'Surtido bombones chocolate con leche Navidad'
+      // antes de 'Leche entera brik 1L'. User espera direct match top.
+      //
+      // Boost rules:
+      //  a) +0.3 quando LOWER("name") começa com LOWER(q) (prefix exact; cobre
+      //     baseline "leche"→"Leche entera" sem typo).
+      //  b) +0.3 quando primeira palavra do name fuzzy-match query via
+      //     word_similarity(q, SPLIT_PART("name",' ',1)) > 0.5 (cobre typo
+      //     cases como "lecge"→name="Leche entera brik 1L" first_word="Leche"
+      //     word_sim=0.5+).
+      // Boost cumulativo ambos triggers; threshold WHERE 0.3 raw preservado.
       const trgmIds = await this.prisma.$queryRaw<Array<{ id: string }>>`
         SELECT "id"
         FROM "products"
@@ -230,9 +243,22 @@ export class ProductsRepository {
             word_similarity(${q}, "name") > 0.3
             OR ("brand" IS NOT NULL AND word_similarity(${q}, "brand") > 0.3)
           )
-        ORDER BY GREATEST(
-          word_similarity(${q}, "name"),
-          COALESCE(word_similarity(${q}, "brand"), 0)
+        ORDER BY (
+          GREATEST(
+            word_similarity(${q}, "name"),
+            COALESCE(word_similarity(${q}, "brand"), 0)
+          )
+          + CASE
+              WHEN LOWER("name") LIKE LOWER(${q}) || '%'
+                OR LOWER("name") ~ ('(^|\s)' || LOWER(${q}))
+              THEN 0.3
+              ELSE 0
+            END
+          + CASE
+              WHEN word_similarity(${q}, SPLIT_PART("name", ' ', 1)) >= 0.5
+              THEN 0.3
+              ELSE 0
+            END
         ) DESC
         LIMIT ${take}
       `;
