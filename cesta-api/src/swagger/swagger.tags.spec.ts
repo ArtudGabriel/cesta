@@ -3,6 +3,10 @@ import 'reflect-metadata';
 // Sprint 206 — ReceiptsController transitively importa @nestjs/bullmq (ESM).
 // Sprint 207 — CatalogSyncController importa processor → service → alerts
 // processor → notifications.service → web-push (ESM). Mock da cadeia.
+// Sprint 208 — NotificationsController reexpõe web-push (mock mantido);
+// ImportsController depende multer disk storage (lazy, safe). Admin + 2FA
+// puxam users.service / audit.service — Prisma init só roda em Module boot,
+// ler metadata do controller não toca DB.
 jest.mock('@nestjs/bullmq', () => ({
   InjectQueue: () => () => undefined,
   Processor: () => () => undefined,
@@ -19,20 +23,24 @@ jest.mock('web-push', () => ({
 // Hardcoded pra evitar deep import que vira ambíguo quando subpath exports
 // filtram /dist/* nas versões novas do pacote.
 const API_TAGS_METADATA = 'swagger/apiUseTags';
+import { AdminController } from '../modules/admin/admin.controller';
 import { AlertsController } from '../modules/alerts/alerts.controller';
+import { TwoFactorController } from '../modules/auth/two-factor/two-factor.controller';
 import { CatalogSyncController } from '../modules/catalog-sync/catalog-sync.controller';
 import { ExpensesController } from '../modules/expenses/expenses.controller';
 import { FamilyBasketsController } from '../modules/family-baskets/family-baskets.controller';
 import { FamilyProfilesController } from '../modules/family-profiles/family-profiles.controller';
 import { FavoritesController } from '../modules/favorites/favorites.controller';
+import { ImportsController } from '../modules/imports/imports.controller';
+import { NotificationsController } from '../modules/notifications/notifications.controller';
 import { ReceiptsController } from '../modules/receipts/receipts.controller';
 import { ReviewsController } from '../modules/reviews/reviews.controller';
 import { ShoppingListsController } from '../modules/shopping-lists/shopping-lists.controller';
 
 /**
- * Sprint 207 — expand swagger.tags valida 3 controllers novos
- * (family-profiles/family-baskets/catalog-sync) via metadata reflection.
- * ADR 0021 tracking: 10 → 13 controllers covered.
+ * Sprint 208 — expand swagger.tags valida 4 controllers finais
+ * (notifications/imports/admin/two-factor) via metadata reflection.
+ * ADR 0021 Closed: 13 → 17 controllers covered.
  */
 
 function getTags(ctor: Function): string[] | undefined {
@@ -78,5 +86,23 @@ describe('Swagger @ApiTags coverage (S207 rollout)', () => {
 
   it('CatalogSyncController declara tag "Catalog Sync"', () => {
     expect(getTags(CatalogSyncController)).toContain('Catalog Sync');
+  });
+});
+
+describe('Swagger @ApiTags coverage (S208 finisher — ADR 0021 Closed 17/17)', () => {
+  it('ImportsController declara tag "User CSV Import"', () => {
+    expect(getTags(ImportsController)).toContain('User CSV Import');
+  });
+
+  it('AdminController declara tag "Admin"', () => {
+    expect(getTags(AdminController)).toContain('Admin');
+  });
+
+  it('TwoFactorController declara tag "Auth 2FA"', () => {
+    expect(getTags(TwoFactorController)).toContain('Auth 2FA');
+  });
+
+  it('NotificationsController declara tag "Notifications"', () => {
+    expect(getTags(NotificationsController)).toContain('Notifications');
   });
 });

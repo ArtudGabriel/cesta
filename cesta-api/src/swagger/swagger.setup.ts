@@ -15,10 +15,10 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
  *   - SWAGGER_ENABLED não setado + NODE_ENV=production → NÃO monta (404).
  *   - SWAGGER_ENABLED não setado + NODE_ENV!=production → monta (default dev).
  *
- * ADR 0021 documenta scope decorator coverage (priority: auth, products,
- * supermarkets, health) + defer S205+ (alerts, favorites, receipts,
- * shopping-lists, family-baskets, catalog-sync, imports, reviews, admin,
- * notifications, expenses, two-factor, family-profiles).
+ * ADR 0021 Closed (S208) — 17/17 controllers decorated: auth, products,
+ * supermarkets, health (S204); reviews, favorites, shopping-lists (S205);
+ * alerts, receipts, expenses (S206); family-profiles, family-baskets,
+ * catalog-sync (S207); imports, admin, two-factor, notifications (S208).
  */
 
 const DOCS_PATH = 'api/docs';
@@ -69,6 +69,10 @@ export function setupSwagger(
       .addTag('Family Profiles', 'Perfil familiar + questionário dietético (PT/ES)')
       .addTag('Family Baskets', 'Cesta familiar gerada (async worker) + edição de items')
       .addTag('Catalog Sync', 'Admin — trigger + histórico de sync de adapters de supermercado')
+      .addTag('User CSV Import', 'Import GDPR Art. 20 (ZIP → dry-run + apply)')
+      .addTag('Admin', 'Metrics snapshot + soft-deleted users + audit logs')
+      .addTag('Auth 2FA', 'Enroll/verify TOTP + login challenge/recovery + disable')
+      .addTag('Notifications', 'Push subscriptions (VAPID key fetch)')
       .build(),
   );
   SwaggerModule.setup(DOCS_PATH, app, document, {

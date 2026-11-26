@@ -11,11 +11,20 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  ApiAcceptedResponse,
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
+  ApiConflictResponse,
   ApiConsumes,
+  ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
+  ApiParam,
+  ApiPayloadTooLargeResponse,
   ApiTags,
+  ApiTooManyRequestsResponse,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { diskStorage } from 'multer';
@@ -23,6 +32,7 @@ import { randomBytes } from 'crypto';
 import { AppException } from '../../common/exceptions/app-exception';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { CreateImportDto } from './dtos/create-import.dto';
+import { ImportResponseDto } from './dtos/import-response.dto';
 import { ImportsService } from './imports.service';
 
 const MAX_ZIP_MB = 5;
@@ -40,6 +50,9 @@ const storage = diskStorage({
   },
 });
 
+/**
+ * Sprint 208 — @ApiResponse coverage expand imports (ADR 0021 13→17).
+ */
 @ApiTags('User CSV Import')
 @ApiBearerAuth()
 @Controller('users/me/import')
@@ -64,6 +77,14 @@ export class ImportsController {
       },
     },
   })
+  @ApiAcceptedResponse({
+    type: ImportResponseDto,
+    description: 'Job enfileirado (dryRun default true). Status via GET /users/me/import/:jobId.',
+  })
+  @ApiBadRequestResponse({ description: 'Campo "file" ausente ou MIME inválido' })
+  @ApiUnauthorizedResponse({ description: 'JWT inválido ou ausente' })
+  @ApiPayloadTooLargeResponse({ description: `ZIP acima de ${MAX_ZIP_MB}MB` })
+  @ApiTooManyRequestsResponse({ description: 'Rate limit 1/hora por user' })
   @UseInterceptors(
     FileInterceptor('file', {
       storage,
@@ -92,6 +113,10 @@ export class ImportsController {
 
   @Get(':jobId')
   @ApiOperation({ summary: 'Status + summary do import' })
+  @ApiParam({ name: 'jobId', description: 'ID retornado no POST /users/me/import' })
+  @ApiOkResponse({ type: ImportResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT inválido ou ausente' })
+  @ApiNotFoundResponse({ description: 'Job não encontrado ou de outro user' })
   getStatus(
     @CurrentUser('id') userId: string,
     @Param('jobId') jobId: string,
@@ -106,6 +131,14 @@ export class ImportsController {
     summary:
       'Confirma dry-run → enfileira worker em modo apply. 409 se status != ready_to_apply.',
   })
+  @ApiParam({ name: 'jobId', description: 'ID do import em ready_to_apply' })
+  @ApiAcceptedResponse({
+    type: ImportResponseDto,
+    description: 'Job re-enfileirado em modo apply (persiste no banco).',
+  })
+  @ApiUnauthorizedResponse({ description: 'JWT inválido ou ausente' })
+  @ApiNotFoundResponse({ description: 'Job não encontrado ou de outro user' })
+  @ApiConflictResponse({ description: 'Status atual não permite apply (ex: ainda parsing ou já complete)' })
   apply(
     @CurrentUser('id') userId: string,
     @Param('jobId') jobId: string,

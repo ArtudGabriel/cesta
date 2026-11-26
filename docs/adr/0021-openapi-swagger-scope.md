@@ -1,7 +1,7 @@
 # ADR 0021 — OpenAPI/Swagger autogen scope (S204) + defer rollout
 
-- **Date:** 2026-11-26 (S204) · updated 2026-11-26 (S205, S206, S207)
-- **Status:** Accepted (S204) · rollout progress tracked here (S205+)
+- **Date:** 2026-11-26 (S204) · updated 2026-11-26 (S205, S206, S207, S208)
+- **Status:** **Closed (S208) — 17/17 controllers decorated**
 
 ## Progress tracker
 
@@ -10,8 +10,8 @@
 | S204 | `auth`, `products`, `supermarkets`, `health` (pre-existente + revisado) | 4 / 17 |
 | S205 | `reviews`, `favorites`, `shopping-lists` (@ApiResponse + response DTOs linked) | 7 / 17 |
 | S206 | `alerts`, `receipts`, `expenses` (@ApiResponse + response DTOs linked; expenses DTOs novos) | 10 / 17 |
-| S207 | `family-profiles`, `family-baskets`, `catalog-sync` (@ApiResponse + response DTOs linked; catalog-sync DTOs novos) | **13 / 17** |
-| S208 | `imports`, `admin`, `two-factor`, `notifications` | 17 / 17 |
+| S207 | `family-profiles`, `family-baskets`, `catalog-sync` (@ApiResponse + response DTOs linked; catalog-sync DTOs novos) | 13 / 17 |
+| S208 | `imports`, `admin`, `two-factor`, `notifications` (@ApiResponse + DTOs; admin + 2FA + notifications DTOs novos; 2FA interface→class p/ @ApiExtraModels) | **17 / 17 ✅ ADR Closed** |
 - **Related:** `cesta-api/src/swagger/swagger.setup.ts`, `src/main.ts`, S201+ (E2E route interception mocks drift risk).
 
 ## Context
@@ -63,10 +63,10 @@ Controllers abaixo mantêm wiring parcial pré-S204 (@ApiTags/@ApiOperation em a
 | `family-profiles` | S207 | ✅ DONE | Wizard upstream (S207) — @ApiResponse + FamilyProfileResponseDto/DietaryQuestionDto linked |
 | `family-baskets` | S207 | ✅ DONE | Wizard + regenerate flow (S207) — @ApiAcceptedResponse 202 + FamilyBasketResponseDto linked; item ops retornam cesta inteira |
 | `catalog-sync` | S207 | ✅ DONE | Admin-only (S207) — @ApiAcceptedResponse 202 + CatalogSync*Dto novos; @ApiForbiddenResponse pro role gate |
-| `imports` | S208 | CSV import GDPR Art. 20 — surface baixa frequência |
-| `admin` | S208 | Admin-only metrics |
-| `two-factor` | S208 | Auth sub-surface |
-| `notifications` | S208 | Push subscriptions — surface pequena |
+| `imports` | S208 | ✅ DONE | CSV import GDPR Art. 20 (S208) — @ApiAcceptedResponse 202 + ImportResponseDto linked; multipart + 413/429 cobertos |
+| `admin` | S208 | ✅ DONE | Admin-only metrics (S208) — AdminMetricsResponseDto + SoftDeletedUsersListDto + CancelDeleteResponseDto + AuditLogsListDto |
+| `two-factor` | S208 | ✅ DONE | Auth sub-surface (S208) — interface→class em responses.dto (EnrollResponseDto/VerifyResponseDto/DisableResponseDto/TwoFactorChallengeResponseDto) + TwoFactorAuthWireResponseDto novo |
+| `notifications` | S208 | ✅ DONE | Push subscriptions (S208) — VapidPublicKeyResponseDto |
 
 **Policy:** cada sprint S205+ pode cobrir 1-2 controllers com @ApiTags + @ApiOperation + @ApiResponse (success + error shapes) + exemplos. Não bloqueia feature sprints — opcional add-on per PR.
 
@@ -106,6 +106,6 @@ Controllers abaixo mantêm wiring parcial pré-S204 (@ApiTags/@ApiOperation em a
 - ~~**S205**: alerts + favorites decoration sweep.~~ → **ENTREGUE S205** (reviews + favorites + shopping-lists; alerts moved to S206).
 - ~~**S206**: alerts + receipts (multipart FormData body + jobId examples).~~ → **ENTREGUE S206** (alerts + receipts + expenses; expenses realocado de S207 pra manter progresso 7→10).
 - ~~**S207**: catalog-sync + family-baskets.~~ → **ENTREGUE S207** (family-profiles + family-baskets + catalog-sync; family-profiles realocado de S208 pra fechar 10→13).
-- **S208**: imports + admin + two-factor + notifications (finisher).
-- **S20X (parallel)**: `openapi-typescript` CI gate contra `/api/docs-json` — gera types TS + valida mocks E2E vs schema real (fecha trade-off S201).
+- ~~**S208**: imports + admin + two-factor + notifications (finisher).~~ → **ENTREGUE S208** (ADR 0021 Closed; 4 controllers decorados, 17/17 cobertos).
+- **S20X (parallel)**: `openapi-typescript` CI gate contra `/api/docs-json` — gera types TS + valida mocks E2E vs schema real (fecha trade-off S201). *Agora destravado — spec cobre surface inteira.*
 - **Prod unblock (post-Render billing resolve)**: setar `SWAGGER_ENABLED=true` em Render env se time quiser docs públicas, OR manter disabled + usar `/api/docs-json` download local via staging.
