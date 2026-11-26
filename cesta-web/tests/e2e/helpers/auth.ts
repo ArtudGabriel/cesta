@@ -4,10 +4,9 @@ import type { AuthUser } from "@/features/auth/types/auth.types";
 /**
  * Sprint 202 — shared E2E helpers extracted from auth.spec.ts (S201).
  * Sprint 210 — MockUser alias de AuthUser (feature type, shape canônica).
- *
- * Centraliza fixture pattern (seed auth storage pre-navigation + mock
- * /auth/me + /users/me) pra reuso em favoritos.spec.ts + comparar.spec.ts
- * + futuras suites.
+ * Sprint 212 — AuthUser agora = Schemas["UserResponseDto"]. baseUser preenche
+ * campos adicionais (preferences/consent/2FA) com defaults sensatos pra
+ * manter signature estável e refletir shape canônica do backend.
  *
  * Route interception strategy — ver README "Playwright E2E" seção Fixtures.
  */
@@ -25,7 +24,17 @@ export function baseUser(overrides: Partial<MockUser> = {}): MockUser {
     name: "E2E Tester",
     locale: "es",
     roles: ["USER"],
+    prefersVegan: false,
+    prefersVegetarian: false,
+    prefersGlutenFree: false,
+    prefersLactoseFree: false,
+    sortUnitPreference: "absolute",
+    nutriSortEnabled: false,
+    nutriHealthyOnly: false,
+    cookieConsentLevel: "essential",
+    cookiesAcceptedAt: "2026-01-01T00:00:00.000Z",
     emailVerifiedAt: "2026-11-26T00:00:00.000Z",
+    twoFactorEnabled: false,
     createdAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type { Schemas } from "@/types/api";
 import {
   DEFAULT_ACCESS_TOKEN as ACCESS_TOKEN,
   DEFAULT_USER_EMAIL as EMAIL,
@@ -34,17 +35,16 @@ test.describe("Auth flows (route interception)", () => {
 
     await page.route("**/auth/register", async (route) => {
       expect(route.request().method()).toBe("POST");
-      const payload = (await route.request().postDataJSON()) as Record<
-        string,
-        unknown
-      >;
+      const payload =
+        (await route.request().postDataJSON()) as Schemas["RegisterDto"];
       // Payload só carrega email OU phone (mutuamente exclusivos) — não
       // ambos, mesmo que ambos campos estejam no form (methodEmail hidden
       // zera phone e vice-versa).
-      expect(payload).toMatchObject({
+      const expected: Partial<Schemas["RegisterDto"]> = {
         email: EMAIL,
         password: PASSWORD,
-      });
+      };
+      expect(payload).toMatchObject(expected);
       expect(payload.phone).toBeUndefined();
       await fulfillJson(
         route,
@@ -153,11 +153,13 @@ test.describe("Auth flows (route interception)", () => {
 
     await page.route("**/auth/login", async (route) => {
       expect(route.request().method()).toBe("POST");
-      const payload = (await route.request().postDataJSON()) as Record<
-        string,
-        unknown
-      >;
-      expect(payload).toMatchObject({ email: EMAIL, password: PASSWORD });
+      const payload =
+        (await route.request().postDataJSON()) as Schemas["LoginDto"];
+      const expected: Partial<Schemas["LoginDto"]> = {
+        email: EMAIL,
+        password: PASSWORD,
+      };
+      expect(payload).toMatchObject(expected);
       await fulfillJson(
         route,
         200,

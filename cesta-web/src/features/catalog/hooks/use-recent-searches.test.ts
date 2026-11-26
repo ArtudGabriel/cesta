@@ -4,7 +4,7 @@ import { HttpResponse, http } from "msw";
 import { server } from "@/mocks/server";
 import { useAuthStore } from "@/stores/auth.store";
 import { setAccessToken } from "@/lib/api";
-import { renderHookWithProviders } from "@/test-utils";
+import { renderHookWithProviders, mockAuthUser } from "@/test-utils";
 import { useRecentSearches } from "./use-recent-searches";
 
 const API = "http://localhost:3001/api/v1";
@@ -12,17 +12,7 @@ const API = "http://localhost:3001/api/v1";
 function signInMock() {
   setAccessToken("mock-access-token");
   useAuthStore.setState({
-    user: {
-      id: "u1",
-      email: "test@cesta.app",
-      phone: null,
-      name: "Test",
-      locale: "es",
-      roles: ["user"],
-      emailVerifiedAt: null,
-      createdAt: "2026-01-01T00:00:00.000Z",
-    },
-
+    user: mockAuthUser(),
     isHydrated: true,
   });
 }

@@ -1,33 +1,25 @@
 import type { Schemas } from "@/types/api";
 
 /**
- * Sprint 210 — request payloads adotam baseline DTOs (S209 ADR 0022).
- * Response types (AuthResponse/AuthUser/LoginResponse/2FA*Response)
- * permanecem handcrafted — baseline não anota esses endpoints com
- * @ApiResponse completo + sofre `Record<string, never> | null` leakage
- * em campos nullable (ADR 0023). Alvo S211+: backend @ApiResponse fix.
+ * Sprint 212 — response types adotam baseline DTOs (S211 ADR 0024 saneou
+ * `@ApiProperty({ nullable: true })` sem `type:` → zero leak em schemas
+ * `Record<string, never>`). S212 fecha ciclo openapi-typescript S204-S212.
+ *
+ * Request payloads continuam Schemas (S210 ADR 0023). Response types abaixo
+ * são aliases diretos em cima de `components["schemas"]` — zero paralelo.
+ *
+ * G3 (DoD S212): preservações locais:
+ *   - `TwoFactorChallengeResponse` — baseline NÃO expõe DTO para resposta
+ *     202/401 de login com 2FA (payload polimórfico `{ status, partialToken }`
+ *     versus `TwoFactorAuthWireResponseDto` normal). Mantido handcrafted.
+ *   - `isTwoFactorChallenge` — type-guard business-logic.
  */
 
-export interface AuthUser {
-  id: string;
-  email: string | null;
-  phone: string | null;
-  name: string | null;
-  locale: "es" | "pt-BR";
-  roles: string[];
-  emailVerifiedAt: string | null;
-  createdAt: string;
-}
+export type AuthUser = Schemas["UserResponseDto"];
 
-export interface AuthTokens {
-  accessToken: string;
-  expiresIn: number;
-}
+export type AuthTokens = Schemas["TwoFactorAccessTokenDto"];
 
-export interface AuthResponse {
-  user: AuthUser;
-  tokens: AuthTokens;
-}
+export type AuthResponse = Schemas["TwoFactorAuthWireResponseDto"];
 
 export type RegisterPayload = Schemas["RegisterDto"];
 
@@ -40,6 +32,7 @@ export interface SoftDeletedMeta {
   graceEndsAt: string;
 }
 
+/** Baseline não cobre resposta 2FA-required (polimórfica). Keep local. */
 export interface TwoFactorChallengeResponse {
   status: "2FA_REQUIRED";
   partialToken: string;
@@ -56,17 +49,8 @@ export function isTwoFactorChallenge(
   );
 }
 
-export interface TwoFactorEnrollResponse {
-  secret: string;
-  qrCodeDataUri: string;
-  otpauthUrl: string;
-}
+export type TwoFactorEnrollResponse = Schemas["EnrollResponseDto"];
 
-export interface TwoFactorVerifyResponse {
-  enabled: true;
-  backupCodes: string[];
-}
+export type TwoFactorVerifyResponse = Schemas["VerifyResponseDto"];
 
-export interface TwoFactorDisableResponse {
-  enabled: false;
-}
+export type TwoFactorDisableResponse = Schemas["DisableResponseDto"];

@@ -50,7 +50,7 @@ HTTP listen). Script força defaults seguros de env (`DATABASE_URL`, `R2_*`,
 `TWO_FACTOR_ENC_KEY`, `JWT_*_SECRET_CURRENT`) via `CESTA_OPENAPI_DUMP=1` sem
 precisar de `.env` local nem DB rodando.
 
-## Types adoption policy (ADR 0023)
+## Types adoption policy (ADR 0022 + 0023 + 0024)
 
 Consumers (services, hooks, E2E mocks) consomem types gerados via barrel
 `src/types/api.ts`:
@@ -59,24 +59,62 @@ Consumers (services, hooks, E2E mocks) consomem types gerados via barrel
 import type { Schemas, Operations } from "@/types/api";
 
 type CreateAlertPayload = Schemas["CreateAlertDto"];
+type AlertResponse = Schemas["AlertResponseDto"];
 type ProductQuery = Operations["ProductsController_findMany"]["parameters"]["query"];
 ```
 
-Política por categoria de payload:
+### Política por categoria de payload
 
-| Categoria | Política |
+| Categoria | Política atual |
 |---|---|
-| Request body (POST/PATCH/PUT) | **Adotar** `Schemas["XxxDto"]` |
-| Query params | **Adotar** `Operations["XxxController_*"]["parameters"]["query"]` |
-| Response com nullable fields | **Handcrafted FROZEN** até backend fixar `@ApiProperty({ type, nullable })` (ver ADR 0023) |
-| Response sem nullable fields | **Adotar** `Schemas["XxxResponseDto"]` |
+| Request body (POST/PATCH/PUT) | **Adotar** `Schemas["XxxDto"]` (S210 ADR 0023) |
+| Query params | **Adotar** `Operations["XxxController_*"]["parameters"]["query"]` (S210) |
+| Response DTO coberto pelo baseline | **Adotar** `Schemas["XxxResponseDto"]` (S212, pós-S211 ADR 0024) |
+| Response com leak (`Record<string, never>`, enum perdido, polimórfico) | **Handcrafted business-logic** com justificativa no comentário do `*.types.ts` |
 
-**Replace in place** — zero types `_v2`, zero fallback paralelo. Handcrafted
-response types ficam em `features/*/types/*.types.ts` até backend fix no S211+.
+Após S211 (ADR 0024) o backend passou a anotar `@ApiProperty({ type: X, nullable: true })`
+canonicamente — baseline response schemas são usáveis em substitutos de types
+handcrafted. S212 migrou response types em `auth/catalog/products/shopping-lists/
+alerts` + hooks + E2E assertions (fecha o ciclo openapi-typescript S204-S212).
 
-E2E mocks referenciam feature types diretamente (ex: `import type { Favorite }
-from "@/features/favorites/types/favorite.types"`) — proibido duplicar shape
-inline em `tests/e2e/*.spec.ts`.
+### Replace in place (non-negotiable)
+
+- Zero types `_v2`, zero fallback paralelo, zero `as any`, zero `as unknown`.
+- Handcrafted response types permanecem **só** quando o baseline sofre leak
+  real (campo polimórfico sem `oneOf`, enum perdido no `@ApiProperty`) — cada
+  preservação documentada no header do `*.types.ts` com motivo específico.
+- Alvo de follow-up: `AlertResponseDto.type` (enum perdido), `AlertRuleResponseDto.rules`
+  (polimórfico sem `oneOf`), `ListTotalsDto.bySupermarket` (leak).
+
+### Auditoria de consumers
+
+`scripts/audit-response-usage.mjs` rastreia consumers de response types no
+frontend (fetch/axios envelope, hook generic, service return type, E2E
+`toMatchObject`) e sugere qual schema baseline substitui cada tipo handcrafted:
+
+```bash
+node scripts/audit-response-usage.mjs            # markdown report
+node scripts/audit-response-usage.mjs --count    # contagem total
+node scripts/audit-response-usage.mjs --json     # machine-readable
+```
+
+Spec do helper `suggestSchemaFrom` em `scripts/audit-response-usage.spec.mjs`
+(roda no `vitest run`).
+
+### E2E typed assertions
+
+E2E mocks referenciam feature types + payloads tipados ao invés de inline shapes:
+
+```ts
+import type { Schemas } from "@/types/api";
+
+const payload = (await route.request().postDataJSON()) as Schemas["LoginDto"];
+const expected: Partial<Schemas["LoginDto"]> = { email, password };
+expect(payload).toMatchObject(expected);
+```
+
+Fixture `baseUser()` em `tests/e2e/helpers/auth.ts` reflete `Schemas["UserResponseDto"]`
+(todos 16 campos). Novos consumers em `tests/e2e/*.spec.ts` seguem o mesmo pattern.
 
 ## Documentação
 
