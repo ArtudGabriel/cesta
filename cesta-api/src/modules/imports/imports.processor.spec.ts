@@ -1,6 +1,6 @@
 import { Job } from 'bullmq';
 import * as fs from 'fs/promises';
-import * as JSZip from 'jszip';
+import JSZip from 'jszip';
 import { PrismaService } from '../../database/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import {
