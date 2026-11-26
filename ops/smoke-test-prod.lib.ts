@@ -39,6 +39,26 @@ const FUZZY_QUERIES: Array<{ q: string; expectedPrefix: string }> = [
 ];
 const FUZZY_RUNS = 3;
 
+/**
+ * Sprint 189 G1 (b): thresholds mínimos por super ativo. Baselines post-S186
+ * (2026-11-26 12:54Z pre-suspension snapshot): mercadona ~4000, dia ~2945,
+ * eroski 746, froiz 366, aldi ~145, lidl 908. Thresholds seguem ~70% da
+ * baseline (allow -30% drift sem false alarm; adapters podem oscilar com
+ * CDN rate-limit normal). Carrefour frozen Akamai pós-MVP (stack $0 sem
+ * Puppeteer), ignorado nesta check.
+ */
+const PER_SUPER_MIN_TOTALS: Record<
+  (typeof EXPECTED_SUPERS)[number],
+  number
+> = {
+  mercadona: 2800,
+  dia: 2000,
+  eroski: 500,
+  froiz: 250,
+  aldi: 100,
+  lidl: 600,
+};
+
 type ProductsPayload = {
   data?: Array<{ id?: string; name?: string; imageUrl?: string | null }>;
   meta?: { pagination?: { total?: number } };
@@ -64,6 +84,81 @@ export function checkProductsTotal(payload: ProductsPayload): SectionResult {
     name: 'products-total',
     passed,
     detail: `total=${total} (threshold ≥${MIN_PRODUCTS_TOTAL})`,
+  };
+}
+
+// Sprint 189 G1 (c): /auth/health smoke. Garante service identity endpoint
+// responde separado do /health principal (route pode ter bundled outro módulo
+// no futuro; falha isolada aqui mostra qual).
+export function checkAuthHealth(body: unknown): SectionResult {
+  const ok = !!body && typeof body === 'object';
+  // Aceita qualquer resposta non-null JSON — módulo devolve shape próprio.
+  return {
+    name: 'auth-health',
+    passed: ok,
+    detail: ok ? 'GET /auth/health 200 + JSON shape' : 'response missing or not JSON',
+  };
+}
+
+// Sprint 189 G1 (b): threshold mínimo per-super. Independente de `supermarkets`
+// (que só checa presença + total>0). Falha específica aponta qual super drifted.
+export function checkPerSuperThresholds(
+  payloads: Array<{ slug: string; total: number }>,
+): SectionResult {
+  const failures: string[] = [];
+  const observed: string[] = [];
+  for (const [slug, minTotal] of Object.entries(PER_SUPER_MIN_TOTALS)) {
+    const found = payloads.find((p) => p.slug === slug);
+    const total = found?.total ?? 0;
+    observed.push(`${slug}=${total}/${minTotal}`);
+    if (total < minTotal) {
+      failures.push(`${slug}=${total} (min ${minTotal})`);
+    }
+  }
+  return {
+    name: 'per-super-thresholds',
+    passed: failures.length === 0,
+    detail:
+      failures.length === 0
+        ? `all 6 supers above threshold: ${observed.join(', ')}`
+        : `below threshold: ${failures.join(', ')}`,
+  };
+}
+
+// Sprint 189 G1 (a): por-query fuzzy determinism (quebra em 3 sections pra
+// pass/fail granular). Substitui checkFuzzyDeterministic quando quiser signal
+// mais fino; a aggregate ainda é exportada pra compat vitest.
+export function checkFuzzyQuery(
+  q: string,
+  expectedPrefix: string,
+  runs: SuggestionsPayload[],
+): SectionResult {
+  if (runs.length < FUZZY_RUNS) {
+    return {
+      name: `fuzzy-${q}`,
+      passed: false,
+      detail: `só ${runs.length}/${FUZZY_RUNS} runs coletados`,
+    };
+  }
+  const topIds = runs.map((r) => r.data?.[0]?.id ?? null);
+  const topNames = runs.map((r) =>
+    (r.data?.[0]?.name ?? '').toLowerCase().trim(),
+  );
+  const allSameId = topIds.every((id) => id !== null && id === topIds[0]);
+  if (!allSameId) {
+    return {
+      name: `fuzzy-${q}`,
+      passed: false,
+      detail: `topIds não-determinísticos [${topIds.join(', ')}]`,
+    };
+  }
+  const prefixOk = topNames[0].startsWith(expectedPrefix);
+  return {
+    name: `fuzzy-${q}`,
+    passed: prefixOk,
+    detail: prefixOk
+      ? `${FUZZY_RUNS}/${FUZZY_RUNS} runs → top1 "${topNames[0]}" (prefix OK)`
+      : `top1 "${topNames[0]}" não começa com "${expectedPrefix}"`,
   };
 }
 
@@ -160,7 +255,7 @@ export async function runSmokeSuite(deps: Deps): Promise<SmokeReport> {
   const { httpJson, log } = deps;
   const sections: SectionResult[] = [];
 
-  log('── S188 smoke-test-prod — regression S179-S187 ──');
+  log('── smoke-test-prod — regression S179-S189 ──');
 
   // 1. Health
   try {
@@ -169,6 +264,18 @@ export async function runSmokeSuite(deps: Deps): Promise<SmokeReport> {
   } catch (err) {
     sections.push({
       name: 'health',
+      passed: false,
+      detail: `fetch failed: ${err instanceof Error ? err.message : String(err)}`,
+    });
+  }
+
+  // 1b. Auth health (S189 G1 c)
+  try {
+    const body = await httpJson('/auth/health');
+    sections.push(checkAuthHealth(body));
+  } catch (err) {
+    sections.push({
+      name: 'auth-health',
       passed: false,
       detail: `fetch failed: ${err instanceof Error ? err.message : String(err)}`,
     });
@@ -203,9 +310,13 @@ export async function runSmokeSuite(deps: Deps): Promise<SmokeReport> {
   }
   sections.push(checkSupermarkets(supersResults));
 
-  // 4. Fuzzy chain 3 runs
+  // 3b. Per-super thresholds (S189 G1 b)
+  sections.push(checkPerSuperThresholds(supersResults));
+
+  // 4. Fuzzy chain 3 runs — S189 G1 (a): split em 3 sections por-query pra
+  //    granular pass/fail, mantendo aggregate pra compat via último section.
   const runsByQuery = new Map<string, SuggestionsPayload[]>();
-  for (const { q } of FUZZY_QUERIES) {
+  for (const { q, expectedPrefix } of FUZZY_QUERIES) {
     const runs: SuggestionsPayload[] = [];
     for (let i = 0; i < FUZZY_RUNS; i += 1) {
       try {
@@ -218,8 +329,8 @@ export async function runSmokeSuite(deps: Deps): Promise<SmokeReport> {
       }
     }
     runsByQuery.set(q, runs);
+    sections.push(checkFuzzyQuery(q, expectedPrefix, runs));
   }
-  sections.push(checkFuzzyDeterministic(runsByQuery));
 
   // 5. imageUrl ratio — reusa sample /products?limit=50
   if (productsSample) {
@@ -255,4 +366,5 @@ export const CONSTANTS = {
   MIN_IMAGE_URL_RATIO,
   FUZZY_QUERIES,
   FUZZY_RUNS,
+  PER_SUPER_MIN_TOTALS,
 } as const;
