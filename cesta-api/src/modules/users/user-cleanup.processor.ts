@@ -1,6 +1,7 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
+import { withBandwidthOptions } from '../../common/bullmq/worker-options';
 import {
   HardDeleteJob,
   USER_CLEANUP_QUEUE,
@@ -21,7 +22,7 @@ const GRACE_PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
  * Cascade FK em 11 relações User (Sprints 3/15/41) apaga tudo em uma
  * transação implícita via Prisma `user.delete`.
  */
-@Processor(USER_CLEANUP_QUEUE)
+@Processor(USER_CLEANUP_QUEUE, withBandwidthOptions())
 export class UserCleanupProcessor extends WorkerHost {
   private readonly logger = new Logger(UserCleanupProcessor.name);
 

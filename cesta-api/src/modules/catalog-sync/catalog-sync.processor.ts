@@ -7,6 +7,7 @@ import {
   recordJobStart,
   recordJobError,
 } from '../../common/sentry/processor-observability';
+import { withBandwidthOptions } from '../../common/bullmq/worker-options';
 
 export const CATALOG_SYNC_QUEUE = 'catalog-sync';
 // Sprint 134-r (2ª iteração): queue separada para manual triggers via
@@ -22,17 +23,19 @@ export interface CatalogSyncJob {
 // Agendamento — cron em Europe/Madrid. Espaçamento de 30min entre runs pra
 // aliviar DB. Froiz/LIDL/Aldi são semanais (terça) porque dependem de
 // scraping/folleto que não muda diariamente.
-// Sprint 138: Carrefour + Alcampo voltaram a usar Puppeteer, mas só em
-// scripts locais (`npm run sync:carrefour|sync:alcampo`). Prod cron fica
-// OFF pra esses slugs (OOM Chromium × 512MB Render), a menos que
-// CARREFOUR_ALCAMPO_CRON_ENABLED=true override explícito seja setado.
-// Eroski também precisa rodar local (CDN bloqueia datacenter IP, S137).
-const PUPPETEER_CRON_SLUGS = new Set(['carrefour', 'alcampo']);
+//
+// Sprint 213 (ADR 0025 — Render bandwidth mitigation 2026-11-26):
+// Carrefour + Alcampo REMOVIDOS do SCHEDULE. Motivos:
+//   (1) ScrapingBee free tier esgotado (1000 calls/mês);
+//   (2) Puppeteer OOM Chromium × 512MB Render (histórico S138);
+//   (3) Outbound bandwidth inútil (sync falha → zero valor usuário).
+// Slugs continuam listados em RETIRED_SLUGS pra removeJobScheduler cleanup
+// de repeatables remanescentes de deploys anteriores. Scripts manuais locais
+// (`npm run sync:carrefour|sync:alcampo`) continuam disponíveis.
+const RETIRED_SLUGS = ['carrefour', 'alcampo'];
 
 const FULL_SCHEDULE: Array<{ slug: string; cron: string }> = [
   { slug: 'mercadona', cron: '0 3 * * *' },
-  { slug: 'carrefour', cron: '30 3 * * *' },
-  { slug: 'alcampo', cron: '0 4 * * *' },
   { slug: 'dia', cron: '30 4 * * *' },
   { slug: 'eroski', cron: '0 5 * * *' },
   { slug: 'froiz', cron: '0 6 * * 2' },
@@ -41,10 +44,7 @@ const FULL_SCHEDULE: Array<{ slug: string; cron: string }> = [
 ];
 
 function activeSchedule(): Array<{ slug: string; cron: string }> {
-  if (process.env.CARREFOUR_ALCAMPO_CRON_ENABLED === 'true') {
-    return FULL_SCHEDULE;
-  }
-  return FULL_SCHEDULE.filter((entry) => !PUPPETEER_CRON_SLUGS.has(entry.slug));
+  return FULL_SCHEDULE;
 }
 
 // Sprint 119 follow-up: concurrency=3 permite adapters distintos rodarem em
@@ -53,7 +53,7 @@ function activeSchedule(): Array<{ slug: string; cron: string }> {
 // ficava stuck atrás de N Mercadona runs de ~24min cada. Adapter cada tem
 // rate-limit interno (politeFetch jitter 1-7s), então paralelizar não causa
 // cross-contamination de HTTP contra um único mercado.
-@Processor(CATALOG_SYNC_QUEUE, { concurrency: 3 })
+@Processor(CATALOG_SYNC_QUEUE, withBandwidthOptions({ concurrency: 3 }))
 export class CatalogSyncProcessor
   extends WorkerHost
   implements OnModuleInit
@@ -74,19 +74,18 @@ export class CatalogSyncProcessor
 
   private async scheduleCrons(): Promise<void> {
     const schedule = activeSchedule();
-    const skipped = FULL_SCHEDULE.filter((e) => !schedule.includes(e));
-    if (skipped.length > 0) {
+    if (RETIRED_SLUGS.length > 0) {
       this.logger.warn(
-        `Puppeteer slugs disabled (Render 512MB OOM) — skipping crons: ${skipped
-          .map((e) => e.slug)
-          .join(',')}. Override: CARREFOUR_ALCAMPO_CRON_ENABLED=true`,
+        `Retired cron slugs (Sprint 213 bandwidth mitigation): ${RETIRED_SLUGS.join(
+          ',',
+        )}. Manual sync via npm run sync:<slug>.`,
       );
     }
-    // Sprint 138: removedRepeatable pra qualquer cron que saiu do schedule.
+    // Sprint 138/213: removedRepeatable pra qualquer cron que saiu do schedule.
     // BullMQ persiste repeatables no Redis — deploy anterior que agendou
     // carrefour/alcampo continuaria disparando mesmo com schedule filtrado.
-    for (const dead of skipped) {
-      const jobId = `cron-${dead.slug}`;
+    for (const slug of RETIRED_SLUGS) {
+      const jobId = `cron-${slug}`;
       try {
         await this.queue.removeJobScheduler(jobId);
       } catch (err) {
@@ -142,7 +141,7 @@ export class CatalogSyncProcessor
 // Worker dedicado pra manual-sync: queue separada = zero contenção com
 // repeat crons. concurrency=2 permite dois triggers paralelos mas não
 // mais (adapter rate-limit interno + DB upsert).
-@Processor(CATALOG_SYNC_MANUAL_QUEUE, { concurrency: 2 })
+@Processor(CATALOG_SYNC_MANUAL_QUEUE, withBandwidthOptions({ concurrency: 2 }))
 export class CatalogSyncManualProcessor extends WorkerHost {
   private readonly logger = new Logger(CatalogSyncManualProcessor.name);
 

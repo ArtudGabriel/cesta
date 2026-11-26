@@ -109,6 +109,16 @@ export class EnvironmentVariables {
   @IsOptional()
   @IsString()
   AUTO_SYNC_ON_BOOT?: string;
+
+  // Sprint 213 (ADR 0025 — Render bandwidth mitigation 2026-11-26):
+  // Habilita pipeline backfill-images (cron scan OFF + from-source via catalog-sync).
+  // Default 'false' pra desabilitar em prod Render enquanto bandwidth outbound
+  // está sob pressão. Workflow alternativo: GitHub Actions cron (ADR 0025 G2),
+  // ou rodar script local manual pra poblar imageUrl. Valores truthy: 'true',
+  // 'TRUE', 'True', '1' (parse em is-backfill-enabled.ts).
+  @IsOptional()
+  @IsString()
+  BACKFILL_IMAGES_ENABLED?: string;
 }
 
 export function validateEnv(raw: Record<string, unknown>) {

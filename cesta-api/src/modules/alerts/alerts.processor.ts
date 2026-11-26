@@ -9,6 +9,7 @@ import {
   recordJobStart,
   recordJobError,
 } from '../../common/sentry/processor-observability';
+import { withBandwidthOptions } from '../../common/bullmq/worker-options';
 
 export const PRICE_ALERTS_QUEUE = 'price-alerts';
 
@@ -20,7 +21,7 @@ export interface PriceAlertCheckJob {
 // Mínimo de intervalo entre disparos pro mesmo alerta (dedupe)
 const DEDUPE_HOURS = 6;
 
-@Processor(PRICE_ALERTS_QUEUE)
+@Processor(PRICE_ALERTS_QUEUE, withBandwidthOptions())
 export class PriceAlertsProcessor extends WorkerHost {
   private readonly logger = new Logger(PriceAlertsProcessor.name);
 

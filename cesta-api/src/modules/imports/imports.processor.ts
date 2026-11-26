@@ -4,6 +4,7 @@ import { Job } from 'bullmq';
 import * as fs from 'fs/promises';
 import * as Sentry from '@sentry/node';
 import { PrismaService } from '../../database/prisma.service';
+import { withBandwidthOptions } from '../../common/bullmq/worker-options';
 import { AuditService } from '../audit/audit.service';
 import { ImportSummary } from './dtos/import-response.dto';
 import { IMPORTS_QUEUE, ImportJob } from './imports.queue';
@@ -52,7 +53,7 @@ function pushErrors(
   }
 }
 
-@Processor(IMPORTS_QUEUE)
+@Processor(IMPORTS_QUEUE, withBandwidthOptions())
 export class ImportsProcessor extends WorkerHost {
   private readonly logger = new Logger(ImportsProcessor.name);
 

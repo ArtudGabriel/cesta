@@ -3,6 +3,7 @@ import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/node';
 import { Queue } from 'bullmq';
 import { AppException } from '../../common/exceptions/app-exception';
+import { isBackfillImagesEnabled } from '../../common/config/is-backfill-enabled';
 import { RevalidateService } from '../../common/revalidate/revalidate.service';
 import {
   PRICE_ALERTS_QUEUE,
@@ -175,7 +176,14 @@ export class CatalogSyncService {
           // Sprint 133/135: pipeline storage-only. Enfileira backfill se o
           // adapter trouxe imageUrl E o Product ainda não aponta pro storage
           // gerenciado (R2). Dedupe via jobId.
-          if (raw.imageUrl && !this.storage.isManagedUrl(product.imageUrl)) {
+          // Sprint 213 (ADR 0025): gated por BACKFILL_IMAGES_ENABLED env.
+          // Default disabled em prod Render enquanto bandwidth outbound
+          // está sob pressão. Habilitar via GitHub Actions cron OU script local.
+          if (
+            isBackfillImagesEnabled(process.env.BACKFILL_IMAGES_ENABLED) &&
+            raw.imageUrl &&
+            !this.storage.isManagedUrl(product.imageUrl)
+          ) {
             await this.backfillImagesQueue.add(
               'from-source',
               {

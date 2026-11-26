@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 import { PrismaService } from '../../database/prisma.service';
+import { withBandwidthOptions } from '../../common/bullmq/worker-options';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AlertsRepository } from './alerts.repository';
 
@@ -15,7 +16,7 @@ export type AlertPriceCheckJob = Record<string, never>;
  * push notification quando a condição dispara. Idempotente: só reenvia se
  * currentPrice != lastNotifiedPrice (ou nunca notificou).
  */
-@Processor(ALERT_PRICE_CHECK_QUEUE)
+@Processor(ALERT_PRICE_CHECK_QUEUE, withBandwidthOptions())
 export class AlertPriceCheckProcessor
   extends WorkerHost
   implements OnModuleInit

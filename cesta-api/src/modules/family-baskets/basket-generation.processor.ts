@@ -2,6 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { BasketGenerator } from './basket-generator';
+import { withBandwidthOptions } from '../../common/bullmq/worker-options';
 import { FamilyProfilesService } from '../family-profiles/family-profiles.service';
 import { FamilyBasketsRepository } from './family-baskets.repository';
 
@@ -13,7 +14,7 @@ export interface BasketGenerationJob {
   preserveLocked: boolean;
 }
 
-@Processor(BASKET_GENERATION_QUEUE)
+@Processor(BASKET_GENERATION_QUEUE, withBandwidthOptions())
 export class BasketGenerationProcessor extends WorkerHost {
   private readonly logger = new Logger(BasketGenerationProcessor.name);
 

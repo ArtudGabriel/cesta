@@ -2,6 +2,7 @@ import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Job, Queue } from 'bullmq';
+import { withBandwidthOptions } from '../../common/bullmq/worker-options';
 import { AuditService } from '../audit/audit.service';
 import { EmailService } from '../email/email.service';
 import {
@@ -28,7 +29,7 @@ const DEDUPE_WINDOW_MS = 23 * 60 * 60 * 1000;
  *   - só stages exatos daysRemaining == 7 ou == 1
  *   - skip se último reminder foi há <23h (idempotent entre reruns)
  */
-@Processor(GRACE_REMINDER_QUEUE)
+@Processor(GRACE_REMINDER_QUEUE, withBandwidthOptions())
 export class GraceReminderProcessor
   extends WorkerHost
   implements OnModuleInit
