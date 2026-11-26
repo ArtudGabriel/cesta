@@ -12,17 +12,26 @@ import {
   Res,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiNoContentResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiQuery,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AddFavoriteDto } from './dtos/add-favorite.dto';
+import { FavoriteResponseDto } from './dtos/favorite-response.dto';
 import { FavoritesService } from './favorites.service';
 
+/**
+ * Sprint 205 — @ApiResponse coverage expand favorites.
+ */
 @ApiBearerAuth()
 @ApiTags('Favorites')
 @Controller('favorites')
@@ -35,6 +44,9 @@ export class FavoritesController {
     summary:
       'Favorita produto (idempotente). 201 quando criado, 200 quando já existia.',
   })
+  @ApiCreatedResponse({ type: FavoriteResponseDto, description: 'Favorito criado' })
+  @ApiOkResponse({ type: FavoriteResponseDto, description: 'Favorito já existia (idempotente)' })
+  @ApiUnauthorizedResponse({ description: 'JWT inválido ou ausente' })
   async add(
     @CurrentUser('id') userId: string,
     @Body() dto: AddFavoriteDto,
@@ -51,6 +63,8 @@ export class FavoritesController {
   @Delete(':productId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Desfavorita produto (idempotente)' })
+  @ApiNoContentResponse({ description: 'Favorito removido (ou nunca existiu)' })
+  @ApiUnauthorizedResponse({ description: 'JWT inválido ou ausente' })
   async remove(
     @CurrentUser('id') userId: string,
     @Param('productId') productId: string,
@@ -60,6 +74,8 @@ export class FavoritesController {
 
   @Get()
   @ApiOperation({ summary: 'Favoritos do usuário com cheapest price' })
+  @ApiOkResponse({ type: [FavoriteResponseDto] })
+  @ApiUnauthorizedResponse({ description: 'JWT inválido ou ausente' })
   async list(@CurrentUser('id') userId: string) {
     return this.favorites.list(userId);
   }
@@ -67,6 +83,17 @@ export class FavoritesController {
   @Get('check')
   @ApiQuery({ name: 'productIds', description: 'IDs separados por vírgula' })
   @ApiOperation({ summary: 'Batch check quais productIds já estão favoritados' })
+  @ApiOkResponse({
+    description: 'Lista subset de productIds já favoritados',
+    schema: {
+      type: 'object',
+      properties: {
+        favorited: { type: 'array', items: { type: 'string' } },
+      },
+    },
+  })
+  @ApiBadRequestResponse({ description: 'productIds query param vazio' })
+  @ApiUnauthorizedResponse({ description: 'JWT inválido ou ausente' })
   async check(
     @CurrentUser('id') userId: string,
     @Query('productIds') productIds: string,

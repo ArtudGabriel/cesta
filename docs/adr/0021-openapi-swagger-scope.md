@@ -1,7 +1,17 @@
 # ADR 0021 — OpenAPI/Swagger autogen scope (S204) + defer rollout
 
-- **Date:** 2026-11-26
-- **Status:** Accepted (Sprint 204)
+- **Date:** 2026-11-26 (S204) · updated 2026-11-26 (S205)
+- **Status:** Accepted (S204) · rollout progress tracked here (S205+)
+
+## Progress tracker
+
+| Sprint | Controllers newly covered | Running total |
+|:---:|:---|:---:|
+| S204 | `auth`, `products`, `supermarkets`, `health` (pre-existente + revisado) | 4 / 17 |
+| S205 | `reviews`, `favorites`, `shopping-lists` (@ApiResponse + response DTOs linked) | **7 / 17** |
+| S206 | `alerts`, `receipts` (planejado) | 9 / 17 |
+| S207 | `expenses`, `catalog-sync` (planejado) | 11 / 17 |
+| S208 | `imports`, `admin`, `two-factor`, `family-profiles`, `reviews` (nope, já em S205), `notifications` | 17 / 17 |
 - **Related:** `cesta-api/src/swagger/swagger.setup.ts`, `src/main.ts`, S201+ (E2E route interception mocks drift risk).
 
 ## Context
@@ -42,12 +52,13 @@ Deps `@nestjs/swagger` já estavam instaladas (pre-sprint). S204 promove de "wir
 
 Controllers abaixo mantêm wiring parcial pré-S204 (@ApiTags/@ApiOperation em alguns handlers) mas NÃO são P0 pra S204 scope:
 
-| Controller | S deferral candidate | Justificativa |
-|---|:---:|:---|
-| `alerts` | S205 | Rules combo/trend/bundle complexos, merecem sprint dedicado pra @ApiResponse + exemplos |
-| `favorites` | S205 | Shape simples, baixo esforço |
-| `shopping-lists` | S205 | Shape médio + totals endpoint merece doc |
-| `receipts` | S206 | FormData upload + jobId polling — Swagger request body multipart precisa cuidado especial |
+| Controller | S deferral candidate | Status | Justificativa |
+|---|:---:|:---:|:---|
+| `favorites` | S205 | ✅ DONE | Shape simples (S205) — @ApiResponse + response DTOs |
+| `shopping-lists` | S205 | ✅ DONE | Shape médio + totals endpoint (S205) |
+| `reviews` | S205 | ✅ DONE | Shape médio, realocado de S208 → S205 (S205) |
+| `alerts` | S206 | pending | Rules combo/trend/bundle complexos, merecem sprint dedicado pra @ApiResponse + exemplos |
+| `receipts` | S206 | pending | FormData upload + jobId polling — Swagger request body multipart precisa cuidado especial |
 | `family-baskets` | S206 | Wizard + regenerate flow — doc exige exemplo request/response |
 | `expenses` | S207 | Agregados (summary/by-market/by-category/top-products) — vários queryparams |
 | `catalog-sync` | S207 | Admin-only, surface interno |
@@ -93,9 +104,9 @@ Controllers abaixo mantêm wiring parcial pré-S204 (@ApiTags/@ApiOperation em a
 
 ## Follow-up
 
-- **S205**: alerts + favorites decoration sweep.
-- **S206**: receipts + family-baskets decoration (multipart body + complex examples).
-- **S207**: expenses + catalog-sync.
-- **S208**: imports + admin + two-factor + family-profiles + reviews + notifications (finisher).
+- ~~**S205**: alerts + favorites decoration sweep.~~ → **ENTREGUE S205** (reviews + favorites + shopping-lists; alerts moved to S206).
+- **S206**: alerts + receipts (multipart FormData body + jobId examples).
+- **S207**: expenses + catalog-sync + family-baskets.
+- **S208**: imports + admin + two-factor + family-profiles + notifications (finisher).
 - **S20X (parallel)**: `openapi-typescript` CI gate contra `/api/docs-json` — gera types TS + valida mocks E2E vs schema real (fecha trade-off S201).
 - **Prod unblock (post-Render billing resolve)**: setar `SWAGGER_ENABLED=true` em Render env se time quiser docs públicas, OR manter disabled + usar `/api/docs-json` download local via staging.

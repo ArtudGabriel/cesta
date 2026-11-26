@@ -11,7 +11,18 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiCreatedResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+  ApiNotFoundResponse,
+  ApiConflictResponse,
+  ApiForbiddenResponse,
+} from '@nestjs/swagger';
 import { Request } from 'express';
 import {
   AuthenticatedUser,
@@ -20,8 +31,16 @@ import {
 import { Public } from '../../common/decorators/public.decorator';
 import { CreateReviewDto, UpdateReviewDto } from './dtos/create-review.dto';
 import { ReviewsQueryDto } from './dtos/reviews-query.dto';
+import {
+  ReviewResponseDto,
+  ReviewSummaryDto,
+} from './dtos/review-response.dto';
 import { ReviewsService } from './reviews.service';
 
+/**
+ * Sprint 205 — @ApiResponse coverage expand. Mantém @ApiTags/@ApiOperation
+ * pré-existente (S204) + adiciona response shapes autoritativos (ADR 0021).
+ */
 @ApiTags('Reviews')
 @Controller()
 export class ReviewsController {
@@ -30,6 +49,8 @@ export class ReviewsController {
   @Public()
   @Get('products/:pid/reviews')
   @ApiOperation({ summary: 'Listar avaliações de um produto' })
+  @ApiOkResponse({ type: [ReviewResponseDto] })
+  @ApiNotFoundResponse({ description: 'Produto não encontrado' })
   findByProduct(
     @Param('pid') productId: string,
     @Query() query: ReviewsQueryDto,
@@ -41,6 +62,8 @@ export class ReviewsController {
   @Public()
   @Get('products/:pid/reviews/summary')
   @ApiOperation({ summary: 'Média + distribuição de avaliações' })
+  @ApiOkResponse({ type: ReviewSummaryDto })
+  @ApiNotFoundResponse({ description: 'Produto não encontrado' })
   summary(@Param('pid') productId: string) {
     return this.reviewsService.summary(productId);
   }
@@ -48,6 +71,8 @@ export class ReviewsController {
   @Get('products/:pid/reviews/mine')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Avaliação do usuário logado para este produto' })
+  @ApiOkResponse({ type: ReviewResponseDto, description: 'Pode retornar null' })
+  @ApiUnauthorizedResponse({ description: 'JWT inválido ou ausente' })
   findMine(
     @CurrentUser('id') userId: string,
     @Param('pid') productId: string,
@@ -58,6 +83,9 @@ export class ReviewsController {
   @Post('reviews')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Criar avaliação (1 por usuário/produto)' })
+  @ApiCreatedResponse({ type: ReviewResponseDto })
+  @ApiUnauthorizedResponse({ description: 'JWT inválido ou ausente' })
+  @ApiConflictResponse({ description: 'Usuário já avaliou esse produto' })
   create(@CurrentUser('id') userId: string, @Body() dto: CreateReviewDto) {
     return this.reviewsService.create(userId, dto);
   }
@@ -65,6 +93,9 @@ export class ReviewsController {
   @Patch('reviews/:id')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Editar avaliação própria' })
+  @ApiOkResponse({ type: ReviewResponseDto })
+  @ApiForbiddenResponse({ description: 'Review pertence a outro usuário' })
+  @ApiNotFoundResponse({ description: 'Review não encontrada' })
   update(
     @CurrentUser('id') userId: string,
     @Param('id') id: string,
@@ -77,6 +108,9 @@ export class ReviewsController {
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Excluir avaliação própria' })
+  @ApiNoContentResponse({ description: 'Review removida' })
+  @ApiForbiddenResponse({ description: 'Review pertence a outro usuário' })
+  @ApiNotFoundResponse({ description: 'Review não encontrada' })
   async remove(
     @CurrentUser('id') userId: string,
     @Param('id') id: string,
@@ -87,6 +121,8 @@ export class ReviewsController {
   @Post('reviews/:id/helpful')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Toggle útil' })
+  @ApiOkResponse({ description: 'Estado atualizado (helpfulCount + markedHelpful)' })
+  @ApiNotFoundResponse({ description: 'Review não encontrada' })
   toggleHelpful(
     @CurrentUser('id') userId: string,
     @Param('id') id: string,
@@ -98,6 +134,8 @@ export class ReviewsController {
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Reportar avaliação inadequada' })
+  @ApiNoContentResponse({ description: 'Report registrado' })
+  @ApiNotFoundResponse({ description: 'Review não encontrada' })
   async report(
     @CurrentUser('id') userId: string,
     @Param('id') id: string,
