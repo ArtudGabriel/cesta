@@ -22,21 +22,21 @@ Three layered fixes:
 
 ### 1. `directUrl` → Neon NON-pooled
 
-`schema.prisma` datasource gets `directUrl = env("DATABASE_URL_UNPOOLED")`. Prisma migrate, introspect, format now use the bypass URL; runtime Prisma Client still uses pooled `DATABASE_URL`. Neon exposes a non-pooler host automatically (same project, `...-pooler` segment stripped).
+`schema.prisma` datasource gets `directUrl = env("DATABASE_URL_UNPOOLED")`. Prisma migrate, introspect, format now use the bypass URL; runtime Prisma Client still uses pooled `DATABASE_URL`.
 
-### 2. `connect_timeout=30` on `DATABASE_URL_UNPOOLED`
+### 2. `DATABASE_URL_UNPOOLED` DERIVED, not a separate env var
 
-Appended as query param on the value configured in Render dashboard:
+`render-build.sh` derives the direct URL from `DATABASE_URL` at build time by stripping the `-pooler` segment from the Neon host and appending `?connect_timeout=30`. The derived value is `export`ed for the Prisma CLI.
 
-```
-postgres://<user>:<pwd>@<host>.neon.tech/<db>?sslmode=require&connect_timeout=30
-```
+**Why derive, not add a second env var:** incident S134 — editing a single env var in the Render dashboard PUT-replaced the entire env block and wiped unrelated vars. Any env addition now carries that risk. A single `DATABASE_URL` stays the source of truth; drift between pooled and direct URLs is impossible.
 
-Gives migrate a 30-second TCP window instead of libpq default. Covers Neon compute cold-start (which can take 10–15s).
+`connect_timeout=30` is idempotent: if the source URL already carries it (or carries a different value), it is preserved — the function does not duplicate or override.
 
-### 3. `render-build.sh` with retry 3x backoff 10 / 20 / 40s
+CI / local Postgres have no `-pooler` in the host, so the substitution is a no-op and the derived URL points at the same database. Spec: `cesta-api/scripts/render-build-url.test.sh` (5 cases).
 
-`buildCommand: bash render-build.sh`. Script wraps only the migrate deploy step in a retry loop. Three attempts total; delays 10 / 20 / 40 seconds. `npm ci`, `prisma generate`, `nest build` stay single-shot — they do not race the database.
+### 3. `render-build.sh` with retry 3 retries backoff 10 / 20 / 40s
+
+`buildCommand: bash render-build.sh`. Script wraps only the migrate deploy step in a retry loop. 1 initial attempt + 3 retries = 4 total; delays 10 / 20 / 40 seconds (70s cumulative). `npm ci`, `prisma generate`, `nest build` stay single-shot — they do not race the database.
 
 ## Consequences
 
@@ -46,9 +46,10 @@ Gives migrate a 30-second TCP window instead of libpq default. Covers Neon compu
 - Runtime traffic unaffected — pooled URL still in use by the Prisma Client.
 
 **Negative / trade-offs:**
-- Two env values to keep in sync. Rotation of Neon credentials now touches `DATABASE_URL` **and** `DATABASE_URL_UNPOOLED`.
+- Single `DATABASE_URL` stays the source of truth; derivation in the build script eliminates env drift (avoids S134 wipe).
 - Non-pooled endpoint bypasses pgbouncer; a runaway `prisma migrate` script could in theory exhaust Neon's compute connection limit. Scope is build-time only (one connection, short-lived) → acceptable.
 - Max build-time penalty on worst case: 10 + 20 + 40 = 70s extra before failing out. Render free tier build quota tolerates this.
+- Derivation assumes Neon URL convention (`-pooler` segment). If Neon ever changes host format, `derive_unpooled_url` and its spec fail fast.
 
 ## Follow-ups
 
