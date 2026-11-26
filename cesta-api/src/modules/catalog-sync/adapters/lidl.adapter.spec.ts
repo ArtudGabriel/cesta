@@ -142,4 +142,27 @@ describe('LidlAdapter', () => {
     const products = await adapter.fetchProducts();
     expect(products).toEqual([]);
   });
+
+  it('S186: extrai price com sub-objetos dentro do price (packaging, discount, zones)', async () => {
+    // Shape prod atual (capturado 2026-11-26): objeto price agora contém
+    // packaging:{}, discount:{...}, specialTaxes:[] etc antes do campo price
+    // numérico interno. Regex antigo [^}]*? parava no primeiro } de packaging:{}.
+    const REALISTIC = encode(`
+[
+  {"erpNumber":"100411764","fullTitle":"GRAEF Espumador de leche","image":"https://www.lidl.es/assets/gcp1a1e8b.jpg","keyfacts":{"analyticsCategory":"Categorías/Hogar y cocina/Café"},"price":{"currencyCode":"EUR","currencySymbol":"€","discount":{"deletedPrice":49.99,"showDiscount":true,"bargainHintText":"Megadescuento"},"displayedCurrency":"€","hasStar":false,"hasVat":true,"packaging":{},"price":37.99,"recommendedPrice":49.99,"specialTaxes":[],"tax":"21"},"productId":100411764,"zones":{"BAL":{"currentPrice":{"packaging":{},"price":37.99}}}}
+]
+`);
+    mockedPoliteFetchRaw.mockResolvedValue({
+      body: REALISTIC,
+      status: 200,
+      setCookie: [],
+    } as any);
+
+    const products = await adapter.fetchProducts();
+    const graef = products.find((p) => p.externalId === '100411764');
+    expect(graef).toBeDefined();
+    expect(graef?.price).toBe(37.99);
+    expect(graef?.name).toBe('GRAEF Espumador de leche');
+    expect(graef?.imageUrl).toBe('https://www.lidl.es/assets/gcp1a1e8b.jpg');
+  });
 });
