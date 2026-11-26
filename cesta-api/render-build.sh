@@ -47,16 +47,33 @@ main() {
   echo ">>> prisma migrate deploy (retry 3x, backoff 10/20/40s)"
   local attempt=0
   local delays=(10 20 40)
-  until npx prisma migrate deploy; do
+  local migrate_log
+  migrate_log="$(mktemp)"
+  until npx prisma migrate deploy 2>&1 | tee "$migrate_log"; do
     attempt=$((attempt + 1))
     if [ "$attempt" -ge 4 ]; then
       echo "!!! migrate deploy failed after 4 attempts — aborting build"
+      rm -f "$migrate_log"
       exit 1
     fi
     local delay=${delays[$((attempt - 1))]}
-    echo "--- migrate deploy attempt $attempt failed; sleeping ${delay}s before retry"
+    local delay_ms=$((delay * 1000))
+    # Sprint 188 G2: observability do retry logic ADR 0013.
+    # Extract Prisma error code (P1002, P1012, P1017, ...) do log se presente;
+    # fallback "unknown" quando o erro não casa o pattern.
+    local error_code
+    error_code="$(grep -oE 'P1[0-9]{3}' "$migrate_log" | head -n1 || true)"
+    error_code="${error_code:-unknown}"
+    echo "--- migrate deploy attempt $attempt failed (code=$error_code); sleeping ${delay}s before retry"
+    # Report attempt (structured JSON log + optional Sentry event). Non-fatal.
+    node scripts/report-migrate-attempt.mjs \
+      --attempt "$attempt" \
+      --error-code "$error_code" \
+      --backoff-ms "$delay_ms" || true
+    : > "$migrate_log"
     sleep "$delay"
   done
+  rm -f "$migrate_log"
 
   echo ">>> nest build"
   npm run build

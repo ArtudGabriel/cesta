@@ -64,6 +64,9 @@ jobs:
       # Sprint 183: derive_unpooled_url spec (render-build.sh helper, ADR 0013).
       - name: render-build.sh URL derivation spec
         run: bash scripts/render-build-url.test.sh
+      # Sprint 188 G2: report-migrate-attempt observability helper (ADR 0013).
+      - name: report-migrate-attempt structured output spec
+        run: bash scripts/report-migrate-attempt.test.sh
       - run: npx prisma migrate deploy
       - run: npm run lint --if-present
         continue-on-error: true
