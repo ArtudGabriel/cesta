@@ -66,6 +66,7 @@ export class MercadonaAdapter implements SupermarketAdapter {
     }
 
     const products: RawProduct[] = [];
+    const drop = { noPrice: 0, invalidPrice: 0, kept: 0, rawSeen: 0 };
 
     for (const root of rootCategories) {
       const children = root.categories ?? [root];
@@ -74,8 +75,16 @@ export class MercadonaAdapter implements SupermarketAdapter {
           const detailed = await this.fetchCategory(sub.id, wh);
           const leaves = this.flattenProducts(detailed);
           for (const raw of leaves) {
-            const normalized = this.normalize(raw, sub.name);
-            if (normalized) products.push(normalized);
+            drop.rawSeen += 1;
+            const reason = this.normalizeOrReason(raw, sub.name);
+            if (reason.product) {
+              products.push(reason.product);
+              drop.kept += 1;
+            } else if (reason.cause === 'no-price') {
+              drop.noPrice += 1;
+            } else {
+              drop.invalidPrice += 1;
+            }
           }
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -84,7 +93,9 @@ export class MercadonaAdapter implements SupermarketAdapter {
       }
     }
 
-    this.logger.log(`Mercadona: ${products.length} produtos coletados`);
+    this.logger.log(
+      `Mercadona: ${products.length} produtos coletados (raw=${drop.rawSeen} kept=${drop.kept} noPrice=${drop.noPrice} invalidPrice=${drop.invalidPrice})`,
+    );
     return products;
   }
 
@@ -103,16 +114,23 @@ export class MercadonaAdapter implements SupermarketAdapter {
     return data ?? { id, name: '' };
   }
 
+  // Sprint 217: depth-first recursive walk. Earlier impl only went 1 level deep
+  // (category.products + category.categories[].products), which silently
+  // dropped any products nested 3+ levels. Current Mercadona mad1 tree is
+  // ≤2 deep (audit scripts/audit-mercadona-queries.mjs), so this is a no-op
+  // today — kept defensive so future tree changes don't regress coverage.
   private flattenProducts(
     category: MercadonaCategoryWithProducts,
   ): MercadonaProduct[] {
     const out: MercadonaProduct[] = [];
-    if (category.products) out.push(...category.products);
-    if (category.categories) {
-      for (const sub of category.categories) {
-        if (sub.products) out.push(...sub.products);
+    const walk = (node: MercadonaCategoryWithProducts | undefined): void => {
+      if (!node) return;
+      if (Array.isArray(node.products)) out.push(...node.products);
+      if (Array.isArray(node.categories)) {
+        for (const sub of node.categories) walk(sub as MercadonaCategoryWithProducts);
       }
-    }
+    };
+    walk(category);
     return out;
   }
 
@@ -120,12 +138,21 @@ export class MercadonaAdapter implements SupermarketAdapter {
     raw: MercadonaProduct,
     categoryHint: string,
   ): RawProduct | null {
+    return this.normalizeOrReason(raw, categoryHint).product;
+  }
+
+  private normalizeOrReason(
+    raw: MercadonaProduct,
+    categoryHint: string,
+  ): { product: RawProduct | null; cause?: 'no-price' | 'invalid-price' } {
     const priceInstr = raw.price_instructions;
     const priceStr = priceInstr?.unit_price;
-    if (priceStr == null) return null;
+    if (priceStr == null) return { product: null, cause: 'no-price' };
 
     const price = typeof priceStr === 'string' ? parseFloat(priceStr) : Number(priceStr);
-    if (!Number.isFinite(price) || price <= 0) return null;
+    if (!Number.isFinite(price) || price <= 0) {
+      return { product: null, cause: 'invalid-price' };
+    }
 
     const { packageSize, packageUnit, comparisonUnit } = this.parsePackage(
       priceInstr?.size_format ?? null,
@@ -141,20 +168,22 @@ export class MercadonaAdapter implements SupermarketAdapter {
         : null;
 
     return {
-      externalId: raw.id,
-      name: raw.display_name,
-      brand: raw.brand ?? null,
-      ean: raw.ean ?? null,
-      categoryHint,
-      imageUrl: raw.thumbnail ?? null,
-      packageSize,
-      packageUnit,
-      comparisonUnit,
-      price: Math.round(price * 100) / 100,
-      onPromotion: priceInstr?.price_decreased === true,
-      previousPrice:
-        previousPrice && Number.isFinite(previousPrice) ? previousPrice : null,
-      isAvailable: raw.active !== false && !raw.unavailable_from,
+      product: {
+        externalId: raw.id,
+        name: raw.display_name,
+        brand: raw.brand ?? null,
+        ean: raw.ean ?? null,
+        categoryHint,
+        imageUrl: raw.thumbnail ?? null,
+        packageSize,
+        packageUnit,
+        comparisonUnit,
+        price: Math.round(price * 100) / 100,
+        onPromotion: priceInstr?.price_decreased === true,
+        previousPrice:
+          previousPrice && Number.isFinite(previousPrice) ? previousPrice : null,
+        isAvailable: raw.active !== false && !raw.unavailable_from,
+      },
     };
   }
 
