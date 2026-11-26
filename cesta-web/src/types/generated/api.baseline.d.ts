@@ -1545,7 +1545,7 @@ export interface components {
         };
         VapidPublicKeyResponseDto: {
             /** @description Chave VAPID base64url (null quando VAPID_PUBLIC_KEY ausente → push desativado) */
-            publicKey: Record<string, never> | null;
+            publicKey: string | null;
         };
         DietaryQuestionDto: {
             id: string;
@@ -1555,7 +1555,7 @@ export interface components {
             /** @enum {string} */
             type: "boolean" | "choice";
             options: Record<string, never>[] | null;
-            category: Record<string, never> | null;
+            category: string | null;
             order: number;
         };
         FamilyProfileResponseDto: {
@@ -1565,7 +1565,7 @@ export interface components {
             restrictions: string[];
             blockedCategories: string[];
             requiredProductIds: string[];
-            monthlyBudget?: Record<string, never> | null;
+            monthlyBudget?: number | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -1662,9 +1662,9 @@ export interface components {
         };
         UserResponseDto: {
             id: string;
-            email: Record<string, never> | null;
-            phone: Record<string, never> | null;
-            name: Record<string, never> | null;
+            email: string | null;
+            phone: string | null;
+            name: string | null;
             /** @example es */
             locale: string;
             roles: string[];
@@ -1681,9 +1681,13 @@ export interface components {
              * @enum {string|null}
              */
             cookieConsentLevel: "all" | "essential" | null;
-            cookiesAcceptedAt: Record<string, never> | null;
-            /** @description Timestamp da confirmação de email via link Resend (Sprint 75). null = ainda pendente. */
-            emailVerifiedAt: Record<string, never> | null;
+            /** Format: date-time */
+            cookiesAcceptedAt: string | null;
+            /**
+             * Format: date-time
+             * @description Timestamp da confirmação de email via link Resend (Sprint 75). null = ainda pendente.
+             */
+            emailVerifiedAt: string | null;
             /** @description 2FA TOTP ativado (Sprint 99). UI /perfil Seguridad. */
             twoFactorEnabled: boolean;
             /** Format: date-time */
@@ -1742,11 +1746,14 @@ export interface components {
         };
         SoftDeletedUserRowDto: {
             id: string;
-            email: Record<string, never> | null;
+            email: string | null;
             /** Format: date-time */
             deletedAt: string;
-            /** @description Hard delete scheduled (deletedAt + 30d grace) */
-            graceEndsAt: Record<string, never> | null;
+            /**
+             * Format: date-time
+             * @description Hard delete scheduled (deletedAt + 30d grace)
+             */
+            graceEndsAt: string | null;
         };
         SoftDeletedUsersListDto: {
             items: components["schemas"]["SoftDeletedUserRowDto"][];
@@ -1762,9 +1769,9 @@ export interface components {
         };
         AuditLogRowDto: {
             id: string;
-            userId: Record<string, never> | null;
+            userId: string | null;
             /** @description Admin que executou (null = system/worker) */
-            actorId: Record<string, never> | null;
+            actorId: string | null;
             /**
              * @description Enum AUDIT_LOG_TYPES: UserReactivated | UserDataExported | SecretRotated | AdminCancelledDelete | TwoFactorEnabled | TwoFactorDisabled | UserDataImported | UserReminderSent
              * @example AdminCancelledDelete
@@ -1801,12 +1808,12 @@ export interface components {
             supermarketId: string;
             supermarketSlug: string;
             supermarketName: string;
-            supermarketColor: Record<string, never> | null;
+            supermarketColor: string | null;
             /** @example 1.99 */
             price: number;
             unitPrice: components["schemas"]["UnitPriceDto"] | null;
             onPromotion: boolean;
-            previousPrice: Record<string, never> | null;
+            previousPrice: number | null;
             isAvailable: boolean;
             isStale: boolean;
             /** Format: date-time */
@@ -1817,32 +1824,32 @@ export interface components {
         ProductResponseDto: {
             id: string;
             name: string;
-            brand: Record<string, never> | null;
-            imageUrl: Record<string, never> | null;
-            categoryId: Record<string, never> | null;
+            brand: string | null;
+            imageUrl: string | null;
+            categoryId: string | null;
             packageSize: number;
             /** @enum {string} */
             packageUnit: "LITER" | "MILLILITER" | "KILOGRAM" | "GRAM" | "UNIT";
             /** @enum {string} */
             comparisonUnit: "LITER" | "MILLILITER" | "KILOGRAM" | "GRAM" | "UNIT";
-            calories: Record<string, never> | null;
-            protein: Record<string, never> | null;
-            fat: Record<string, never> | null;
-            saturatedFat: Record<string, never> | null;
-            carbs: Record<string, never> | null;
-            sugar: Record<string, never> | null;
-            salt: Record<string, never> | null;
-            fiber: Record<string, never> | null;
+            calories: number | null;
+            protein: number | null;
+            fat: number | null;
+            saturatedFat: number | null;
+            carbs: number | null;
+            sugar: number | null;
+            salt: number | null;
+            fiber: number | null;
             /** @description Base amount (100 for per-100g/ml, 1 for per-unit) */
-            nutritionPer: Record<string, never> | null;
+            nutritionPer: number | null;
             nutriScore: components["schemas"]["NutriScoreDto"] | null;
             isVegan: boolean;
             isVegetarian: boolean;
             isGlutenFree: boolean;
             isLactoseFree: boolean;
             prices: components["schemas"]["PriceByMarketDto"][];
-            cheapestSupermarketSlug: Record<string, never> | null;
-            cheapestPrice: Record<string, never> | null;
+            cheapestSupermarketSlug: string | null;
+            cheapestPrice: number | null;
             cheapestUnitPrice: components["schemas"]["UnitPriceDto"] | null;
         };
         ListItemDto: {
@@ -1856,8 +1863,8 @@ export interface components {
             id: string;
             name: string;
             itemCount: number;
-            cheapestTotal: Record<string, never> | null;
-            cheapestSupermarketSlug: Record<string, never> | null;
+            cheapestTotal: number | null;
+            cheapestSupermarketSlug: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -1886,16 +1893,16 @@ export interface components {
             quantity: number;
             supermarketSlug: string;
             supermarketName: string;
-            supermarketColor: Record<string, never> | null;
+            supermarketColor: string | null;
             unitPrice: number;
             subtotal: number;
             onPromotion: boolean;
         };
         ListTotalsDto: {
             bySupermarket: Record<string, never>[];
-            cheapestSupermarketSlug: Record<string, never> | null;
-            cheapestTotal: Record<string, never> | null;
-            mostExpensiveTotal: Record<string, never> | null;
+            cheapestSupermarketSlug: string | null;
+            cheapestTotal: number | null;
+            mostExpensiveTotal: number | null;
             /** @description Economia vs mercado mais caro (comparando totais completos) */
             savingsVsMostExpensive: number;
             hybridItems: components["schemas"]["HybridItemDto"][];
@@ -1909,14 +1916,14 @@ export interface components {
             id: string;
             productId: string;
             rating: number;
-            comment: Record<string, never> | null;
+            comment: string | null;
             helpfulCount: number;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
             authorId: string;
-            authorName: Record<string, never> | null;
+            authorName: string | null;
             /**
              * @description Se o usuário atual marcou útil
              * @default false
@@ -1954,7 +1961,7 @@ export interface components {
         FamilyBasketResponseDto: {
             id: string;
             status: string;
-            errorMessage: Record<string, never> | null;
+            errorMessage: string | null;
             estimatedCost: number;
             /** Format: date-time */
             generatedAt: string;
@@ -1978,7 +1985,8 @@ export interface components {
             id: string;
             reason: string;
             priceSnapshot: number;
-            notifiedAt: Record<string, never> | null;
+            /** Format: date-time */
+            notifiedAt: string | null;
             /** Format: date-time */
             createdAt: string;
         };
@@ -1986,13 +1994,14 @@ export interface components {
             id: string;
             productId: string;
             productName: string;
-            productImageUrl: Record<string, never> | null;
-            supermarketId: Record<string, never> | null;
-            supermarketName: Record<string, never> | null;
+            productImageUrl: string | null;
+            supermarketId: string | null;
+            supermarketName: string | null;
             type: string;
-            targetPrice: Record<string, never> | null;
+            targetPrice: number | null;
             isActive: boolean;
-            lastTriggeredAt: Record<string, never> | null;
+            /** Format: date-time */
+            lastTriggeredAt: string | null;
             /** Format: date-time */
             createdAt: string;
             triggers: components["schemas"]["AlertTriggerDto"][];
@@ -2013,7 +2022,8 @@ export interface components {
             isActive: boolean;
             /** @description Payload polimórfico: combo/bundle = {productIds, target*}; trend = {productId, consecutiveWeeks} */
             rules: Record<string, never>;
-            lastTriggeredAt: Record<string, never> | null;
+            /** Format: date-time */
+            lastTriggeredAt: string | null;
             /** Format: date-time */
             createdAt: string;
         };
@@ -2027,7 +2037,7 @@ export interface components {
         };
         CatalogSyncJobResponseDto: {
             /** @description ID do job BullMQ enfileirado */
-            jobId: Record<string, never> | null;
+            jobId: string | null;
             /** @example queued */
             status: string;
             supermarketSlug: string;
@@ -2042,10 +2052,11 @@ export interface components {
             itemsUpdated: number;
             itemsCandidate: number;
             itemsFailed: number;
-            errorMessage: Record<string, never> | null;
+            errorMessage: string | null;
             /** Format: date-time */
             startedAt: string;
-            finishedAt: Record<string, never> | null;
+            /** Format: date-time */
+            finishedAt: string | null;
         };
         ReceiptItemDto: {
             id: string;
@@ -2054,20 +2065,21 @@ export interface components {
             quantity: number;
             unitPrice: number;
             total: number;
-            productId: Record<string, never> | null;
-            productName: Record<string, never> | null;
+            productId: string | null;
+            productName: string | null;
             position: number;
         };
         ReceiptResponseDto: {
             id: string;
             status: string;
-            errorMessage: Record<string, never> | null;
-            supermarketSlug: Record<string, never> | null;
-            supermarketName: Record<string, never> | null;
-            purchaseDate: Record<string, never> | null;
-            total: Record<string, never> | null;
-            imageUrl: Record<string, never> | null;
-            notes: Record<string, never> | null;
+            errorMessage: string | null;
+            supermarketSlug: string | null;
+            supermarketName: string | null;
+            /** Format: date-time */
+            purchaseDate: string | null;
+            total: number | null;
+            imageUrl: string | null;
+            notes: string | null;
             /** Format: date-time */
             createdAt: string;
             items: components["schemas"]["ReceiptItemDto"][];
@@ -2119,9 +2131,9 @@ export interface components {
         };
         ExpenseTopProductDto: {
             /** @description null quando produto não vinculado (OCR raw) */
-            productId: Record<string, never> | null;
+            productId: string | null;
             name: string;
-            imageUrl: Record<string, never> | null;
+            imageUrl: string | null;
             /** @description Total gasto no produto (€) */
             total: number;
             /** @description Quantidade acumulada (máx 3 casas decimais) */
@@ -2134,8 +2146,8 @@ export interface components {
         FavoriteProductDto: {
             id: string;
             name: string;
-            brand: Record<string, never> | null;
-            imageUrl: Record<string, never> | null;
+            brand: string | null;
+            imageUrl: string | null;
             isVegan: boolean;
             isVegetarian: boolean;
             isGlutenFree: boolean;
@@ -2174,7 +2186,7 @@ export interface components {
             jobId: string;
             status: string;
             dryRun: boolean;
-            errorMessage?: Record<string, never> | null;
+            errorMessage?: string | null;
             summary?: Record<string, never> | null;
             createdAt: string;
         };

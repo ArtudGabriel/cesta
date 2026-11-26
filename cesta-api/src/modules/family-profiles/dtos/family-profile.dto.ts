@@ -96,7 +96,7 @@ export class FamilyProfileResponseDto {
   @ApiProperty({ type: [String] }) restrictions: string[];
   @ApiProperty({ type: [String] }) blockedCategories: string[];
   @ApiProperty({ type: [String] }) requiredProductIds: string[];
-  @ApiPropertyOptional({ nullable: true }) monthlyBudget: number | null;
+  @ApiPropertyOptional({ type: Number, nullable: true }) monthlyBudget: number | null;
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
 

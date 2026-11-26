@@ -9,7 +9,7 @@ export class DietaryQuestionDto {
   @ApiProperty({ enum: ['boolean', 'choice'] }) type: string;
   @ApiProperty({ nullable: true, type: 'array', items: { type: 'object' } })
   options: Array<{ value: string; labelEs: string; labelPt: string }> | null;
-  @ApiProperty({ nullable: true }) category: string | null;
+  @ApiProperty({ type: String, nullable: true }) category: string | null;
   @ApiProperty() order: number;
 
   static fromEntity(q: DietaryQuestion): DietaryQuestionDto {

@@ -28,8 +28,8 @@ export class SuggestCheapestDto {
 export class SuggestionDto {
   @ApiProperty() id: string;
   @ApiProperty() name: string;
-  @ApiProperty({ nullable: true }) brand: string | null;
-  @ApiProperty({ nullable: true }) imageUrl: string | null;
+  @ApiProperty({ type: String, nullable: true }) brand: string | null;
+  @ApiProperty({ type: String, nullable: true }) imageUrl: string | null;
   @ApiProperty({ type: () => SuggestCheapestDto, nullable: true })
   cheapestPrice: SuggestCheapestDto | null;
 }

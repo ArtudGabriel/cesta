@@ -23,8 +23,8 @@ export class ShoppingListResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() name: string;
   @ApiProperty() itemCount: number;
-  @ApiProperty({ nullable: true }) cheapestTotal: number | null;
-  @ApiProperty({ nullable: true }) cheapestSupermarketSlug: string | null;
+  @ApiProperty({ type: Number, nullable: true }) cheapestTotal: number | null;
+  @ApiProperty({ type: String, nullable: true }) cheapestSupermarketSlug: string | null;
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
   @ApiProperty({ type: [ListItemDto], required: false })
@@ -143,7 +143,7 @@ export class HybridItemDto {
   @ApiProperty() quantity: number;
   @ApiProperty() supermarketSlug: string;
   @ApiProperty() supermarketName: string;
-  @ApiProperty({ nullable: true }) supermarketColor: string | null;
+  @ApiProperty({ type: String, nullable: true }) supermarketColor: string | null;
   @ApiProperty() unitPrice: number;
   @ApiProperty() subtotal: number;
   @ApiProperty() onPromotion: boolean;
@@ -153,9 +153,9 @@ export class ListTotalsDto {
   @ApiProperty({ type: [Object] })
   bySupermarket: SupermarketTotal[];
 
-  @ApiProperty({ nullable: true }) cheapestSupermarketSlug: string | null;
-  @ApiProperty({ nullable: true }) cheapestTotal: number | null;
-  @ApiProperty({ nullable: true }) mostExpensiveTotal: number | null;
+  @ApiProperty({ type: String, nullable: true }) cheapestSupermarketSlug: string | null;
+  @ApiProperty({ type: Number, nullable: true }) cheapestTotal: number | null;
+  @ApiProperty({ type: Number, nullable: true }) mostExpensiveTotal: number | null;
   @ApiProperty({
     description: 'Economia vs mercado mais caro (comparando totais completos)',
   })

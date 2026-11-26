@@ -21,7 +21,7 @@ export class PriceHistorySeriesDto {
   @ApiProperty()
   supermarketName: string;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: String, nullable: true })
   supermarketColor: string | null;
 
   @ApiProperty({ type: [PriceHistoryPointDto] })

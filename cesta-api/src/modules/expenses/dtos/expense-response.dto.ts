@@ -17,10 +17,10 @@ export class ExpenseBucketDto {
 }
 
 export class ExpenseTopProductDto {
-  @ApiProperty({ nullable: true, description: 'null quando produto não vinculado (OCR raw)' })
+  @ApiProperty({ type: String, nullable: true, description: 'null quando produto não vinculado (OCR raw)' })
   productId: string | null;
   @ApiProperty() name: string;
-  @ApiProperty({ nullable: true }) imageUrl: string | null;
+  @ApiProperty({ type: String, nullable: true }) imageUrl: string | null;
   @ApiProperty({ description: 'Total gasto no produto (€)' }) total: number;
   @ApiProperty({ description: 'Quantidade acumulada (máx 3 casas decimais)' }) quantity: number;
 }

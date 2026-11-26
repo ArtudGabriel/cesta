@@ -23,8 +23,9 @@ export type ProductSearchQuery = z.infer<typeof productSearchQuerySchema>;
 export class ProductSearchItemDto {
   @ApiProperty({ description: 'cuid' }) id: string;
   @ApiProperty() name: string;
-  @ApiProperty({ nullable: true }) imageUrl: string | null;
+  @ApiProperty({ type: String, nullable: true }) imageUrl: string | null;
   @ApiProperty({
+    type: Number,
     nullable: true,
     description:
       'Menor preço unitário em €. null quando produto não tem oferta ativa.',

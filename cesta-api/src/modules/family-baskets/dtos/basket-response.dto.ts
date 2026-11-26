@@ -25,7 +25,7 @@ export class BasketItemDto {
 export class FamilyBasketResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() status: string;
-  @ApiProperty({ nullable: true }) errorMessage: string | null;
+  @ApiProperty({ type: String, nullable: true }) errorMessage: string | null;
   @ApiProperty() estimatedCost: number;
   @ApiProperty() generatedAt: Date;
   @ApiProperty() updatedAt: Date;

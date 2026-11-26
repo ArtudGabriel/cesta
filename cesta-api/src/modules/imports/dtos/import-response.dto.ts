@@ -33,8 +33,8 @@ export class ImportResponseDto {
   @ApiProperty() jobId!: string;
   @ApiProperty() status!: ImportStatus;
   @ApiProperty() dryRun!: boolean;
-  @ApiProperty({ required: false, nullable: true }) errorMessage!: string | null;
-  @ApiProperty({ required: false, nullable: true }) summary!: ImportSummary | null;
+  @ApiProperty({ type: String, required: false, nullable: true }) errorMessage!: string | null;
+  @ApiProperty({ type: Object, required: false, nullable: true }) summary!: ImportSummary | null;
   @ApiProperty() createdAt!: string;
 
   static fromEntity(row: Import): ImportResponseDto {

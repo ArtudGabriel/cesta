@@ -13,8 +13,8 @@ export class ReceiptItemDto {
   @ApiProperty() quantity: number;
   @ApiProperty() unitPrice: number;
   @ApiProperty() total: number;
-  @ApiProperty({ nullable: true }) productId: string | null;
-  @ApiProperty({ nullable: true }) productName: string | null;
+  @ApiProperty({ type: String, nullable: true }) productId: string | null;
+  @ApiProperty({ type: String, nullable: true }) productName: string | null;
   @ApiProperty() position: number;
 
   static fromEntity(
@@ -37,13 +37,13 @@ export class ReceiptItemDto {
 export class ReceiptResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() status: string;
-  @ApiProperty({ nullable: true }) errorMessage: string | null;
-  @ApiProperty({ nullable: true }) supermarketSlug: string | null;
-  @ApiProperty({ nullable: true }) supermarketName: string | null;
-  @ApiProperty({ nullable: true }) purchaseDate: Date | null;
-  @ApiProperty({ nullable: true }) total: number | null;
-  @ApiProperty({ nullable: true }) imageUrl: string | null;
-  @ApiProperty({ nullable: true }) notes: string | null;
+  @ApiProperty({ type: String, nullable: true }) errorMessage: string | null;
+  @ApiProperty({ type: String, nullable: true }) supermarketSlug: string | null;
+  @ApiProperty({ type: String, nullable: true }) supermarketName: string | null;
+  @ApiProperty({ type: Date, nullable: true }) purchaseDate: Date | null;
+  @ApiProperty({ type: Number, nullable: true }) total: number | null;
+  @ApiProperty({ type: String, nullable: true }) imageUrl: string | null;
+  @ApiProperty({ type: String, nullable: true }) notes: string | null;
   @ApiProperty() createdAt: Date;
   @ApiProperty({ type: [ReceiptItemDto] })
   items: ReceiptItemDto[];

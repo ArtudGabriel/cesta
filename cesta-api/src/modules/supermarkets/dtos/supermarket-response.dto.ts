@@ -11,13 +11,13 @@ export class SupermarketResponseDto {
   @ApiProperty({ example: 'Mercadona' })
   name: string;
 
-  @ApiProperty({ nullable: true, example: '#009D58' })
+  @ApiProperty({ type: String, nullable: true, example: '#009D58' })
   color: string | null;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: String, nullable: true })
   logoUrl: string | null;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: String, nullable: true })
   website: string | null;
 
   @ApiProperty()

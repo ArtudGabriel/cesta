@@ -5,12 +5,12 @@ export class ReviewResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() productId: string;
   @ApiProperty() rating: number;
-  @ApiProperty({ nullable: true }) comment: string | null;
+  @ApiProperty({ type: String, nullable: true }) comment: string | null;
   @ApiProperty() helpfulCount: number;
   @ApiProperty() createdAt: Date;
   @ApiProperty() updatedAt: Date;
   @ApiProperty() authorId: string;
-  @ApiProperty({ nullable: true }) authorName: string | null;
+  @ApiProperty({ type: String, nullable: true }) authorName: string | null;
   @ApiProperty({ default: false, description: 'Se o usuário atual marcou útil' })
   markedHelpful: boolean;
 
