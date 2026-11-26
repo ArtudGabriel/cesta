@@ -20,8 +20,8 @@ attempt=0
 delays=(10 20 40)
 until migrate_deploy; do
   attempt=$((attempt + 1))
-  if [ "$attempt" -ge 3 ]; then
-    echo "!!! migrate deploy failed after 3 attempts — aborting build"
+  if [ "$attempt" -ge 4 ]; then
+    echo "!!! migrate deploy failed after 4 attempts — aborting build"
     exit 1
   fi
   delay=${delays[$((attempt - 1))]}
