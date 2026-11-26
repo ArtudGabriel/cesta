@@ -26,11 +26,24 @@ S179 tentou mitigar via Fuse.js **post-fetch** no frontend (opção A inline do 
 
 ### Threshold 0.3
 
-Padrão Postgres (`pg_trgm.similarity_threshold` default). Tolera ~1-2 typos em palavra 5-6 chars. Validado empiricamente:
-- "lecge" → "Leche" similarity ≈ 0.44 ✓
-- "yogrt" → "Yogur" similarity ≈ 0.41 ✓
-- "yoguer" → "Yogur" similarity ≈ 0.55 ✓
-- "xyz987" → zero matches (sem nada parecido no catálogo) ✓
+Padrão Postgres (`pg_trgm.similarity_threshold` default). Tolera ~1-2 typos em palavra 5-6 chars.
+
+### Sprint 181 UPDATE: `similarity()` → `word_similarity()`
+
+Diagnose Neon prod empírico (S181) revelou que `similarity()` falha quando nome do produto tem palavras extras:
+
+| query | text | similarity() | word_similarity(q, text) |
+|---|---|---|---|
+| `lecge` | `leche` | 0.333 | — |
+| `lecge` | `Leche entera 1L` | **0.158** ❌ | **0.5** ✓ |
+| `yogrt` | `yogur` | 0.333 | — |
+| `yogrt` | `Yogur natural 4x125g` | **0.125** ❌ | **0.5** ✓ |
+| `yoguer` | `Yogur griego Dia` | — | 0.571 ✓ |
+| `xyz987` | `*` | — | < 0.3 → [] ✓ |
+
+**Root cause:** `similarity()` compara trigramas da **string inteira** — nome produto 15+ chars dilui score vs query 5 chars. `word_similarity(query, text)` compara query trigrams vs **melhor substring** do text, ignora resto.
+
+**Fix S181:** `$queryRaw` usa `word_similarity(${q}, "name") > 0.3` + `word_similarity(${q}, "brand") > 0.3`. GIN `gin_trgm_ops` acelera ambos operadores.
 
 Futuro: ajustar via env `PG_TRGM_THRESHOLD` se telemetria mostrar falsos positivos (threshold mais alto = menos recall).
 
