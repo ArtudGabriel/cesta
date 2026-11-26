@@ -204,6 +204,32 @@ cd cesta-web && npm run test:coverage:gate
 - Moderate devDeps aceitos defer temporário até sprint sweep próximo (CI filter `--audit-level=high` cobre prod).
 - HIGH/CRITICAL em `--omit=dev` é blocker — sprint hotfix imediato.
 
+### Bundle size gate (Sprint 199, ADR 0019)
+
+Post-build script `cesta-web/scripts/bundle-size.mjs` lê `.next/app-build-manifest.json`, computa gzipped size per chunk, agrega por route (firstLoad = total, pageOnly = exclusive, shared = chunks em ≥50% das routes).
+
+**Threshold:**
+- First Load JS ≤ 200KB gzip (Lighthouse baseline mobile 4G).
+- Per-page JS ≤ 50KB gzip (isola custo rota nova de shared bundle).
+
+**CI (continue-on-error em S199 baseline cycle):**
+- Workflow web job pós `npm run build` → `npm run bundle:size`.
+- Artifact `bundle-size` (14d retention) com report JSON.
+- **S200+ flip pra gate real** após primeira run capturar baseline (ADR 0019 §Follow-up).
+
+**Local verify:**
+
+```bash
+cd cesta-web && npm run build && npm run bundle:size
+# prints markdown table + writes bundle-size-report.json
+```
+
+**JSON-only output:**
+
+```bash
+npm run bundle:size -- --json | jq '.routes[] | select(.violations | length > 0)'
+```
+
 ### Playwright E2E (Sprint 198)
 
 Infra setup inicial pra E2E — chromium headless + Playwright test runner. CI roda em workflow separado (`.github/workflows/e2e.yml`) via schedule noturno + `workflow_dispatch` manual pra não adicionar ~5min no PR CI principal.
