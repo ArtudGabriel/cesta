@@ -13,6 +13,7 @@ import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { EmailVerificationBanner } from "@/features/auth/components/email-verification-banner";
 import { CookieBanner } from "@/features/consent/components/cookie-banner";
 import { routing } from "@/i18n/routing";
+import { BRAND_GREEN } from "@/lib/brand";
 import { QueryProvider } from "@/providers/query-provider";
 import { Toaster } from "sonner";
 
@@ -86,7 +87,7 @@ export async function generateMetadata({
 }
 
 export const viewport: Viewport = {
-  themeColor: "#1b6b48",
+  themeColor: BRAND_GREEN,
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
