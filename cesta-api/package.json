@@ -14,8 +14,10 @@
     "start:prod": "node dist/src/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
+    "test:ci": "jest --ci --passWithNoTests",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "test:coverage:gate": "jest --coverage --coverageReporters=text-summary --coverageReporters=lcov --coverageReporters=json-summary",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
@@ -147,10 +149,10 @@
     "coverageDirectory": "../coverage",
     "coverageThreshold": {
       "global": {
-        "statements": 9,
-        "branches": 2,
-        "functions": 4,
-        "lines": 9
+        "statements": 55,
+        "branches": 46,
+        "functions": 41,
+        "lines": 55
       }
     },
     "testEnvironment": "node"

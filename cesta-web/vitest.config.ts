@@ -23,14 +23,17 @@ export default defineConfig({
         "src/app/**/loading.tsx",
         "src/app/**/not-found.tsx",
       ],
-      // Baseline Sprint 43 — medido primeira run coverage (atual - 5pp buffer).
-      // Baseline: statements 11.81% / branches 5.37% / functions 9.5% / lines 11.71%.
-      // Thresholds propositalmente baixos pra passar hoje; incrementar sprints futuras.
+      // Sprint 194 (S71 nit close) — coverage threshold gate rebased.
+      // Baseline capturado 2026-11-26 full test suite:
+      //   statements 35.28% / branches 29.75% / functions 30.3% / lines 35.81%.
+      // Thresholds -2pp pra absorver flutuação CI vs local + feature sprints
+      // sem over-tightening (incrementar via README procedure quando baseline
+      // subir ≥5pp acima do threshold).
       thresholds: {
-        statements: 6,
-        branches: 3,
-        functions: 4,
-        lines: 6,
+        statements: 33,
+        branches: 27,
+        functions: 28,
+        lines: 33,
       },
     },
   },
