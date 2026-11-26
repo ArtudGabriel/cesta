@@ -33,6 +33,7 @@
     "sync:alcampo": "ts-node scripts/sync-alcampo.ts",
     "sync:froiz": "ts-node scripts/sync-froiz.ts",
     "backfill:categories": "ts-node scripts/backfill-categories.ts",
+    "backfill:images": "node scripts/backfill-images-standalone.mjs",
     "install:chrome": "puppeteer browsers install chrome",
     "postinstall": "prisma generate"
   },
