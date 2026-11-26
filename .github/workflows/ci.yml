@@ -152,6 +152,10 @@ jobs:
             });"
       - run: npm run lint --if-present
         continue-on-error: true
+      # Sprint 196: i18n parity gate (es.json vs pt-BR.json). Falha CI se
+      # qualquer locale tiver keys faltando, type mismatch ou TODO drift.
+      - name: i18n parity gate (es vs pt-BR)
+        run: npm run i18n:parity
       # Sprint 194 (S71 nit close): split test run from coverage gate.
       - name: Unit tests (vitest, no coverage gate)
         run: npm run test:ci

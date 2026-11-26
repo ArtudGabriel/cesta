@@ -204,6 +204,41 @@ cd cesta-web && npm run test:coverage:gate
 - Moderate devDeps aceitos defer temporário até sprint sweep próximo (CI filter `--audit-level=high` cobre prod).
 - HIGH/CRITICAL em `--omit=dev` é blocker — sprint hotfix imediato.
 
+### i18n parity enforcement (Sprint 196)
+
+`cesta-web` suporta `es` (default) + `pt-BR`. Messages em `cesta-web/src/i18n/messages/{es,pt-BR}.json`. CI job Web roda `npm run i18n:parity` como gate obrigatório — falha se qualquer drift entre as locales.
+
+**Verificações:**
+- Keys presentes só em uma locale (onlyEs / onlyPt).
+- Type mismatch (ex: path é leaf em ES, branch em PT-BR).
+- TODO markers em values (warn-level; não bloqueia gate mas visível no log).
+
+**Local verify antes de PR:**
+
+```bash
+cd cesta-web && npm run i18n:parity
+# ✅ parity OK (N leaves aligned)
+# OR
+# ❌ N parity violation(s) — fix translations.
+```
+
+**Regen manual procedure** (quando adicionar feature com strings novas):
+
+```bash
+# 1. Add key em es.json (default locale — strings canônicas).
+# 2. Add mesma key em pt-BR.json com tradução, OR placeholder:
+#    "feature.new": "TODO: traducir após review"
+# 3. Rodar gate pra confirmar paridade estrutural:
+cd cesta-web && npm run i18n:parity
+# 4. TODO markers restantes aparecem como [WARN] no log; sprint
+#    follow-up elimina antes de MVP launch.
+```
+
+**Policy:**
+- Adicionar feature nova = adicionar key EM AMBAS locales no mesmo PR.
+- Zero drift aceito merge main. CI gate bloqueia.
+- `TODO:` prefix permitido temporário em pt-BR quando string ambígua culturalmente; rastreado via log WARN + sprint follow-up pra traduzir.
+
 ---
 
 ## Deploy
