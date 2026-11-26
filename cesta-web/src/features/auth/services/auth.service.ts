@@ -1,4 +1,5 @@
 import { api } from "@/lib/api";
+import { recordAuthAttempt } from "@/lib/sentry-breadcrumbs";
 import type {
   AuthResponse,
   AuthUser,
@@ -15,26 +16,91 @@ interface Envelope<T> {
   data: T;
 }
 
+function authErrorCode(err: unknown): string | undefined {
+  if (err && typeof err === "object") {
+    const e = err as { code?: unknown; errorCode?: unknown };
+    if (typeof e.errorCode === "string") return e.errorCode;
+    if (typeof e.code === "string") return e.code;
+  }
+  return undefined;
+}
+
+function authErrorStatus(err: unknown): number | undefined {
+  if (err && typeof err === "object") {
+    const e = err as { status?: unknown };
+    if (typeof e.status === "number") return e.status;
+  }
+  return undefined;
+}
+
+function is2FAChallenge(response: LoginResponse): boolean {
+  return (
+    typeof response === "object" &&
+    response !== null &&
+    "status" in response &&
+    (response as { status?: unknown }).status === "2FA_REQUIRED"
+  );
+}
+
 /**
  * Refresh token agora é cookie httpOnly (Sprint 54) — browser envia
  * automaticamente em cada call desde que axios tenha withCredentials: true
  * (lib/api.ts). Response body não traz mais refreshToken.
+ *
+ * Sprint 192 G2: breadcrumbs Sentry sem PII (GDPR S59). Email/senha NUNCA
+ * entram no payload — só kind + outcome + status + error code.
  */
 export const authService = {
   async register(payload: RegisterPayload): Promise<AuthResponse> {
-    const { data } = await api.post<Envelope<AuthResponse>>(
-      "/auth/register",
-      payload,
-    );
-    return data.data;
+    const started = Date.now();
+    try {
+      const { data } = await api.post<Envelope<AuthResponse>>(
+        "/auth/register",
+        payload,
+      );
+      recordAuthAttempt({
+        kind: "register",
+        outcome: "success",
+        status: 201,
+        durationMs: Date.now() - started,
+      });
+      return data.data;
+    } catch (err) {
+      recordAuthAttempt({
+        kind: "register",
+        outcome: "failure",
+        status: authErrorStatus(err),
+        errorCode: authErrorCode(err),
+        durationMs: Date.now() - started,
+      });
+      throw err;
+    }
   },
 
   async login(payload: LoginPayload): Promise<LoginResponse> {
-    const { data } = await api.post<Envelope<LoginResponse>>(
-      "/auth/login",
-      payload,
-    );
-    return data.data;
+    const started = Date.now();
+    try {
+      const { data } = await api.post<Envelope<LoginResponse>>(
+        "/auth/login",
+        payload,
+      );
+      recordAuthAttempt({
+        kind: "login",
+        outcome: is2FAChallenge(data.data) ? "challenge_2fa" : "success",
+        status: 200,
+        durationMs: Date.now() - started,
+      });
+      return data.data;
+    } catch (err) {
+      recordAuthAttempt({
+        kind: "login",
+        outcome: "failure",
+        status: authErrorStatus(err),
+        errorCode: authErrorCode(err),
+        durationMs: Date.now() - started,
+      });
+      throw err;
+    }
   },
 
   async twoFactorEnroll(): Promise<TwoFactorEnrollResponse> {
