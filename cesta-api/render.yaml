@@ -16,11 +16,9 @@ services:
         value: 3001
       - key: DATABASE_URL
         sync: false
-      # Sprint 183: Neon NON-pooled URL for prisma migrate (bypass pgbouncer
-      # connection ceiling / advisory-lock contention). Set manually in
-      # Render dashboard; append ?connect_timeout=30 query param.
-      - key: DATABASE_URL_UNPOOLED
-        sync: false
+      # Sprint 183 (ADR 0013): DATABASE_URL_UNPOOLED is DERIVED at build
+      # time in render-build.sh by stripping "-pooler" from DATABASE_URL.
+      # Not set as an env var (incident S134: dashboard PUT wiped all vars).
       - key: REDIS_URL
         sync: false
       - key: CORS_ORIGIN

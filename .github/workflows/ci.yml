@@ -61,6 +61,9 @@ jobs:
       - name: npm audit (prod deps, high+)
         run: npm audit --omit=dev --audit-level=high
       - run: npx prisma generate
+      # Sprint 183: derive_unpooled_url spec (render-build.sh helper, ADR 0013).
+      - name: render-build.sh URL derivation spec
+        run: bash scripts/render-build-url.test.sh
       - run: npx prisma migrate deploy
       - run: npm run lint --if-present
         continue-on-error: true
