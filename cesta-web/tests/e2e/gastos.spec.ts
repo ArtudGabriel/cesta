@@ -28,7 +28,14 @@ async function mockReceiptsList(page: Page, receipts: unknown[] = []) {
       // multipart/form-data — não parseamos aqui, só confirmamos 202 shape.
       await fulfillJson(route, 202, envelope({
         jobId: "job_abc123",
-        receiptId: "crec11111111111111111111111",
+        // AJUSTE 2 QA S203 (Boss opt B): formato REAL prod. Cesta prefixa
+        // receipts com 'crec' + 24+ chars cuid-style. Literal anterior
+        // 'crec' + 23 chars (27 total) violava regex spec /crec[a-z0-9]{24,}/
+        // off-by-one — mascarado antes por regex frouxo (Boss rejeitou
+        // opts A/C que esconderiam formato real bug). Agora 28 chars total,
+        // passa tanto o filtro CUID_PATTERN em receipt page.tsx (^c[a-z0-9]{24,}$)
+        // quanto o regex spec.
+        receiptId: "creclzpn87xk0001q2w3e4r5t6y7",
         status: "QUEUED",
       }));
       return;
@@ -95,18 +102,26 @@ test.describe("Gastos flows (route interception)", () => {
 
     await page.goto("/gastos");
 
-    // Inject file no input file hidden (bypass botão Camera/Upload que
-    // depende de diálogo nativo file picker).
-    const fileInputs = page.locator('input[type="file"]');
-    await fileInputs.first().setInputFiles({
+    // AJUSTE S203 QA: setInputFiles direto em input[type=file].first()
+    // falhava — picava file input errado OR não disparava handleFile. Fix:
+    // usar filechooser event (padrão Playwright pra ref.click() pattern).
+    // Click "Subir imagen" (uploadCta ES) → cameraRef/galleryRef.click() →
+    // Playwright intercepta file dialog → setFiles dispara onChange real.
+    const uploadBtn = page.getByRole("button", { name: /subir imagen/i });
+    await expect(uploadBtn).toBeVisible({ timeout: 10_000 });
+
+    const fileChooserPromise = page.waitForEvent("filechooser");
+    await uploadBtn.click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles({
       name: "ticket.jpg",
       mimeType: "image/jpeg",
       buffer: TINY_JPEG,
     });
 
-    // Preview aparece após setPending.
+    // Preview monta após handleFile → setPending.
     await expect(page.getByTestId("scan-button-preview")).toBeVisible({
-      timeout: 5_000,
+      timeout: 10_000,
     });
 
     // Submit → POST /receipts (mock 202) → router.push(/gastos/:id).
