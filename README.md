@@ -230,11 +230,37 @@ cd cesta-web && npm run build && npm run bundle:size
 npm run bundle:size -- --json | jq '.routes[] | select(.violations | length > 0)'
 ```
 
-### Playwright E2E (Sprint 198 + Sprint 201)
+### Playwright E2E (Sprint 198 + Sprint 201 + Sprint 202)
 
 Infra setup inicial pra E2E — chromium headless + Playwright test runner. CI roda em workflow separado (`.github/workflows/e2e.yml`) via schedule noturno + `workflow_dispatch` manual pra não adicionar ~5min no PR CI principal.
 
+**Shared helpers** (`tests/e2e/helpers/auth.ts`, S202): `seedAuth`, `mockMeEndpoints`, `baseUser`, `envelope`, `fulfillJson` — reusados pelas specs auth/favoritos/comparar.
+
 **Smoke** (`tests/e2e/home.spec.ts`, S198): home carrega + search combobox + type `'leche'` + dropdown abre (aria-expanded=true). Assertions mínimas pra não depender de backend (smoke confirma wiring Next + Playwright, não suggestions content).
+
+**Favoritos flows** (`tests/e2e/favoritos.spec.ts`, S202):
+
+| Flow | Cobertura |
+|---|---|
+| (a) logged navega /favoritos | mock GET `/favorites` → empty state "Aún no tienes favoritos" + heading "Mis favoritos" |
+| (b) adicionar favorito reflete lista | mock POST `/favorites` + re-GET; triggera via browser fetch (simula FavoriteToggle PDP); /favoritos refetch mostra 1 item |
+| (c) unfavorite optimistic | mock DELETE `/favorites/:id`; Heart → ConfirmDialog (S88) → card some em <2s (useRemoveFavorite onMutate) |
+| (d) GDPR mask data-sentry-mask | `[data-testid="favorites-list"]` tem attr `data-sentry-mask` (regra S59) |
+
+**Comparar flows** (`tests/e2e/comparar.spec.ts`, S202):
+
+| Flow | Cobertura |
+|---|---|
+| (a) empty state sem products | `[data-testid="comparison-empty-state"]` + CTA "Explorar productos" `href="/"` |
+| (b) ?products=id1,id2 matrix | SSR degrade [] (S202 resilience) + client /products/compare mock → Tabla radio → matrix visible |
+| (c) view toggle Precios ↔ Nutrición | radiogroup `aria-checked` flip |
+| (d) winner highlight cheapest | matrix cell `data-cheapest="true"` no preço mais barato por produto |
+
+**S202 app-code resilience patch** — `comparar/page.tsx` + `compare-client.tsx`:
+- SSR `fetchCompareSSR` wrap em try/catch: falha API offline NÃO propaga erro → degrada initialData=[]
+- CompareClient omite initialData quando vazio pra useCompare refetcha client-side (evita staleTime 5min suprimindo recovery)
+- Benefício prod: backend slow/down durante SSR renderiza loader em vez de error boundary; client query retry resgata quando API volta
+- Benefício e2e: SSR fetch ECONNREFUSED não bloqueia test runs sem API
 
 **Auth flows** (`tests/e2e/auth.spec.ts`, S201):
 
@@ -275,10 +301,11 @@ PLAYWRIGHT_BASE_URL=https://cesta-web.vercel.app npm run e2e
 - Artifacts: `playwright-report` (14d) + `playwright-trace` on-failure (7d).
 - Manual: Actions tab → E2E → Run workflow → pode passar `base_url` pra prod.
 
-**S202+ roadmap:**
+**S203+ roadmap:**
 - Fuzzy suggest com backend live (requer prod restored).
-- PDP `/produto/[pid]` journey.
-- /comparar flow (adicionar 2 produtos + ver diff).
+- PDP `/produto/[pid]` journey (SSR fetch stub via MSW ou mock Next server).
+- /minha-lista add+remove flow.
+- /gastos upload nota → OCR edit flow.
 - OpenAPI contract check CI (valida mocks vs schema; fecha trade-off S201 route interception).
 - A11y assertions via `@axe-core/playwright` (replace jsdom-based S197 pra paint rules).
 

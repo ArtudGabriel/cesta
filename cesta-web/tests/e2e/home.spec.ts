@@ -1,17 +1,20 @@
 import { expect, test } from "@playwright/test";
+import { dismissCookieBanner } from "./helpers/auth";
 
 /**
  * Sprint 198 — primeiro smoke E2E Playwright.
+ * Sprint 202 AJUSTE — dismiss cookie banner + hardened assertion.
  *
  * Objetivo: validar wiring Playwright + Next (baseURL + chromium headless +
  * trace on-failure). Assertions mínimas pra não depender de backend específico
  * (CI web job offline API = suggestions dropdown pode estar vazio mas estrutura
  * UI renderiza).
- *
- * S199+ expand cobrirá: fuzzy suggest com backend live, /produto PDP, flow
- * compare, login/register journey (pós prod restored).
  */
 test.describe("Home (smoke)", () => {
+  test.beforeEach(async ({ page }) => {
+    await dismissCookieBanner(page);
+  });
+
   test("home carrega + search combobox visível + typing abre dropdown", async ({
     page,
   }) => {
@@ -41,7 +44,14 @@ test.describe("Home (smoke)", () => {
   test("home renderiza nav principal + footer hooks", async ({ page }) => {
     await page.goto("/");
     // Navigation role present (BottomNav em mobile ou header nav em desktop).
-    // Qualquer link role suffices pra confirmar page hydrate.
+    // S202 AJUSTE QA: count=0 em workers=6 era race de hydration — primeira
+    // query batia antes do nav montar. Fix: aguarda visibility do primeiro
+    // link com timeout explícito (10s), depois conta. Também explícito
+    // networkidle wait pra garantir que a listagem anônima de produtos
+    // não derruba o render.
+    await page.waitForLoadState("domcontentloaded");
+    const firstLink = page.getByRole("link").first();
+    await expect(firstLink).toBeVisible({ timeout: 10_000 });
     const links = page.getByRole("link");
     expect(await links.count()).toBeGreaterThan(0);
   });

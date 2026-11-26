@@ -50,8 +50,15 @@ export function CompareClient({ initialIds, initialData }: CompareClientProps) {
 
   // initialData só é válido pra set inicial de ids. Se usuário add/remove,
   // useCompare refetch via queryFn — zero loading flash no load inicial SSR.
+  // Sprint 202: initialData.length === 0 sinaliza falha SSR (page.tsx try/catch
+  // degrade). Passar [] como initialData suprime o client refetch (staleTime
+  // 5min). Omitimos initialData quando vazio pra deixar useCompare refetcha
+  // client-side quando backend volta (ou mocks e2e respondem).
   const { data, isPending } = useCompare(ids, {
-    initialData: ids.join(",") === initialIds.join(",") ? initialData : undefined,
+    initialData:
+      initialData.length > 0 && ids.join(",") === initialIds.join(",")
+        ? initialData
+        : undefined,
   });
 
   const updateIds = useCallback(

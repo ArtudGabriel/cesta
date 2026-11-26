@@ -1,7 +1,18 @@
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import {
+  DEFAULT_ACCESS_TOKEN as ACCESS_TOKEN,
+  DEFAULT_USER_EMAIL as EMAIL,
+  baseUser,
+  envelope,
+  fulfillJson,
+  mockMeEndpoints,
+  seedAuth,
+} from "./helpers/auth";
 
 /**
  * Sprint 201 — E2E auth flow expansion.
+ * Sprint 202 — helpers extraídos pra tests/e2e/helpers/auth.ts (reuse em
+ * favoritos.spec.ts + comparar.spec.ts).
  *
  * Cobre quatro flows essenciais:
  *   (a) register form valid + submit + auto-login redirect pra "/".
@@ -11,108 +22,9 @@ import { expect, test, type Page, type Route } from "@playwright/test";
  *   (d) i18n toggle em /perfil NÃO invalida session — regressão S168 P1
  *       (fixada em S169 via window.location.reload() pós-mutate que preserva
  *       auth cookie httpOnly em vez de router.refresh() client-nav).
- *
- * Fixtures: Playwright route interception (route.fulfill). Justificativa em
- * PR body + README seção "Auth flows (route interception strategy)".
- *
- * Shapes seguem os types em cesta-web/src/features/auth/types/auth.types.ts
- * (AuthUser + AuthTokens + AuthResponse) e cesta-web/src/features/profile
- * (Profile pra /users/me GET). Backend não roda neste workflow — mocks
- * carregam contrato suficiente pra exercer o frontend.
  */
 
-interface MockUser {
-  id: string;
-  email: string | null;
-  phone: string | null;
-  name: string | null;
-  locale: "es" | "pt-BR";
-  roles: string[];
-  emailVerifiedAt: string | null;
-  createdAt: string;
-}
-
-const EMAIL = "e2e@cesta.test";
 const PASSWORD = "SuperSecret123!";
-const ACCESS_TOKEN = "e2e-access-token-xyz";
-
-function baseUser(overrides: Partial<MockUser> = {}): MockUser {
-  return {
-    id: "user-e2e-1",
-    email: EMAIL,
-    phone: null,
-    name: "E2E Tester",
-    locale: "es",
-    roles: ["USER"],
-    emailVerifiedAt: "2026-11-26T00:00:00.000Z",
-    createdAt: "2026-01-01T00:00:00.000Z",
-    ...overrides,
-  };
-}
-
-function envelope<T>(data: T) {
-  return { data };
-}
-
-async function fulfillJson(route: Route, status: number, body: unknown) {
-  await route.fulfill({
-    status,
-    contentType: "application/json",
-    body: JSON.stringify(body),
-  });
-}
-
-/**
- * Pre-seeds zustand + access token storage so the app boots already
- * authenticated. Avoids running login UI when the test under scrutiny is
- * logout / reload / i18n-toggle (flows b, c reload step, d).
- *
- * Must run via addInitScript BEFORE the first navigation so hydration picks
- * up the persisted state on mount.
- */
-async function seedAuth(page: Page, user: MockUser = baseUser()) {
-  await page.addInitScript(
-    ({ user, token }) => {
-      try {
-        window.localStorage.setItem(
-          "cesta-auth",
-          JSON.stringify({ state: { user }, version: 0 }),
-        );
-        window.localStorage.setItem("cesta_access_token", token);
-        document.cookie = `cesta_access_token=${token}; path=/; max-age=900; samesite=lax`;
-        document.cookie = `cesta:locale=${user.locale}; path=/; max-age=31536000; samesite=lax`;
-      } catch {
-        // init script falha silenciosamente — teste assertiona depois.
-      }
-    },
-    { user, token: ACCESS_TOKEN },
-  );
-}
-
-/**
- * Intercepta /auth/me + /users/me com o user atual. Usado em flows que
- * precisam que o frontend re-fetche o user pós-hydration / pós-reload
- * (useMe + useProfile hooks).
- */
-async function mockMeEndpoints(page: Page, user: MockUser) {
-  await page.route("**/auth/me", async (route) => {
-    await fulfillJson(route, 200, envelope(user));
-  });
-  await page.route("**/users/me", async (route) => {
-    if (route.request().method() === "PATCH") {
-      let body: Record<string, unknown> = {};
-      try {
-        body = (await route.request().postDataJSON()) as Record<string, unknown>;
-      } catch {
-        // payload não-JSON — ignore e devolve user atual.
-      }
-      const next: MockUser = { ...user, ...body } as MockUser;
-      await fulfillJson(route, 200, envelope(next));
-      return;
-    }
-    await fulfillJson(route, 200, envelope(user));
-  });
-}
 
 test.describe("Auth flows (route interception)", () => {
   test("(a) register valid submit + auto-login redirect pra home", async ({
