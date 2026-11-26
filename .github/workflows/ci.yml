@@ -187,6 +187,21 @@ jobs:
           SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      # Sprint 199: bundle-size gate. Lê .next manifest + gzip chunks per route,
+      # falha se any route excede first-load (200KB) OR per-page (50KB) gzip
+      # threshold. continue-on-error em primeiro ciclo baseline (gather real
+      # sizes antes de tighten); S200+ flip pra gate real.
+      - name: Bundle size gate (gzip per-route)
+        run: npm run bundle:size
+        continue-on-error: true
+      - name: Upload bundle-size report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-size
+          path: cesta-web/bundle-size-report.json
+          retention-days: 14
+          if-no-files-found: ignore
       # Sprint 197: a11y-audit gate post-build. Starts Next server background,
       # fetches 6 rotas via axe-core/jsdom. continue-on-error em primeiro ciclo
       # pré-baseline — follow-up sprint tighten após primeira run capturar
