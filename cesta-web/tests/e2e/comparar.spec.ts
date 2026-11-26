@@ -229,4 +229,22 @@ test.describe("Comparar flows (route interception)", () => {
     const cellP1Dia = page.getByTestId("compare-matrix-cell-prod-1-dia");
     await expect(cellP1Dia).not.toHaveAttribute("data-cheapest", "true");
   });
+
+  test("(e) /comparar?products=X (single id) → empty state, no infinite spinner (S215)", async ({
+    page,
+  }) => {
+    // S215 P0 regression: React Query v5 reporta isPending=true quando
+    // enabled:false (ids.length<2 desabilita useCompare). Guard antigo
+    // `isPending && ids.length>0` matchava com 1 id → loader infinito.
+    // Fix: guard por ids.length<2 primeiro em compare-client.tsx.
+    await mockCompare(page, []);
+    await page.goto("/comparar?products=prod-1");
+
+    const empty = page.getByTestId("comparison-empty-state");
+    await expect(empty).toBeVisible({ timeout: 10_000 });
+
+    // Loader NÃO deve aparecer — antes da fix ficaria infinito.
+    const loader = page.locator(".animate-spin");
+    await expect(loader).toHaveCount(0);
+  });
 });
