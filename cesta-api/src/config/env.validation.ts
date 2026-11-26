@@ -102,7 +102,10 @@ export class EnvironmentVariables {
   TWO_FACTOR_ENC_KEY: string;
 
   // Sprint 109: enfileira 1 bootstrap-sync mercadona no onApplicationBootstrap.
-  // Setar 'true' só durante janela de populate inicial — Manager remove depois.
+  // Setar durante janela de populate inicial — Manager remove depois.
+  // Sprint 187 (nit S109 P3): parse robusto em main.ts aceita variações case
+  // + trailing whitespace. Valores truthy aceitos: 'true', 'TRUE', 'True', '1',
+  // qualquer um com leading/trailing spaces. Anything else = disabled.
   @IsOptional()
   @IsString()
   AUTO_SYNC_ON_BOOT?: string;
