@@ -122,7 +122,11 @@ export class LidlAdapter implements SupermarketAdapter {
     const name = this.unescapeJson(titleMatch[1]);
     if (!name) return null;
 
-    const priceMatch = segment.match(/"price":\{[^}]*?"price":(\d+(?:\.\d+)?)/);
+    // S186: regex precisa atravessar sub-objetos (e.g. "packaging":{}, "discount":{...},
+    // "specialTaxes":[]) que agora aparecem dentro do objeto price entre a abertura
+    // "price":{ e o campo price numérico interno. Antes usava [^}]*? que falhava no
+    // primeiro } de "packaging":{}, zerando o yield prod (0/48 por query).
+    const priceMatch = segment.match(/"price":\{[\s\S]{0,2000}?"price":(\d+(?:\.\d+)?)/);
     if (!priceMatch) return null;
     const price = Number(priceMatch[1]);
     if (!Number.isFinite(price) || price <= 0) return null;
