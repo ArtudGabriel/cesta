@@ -7,8 +7,8 @@ import { Clock, ImageOff, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatPrice, cn } from "@/lib/utils";
+import { useFuzzySuggestions } from "../hooks/use-fuzzy-suggestions";
 import { useRecentSearches } from "../hooks/use-recent-searches";
-import { useSuggestions } from "../hooks/use-suggestions";
 import { HighlightedText } from "./highlighted-text";
 
 interface SearchSuggestionsProps {
@@ -37,7 +37,7 @@ export function SearchSuggestions({
 }: SearchSuggestionsProps) {
   const t = useTranslations("home.suggestions");
   const router = useRouter();
-  const { data, isPending, isFetching } = useSuggestions(query, 8);
+  const { data, isPending, isFetching } = useFuzzySuggestions(query, 8);
   const { recents, add, remove, clear } = useRecentSearches();
   const showingRecents = query.trim().length < 2;
 
