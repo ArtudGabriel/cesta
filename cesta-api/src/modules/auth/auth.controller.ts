@@ -78,6 +78,18 @@ function toWire(result: AuthResponseDto): AuthWireResponse {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // Sprint 189 G1 (c): module health endpoint consumido por
+  // ops/smoke-test-prod (ADR 0017 playbook). Separado de /health principal
+  // pra isolar diagnose quando auth module falha boot (ex: Redis rate-limit,
+  // throttler storage down) mas resto da API segue responding.
+  @Public()
+  @Get('health')
+  @ApiOperation({ summary: 'Health check isolado do módulo auth' })
+  @HttpCode(HttpStatus.OK)
+  health() {
+    return { module: 'auth', status: 'ok' };
+  }
+
   @Public()
   @Throttle({ strict: { limit: 5, ttl: 60_000 } })
   @Post('register')
