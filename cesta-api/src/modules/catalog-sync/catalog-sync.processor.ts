@@ -3,6 +3,10 @@ import { Logger, OnModuleInit } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Job, Queue } from 'bullmq';
 import { CatalogSyncService } from './catalog-sync.service';
+import {
+  recordJobStart,
+  recordJobError,
+} from '../../common/sentry/processor-observability';
 
 export const CATALOG_SYNC_QUEUE = 'catalog-sync';
 // Sprint 134-r (2ª iteração): queue separada para manual triggers via
@@ -116,6 +120,7 @@ export class CatalogSyncProcessor
     this.logger.log(
       `Running cron sync for ${supermarketSlug} (jobId=${job.id ?? '?'} priority=${job.opts?.priority ?? 0})`,
     );
+    recordJobStart({ queueName: CATALOG_SYNC_QUEUE, job });
     try {
       const result = await this.service.runFor(supermarketSlug);
       this.logger.log(
@@ -128,6 +133,7 @@ export class CatalogSyncProcessor
         `Sync ${supermarketSlug} failed: ${message}`,
         stack,
       );
+      recordJobError({ queueName: CATALOG_SYNC_QUEUE, job }, err);
       throw err; // Mantém BullMQ marcando como failed pra retry/visibilidade.
     }
   }
@@ -149,6 +155,7 @@ export class CatalogSyncManualProcessor extends WorkerHost {
     this.logger.log(
       `Running manual sync for ${supermarketSlug} (jobId=${job.id ?? '?'})`,
     );
+    recordJobStart({ queueName: CATALOG_SYNC_MANUAL_QUEUE, job });
     try {
       const result = await this.service.runFor(supermarketSlug);
       this.logger.log(
@@ -161,6 +168,7 @@ export class CatalogSyncManualProcessor extends WorkerHost {
         `Manual sync ${supermarketSlug} failed: ${message}`,
         stack,
       );
+      recordJobError({ queueName: CATALOG_SYNC_MANUAL_QUEUE, job }, err);
       throw err;
     }
   }

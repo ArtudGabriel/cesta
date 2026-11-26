@@ -5,6 +5,10 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AlertsRepository } from './alerts.repository';
+import {
+  recordJobStart,
+  recordJobError,
+} from '../../common/sentry/processor-observability';
 
 export const PRICE_ALERTS_QUEUE = 'price-alerts';
 
@@ -30,7 +34,21 @@ export class PriceAlertsProcessor extends WorkerHost {
 
   async process(job: Job<PriceAlertCheckJob>): Promise<void> {
     const { productId, supermarketId } = job.data;
+    recordJobStart({ queueName: PRICE_ALERTS_QUEUE, job });
 
+    try {
+      await this.processJob(job, productId, supermarketId);
+    } catch (err) {
+      recordJobError({ queueName: PRICE_ALERTS_QUEUE, job }, err);
+      throw err;
+    }
+  }
+
+  private async processJob(
+    job: Job<PriceAlertCheckJob>,
+    productId: string,
+    supermarketId: string,
+  ): Promise<void> {
     const productPrice = await this.prisma.productPrice.findUnique({
       where: { productId_supermarketId: { productId, supermarketId } },
       include: { supermarket: true, product: true },

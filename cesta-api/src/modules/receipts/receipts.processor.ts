@@ -1,6 +1,10 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job, Queue } from 'bullmq';
+import {
+  recordJobStart,
+  recordJobError,
+} from '../../common/sentry/processor-observability';
 // Sprint 178 — tsconfig esModuleInterop:true (root fix) tornou S177 require
 // unwrap desnecessário. TS agora emite __importDefault helper que faz
 // `mod.__esModule ? mod : { default: mod }` em runtime — CJS puro (sharp)
@@ -33,6 +37,7 @@ export class ReceiptsProcessor extends WorkerHost {
   async process(job: Job<ReceiptJob>): Promise<void> {
     const { receiptId, imagePath } = job.data;
     this.logger.log(`Processing receipt ${receiptId}`);
+    recordJobStart({ queueName: RECEIPTS_QUEUE, job });
 
     try {
       await this.repo.updateStatus(receiptId, 'processing');
@@ -129,6 +134,7 @@ export class ReceiptsProcessor extends WorkerHost {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Receipt ${receiptId} failed: ${message}`);
       await this.repo.updateStatus(receiptId, 'failed', message);
+      recordJobError({ queueName: RECEIPTS_QUEUE, job }, error);
       throw error;
     }
   }
