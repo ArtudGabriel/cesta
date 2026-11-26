@@ -63,6 +63,9 @@ export function setupSwagger(
       .addTag('Products', 'Catálogo produtos + preços + nutri-score')
       .addTag('Supermarkets', 'Rede de supermercados ativos')
       .addTag('Health', 'Readiness/liveness probes')
+      .addTag('Alerts', 'Alertas de preço + regras combo/trend/bundle')
+      .addTag('Receipts', 'Upload de notas fiscais + OCR async + items')
+      .addTag('Expenses', 'Agregados de gasto (summary/category/supermarket/top-products)')
       .build(),
   );
   SwaggerModule.setup(DOCS_PATH, app, document, {

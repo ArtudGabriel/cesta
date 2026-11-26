@@ -1,6 +1,6 @@
 # ADR 0021 — OpenAPI/Swagger autogen scope (S204) + defer rollout
 
-- **Date:** 2026-11-26 (S204) · updated 2026-11-26 (S205)
+- **Date:** 2026-11-26 (S204) · updated 2026-11-26 (S205, S206)
 - **Status:** Accepted (S204) · rollout progress tracked here (S205+)
 
 ## Progress tracker
@@ -8,10 +8,10 @@
 | Sprint | Controllers newly covered | Running total |
 |:---:|:---|:---:|
 | S204 | `auth`, `products`, `supermarkets`, `health` (pre-existente + revisado) | 4 / 17 |
-| S205 | `reviews`, `favorites`, `shopping-lists` (@ApiResponse + response DTOs linked) | **7 / 17** |
-| S206 | `alerts`, `receipts` (planejado) | 9 / 17 |
-| S207 | `expenses`, `catalog-sync` (planejado) | 11 / 17 |
-| S208 | `imports`, `admin`, `two-factor`, `family-profiles`, `reviews` (nope, já em S205), `notifications` | 17 / 17 |
+| S205 | `reviews`, `favorites`, `shopping-lists` (@ApiResponse + response DTOs linked) | 7 / 17 |
+| S206 | `alerts`, `receipts`, `expenses` (@ApiResponse + response DTOs linked; expenses DTOs novos) | **10 / 17** |
+| S207 | `catalog-sync`, `family-baskets` (planejado) | 12 / 17 |
+| S208 | `imports`, `admin`, `two-factor`, `family-profiles`, `notifications` | 17 / 17 |
 - **Related:** `cesta-api/src/swagger/swagger.setup.ts`, `src/main.ts`, S201+ (E2E route interception mocks drift risk).
 
 ## Context
@@ -57,10 +57,10 @@ Controllers abaixo mantêm wiring parcial pré-S204 (@ApiTags/@ApiOperation em a
 | `favorites` | S205 | ✅ DONE | Shape simples (S205) — @ApiResponse + response DTOs |
 | `shopping-lists` | S205 | ✅ DONE | Shape médio + totals endpoint (S205) |
 | `reviews` | S205 | ✅ DONE | Shape médio, realocado de S208 → S205 (S205) |
-| `alerts` | S206 | pending | Rules combo/trend/bundle complexos, merecem sprint dedicado pra @ApiResponse + exemplos |
-| `receipts` | S206 | pending | FormData upload + jobId polling — Swagger request body multipart precisa cuidado especial |
-| `family-baskets` | S206 | Wizard + regenerate flow — doc exige exemplo request/response |
-| `expenses` | S207 | Agregados (summary/by-market/by-category/top-products) — vários queryparams |
+| `alerts` | S206 | ✅ DONE | Rules combo/trend/bundle (S206) — @ApiResponse + AlertResponseDto/AlertRuleResponseDto linked |
+| `receipts` | S206 | ✅ DONE | FormData upload + 202 async jobId (S206) — @ApiAcceptedResponse + ReceiptResponseDto linked |
+| `expenses` | S206 | ✅ DONE | Agregados summary/by-category/by-supermarket/top-products (S206) — Expense*Dto novos |
+| `family-baskets` | S207 | Wizard + regenerate flow — doc exige exemplo request/response |
 | `catalog-sync` | S207 | Admin-only, surface interno |
 | `imports` | S208 | CSV import GDPR Art. 20 — surface baixa frequência |
 | `admin` | S208 | Admin-only metrics |
@@ -105,8 +105,8 @@ Controllers abaixo mantêm wiring parcial pré-S204 (@ApiTags/@ApiOperation em a
 ## Follow-up
 
 - ~~**S205**: alerts + favorites decoration sweep.~~ → **ENTREGUE S205** (reviews + favorites + shopping-lists; alerts moved to S206).
-- **S206**: alerts + receipts (multipart FormData body + jobId examples).
-- **S207**: expenses + catalog-sync + family-baskets.
+- ~~**S206**: alerts + receipts (multipart FormData body + jobId examples).~~ → **ENTREGUE S206** (alerts + receipts + expenses; expenses realocado de S207 pra manter progresso 7→10).
+- **S207**: catalog-sync + family-baskets.
 - **S208**: imports + admin + two-factor + family-profiles + notifications (finisher).
 - **S20X (parallel)**: `openapi-typescript` CI gate contra `/api/docs-json` — gera types TS + valida mocks E2E vs schema real (fecha trade-off S201).
 - **Prod unblock (post-Render billing resolve)**: setar `SWAGGER_ENABLED=true` em Render env se time quiser docs públicas, OR manter disabled + usar `/api/docs-json` download local via staging.
