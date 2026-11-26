@@ -7,6 +7,7 @@ import {
   PriceAlertCheckJob,
 } from '../alerts/alerts.processor';
 import { PrismaService } from '../../database/prisma.service';
+import { withBandwidthOptions } from '../../common/bullmq/worker-options';
 
 export const PRICE_CORRECTION_QUEUE = 'price-correction';
 
@@ -24,7 +25,7 @@ const DIVERGENCE_THRESHOLD = 0.02;
 const AUTO_UPDATE_MIN_CONFIRMATIONS = 3;
 const AUTO_UPDATE_WINDOW_DAYS = 7;
 
-@Processor(PRICE_CORRECTION_QUEUE)
+@Processor(PRICE_CORRECTION_QUEUE, withBandwidthOptions())
 export class PriceCorrectionProcessor extends WorkerHost {
   private readonly logger = new Logger(PriceCorrectionProcessor.name);
 

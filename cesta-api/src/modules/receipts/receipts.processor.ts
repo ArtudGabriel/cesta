@@ -12,6 +12,7 @@ import {
 import sharp from 'sharp';
 import { createWorker } from 'tesseract.js';
 import { PrismaService } from '../../database/prisma.service';
+import { withBandwidthOptions } from '../../common/bullmq/worker-options';
 import { fuzzyMatchProduct } from './fuzzy-match';
 import { parseReceipt } from './receipt-parser';
 import { ReceiptsRepository } from './receipts.repository';
@@ -21,7 +22,7 @@ import { RECEIPTS_QUEUE, ReceiptJob } from './receipts.queue';
 
 export { RECEIPTS_QUEUE, ReceiptJob };
 
-@Processor(RECEIPTS_QUEUE)
+@Processor(RECEIPTS_QUEUE, withBandwidthOptions())
 export class ReceiptsProcessor extends WorkerHost {
   private readonly logger = new Logger(ReceiptsProcessor.name);
 

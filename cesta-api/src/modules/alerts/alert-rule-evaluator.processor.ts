@@ -5,6 +5,7 @@ import { AlertRule } from '@prisma/client';
 import { Job, Queue } from 'bullmq';
 import { createHash } from 'crypto';
 import { PrismaService } from '../../database/prisma.service';
+import { withBandwidthOptions } from '../../common/bullmq/worker-options';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AlertsRepository } from './alerts.repository';
 import {
@@ -25,7 +26,7 @@ export type AlertRuleEvalJob = Record<string, never>;
  * Idempotente via `lastNotifiedHash` (sha256 do stateSnapshot); só reenvia
  * quando o hash muda. Ver ADR-0005.
  */
-@Processor(ALERT_RULE_EVAL_QUEUE)
+@Processor(ALERT_RULE_EVAL_QUEUE, withBandwidthOptions())
 export class AlertRuleEvaluatorProcessor
   extends WorkerHost
   implements OnModuleInit
