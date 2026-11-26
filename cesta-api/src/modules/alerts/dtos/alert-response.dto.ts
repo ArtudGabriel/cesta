@@ -10,7 +10,7 @@ export class AlertTriggerDto {
   @ApiProperty() id: string;
   @ApiProperty() reason: string;
   @ApiProperty() priceSnapshot: number;
-  @ApiProperty({ nullable: true }) notifiedAt: Date | null;
+  @ApiProperty({ type: Date, nullable: true }) notifiedAt: Date | null;
   @ApiProperty() createdAt: Date;
 
   static fromEntity(trigger: AlertTrigger): AlertTriggerDto {
@@ -28,13 +28,13 @@ export class AlertResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() productId: string;
   @ApiProperty() productName: string;
-  @ApiProperty({ nullable: true }) productImageUrl: string | null;
-  @ApiProperty({ nullable: true }) supermarketId: string | null;
-  @ApiProperty({ nullable: true }) supermarketName: string | null;
+  @ApiProperty({ type: String, nullable: true }) productImageUrl: string | null;
+  @ApiProperty({ type: String, nullable: true }) supermarketId: string | null;
+  @ApiProperty({ type: String, nullable: true }) supermarketName: string | null;
   @ApiProperty() type: string;
-  @ApiProperty({ nullable: true }) targetPrice: number | null;
+  @ApiProperty({ type: Number, nullable: true }) targetPrice: number | null;
   @ApiProperty() isActive: boolean;
-  @ApiProperty({ nullable: true }) lastTriggeredAt: Date | null;
+  @ApiProperty({ type: Date, nullable: true }) lastTriggeredAt: Date | null;
   @ApiProperty() createdAt: Date;
   @ApiProperty({ type: [AlertTriggerDto] })
   triggers: AlertTriggerDto[];

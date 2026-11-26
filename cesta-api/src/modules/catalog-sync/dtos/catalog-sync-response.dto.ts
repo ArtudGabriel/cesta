@@ -7,7 +7,7 @@ export class AdapterListResponseDto {
 }
 
 export class CatalogSyncJobResponseDto {
-  @ApiProperty({ nullable: true, description: 'ID do job BullMQ enfileirado' })
+  @ApiProperty({ type: String, nullable: true, description: 'ID do job BullMQ enfileirado' })
   jobId: string | null;
   @ApiProperty({ example: 'queued' }) status: string;
   @ApiProperty() supermarketSlug: string;
@@ -23,9 +23,9 @@ export class SyncRunResponseDto {
   @ApiProperty() itemsUpdated: number;
   @ApiProperty() itemsCandidate: number;
   @ApiProperty() itemsFailed: number;
-  @ApiProperty({ nullable: true }) errorMessage: string | null;
+  @ApiProperty({ type: String, nullable: true }) errorMessage: string | null;
   @ApiProperty() startedAt: Date;
-  @ApiProperty({ nullable: true }) finishedAt: Date | null;
+  @ApiProperty({ type: Date, nullable: true }) finishedAt: Date | null;
 
   static fromEntity(run: SyncRun): SyncRunResponseDto {
     const dto = new SyncRunResponseDto();

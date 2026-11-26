@@ -35,9 +35,9 @@ export class AdminMetricsResponseDto {
 
 export class SoftDeletedUserRowDto {
   @ApiProperty() id!: string;
-  @ApiProperty({ nullable: true }) email!: string | null;
+  @ApiProperty({ type: String, nullable: true }) email!: string | null;
   @ApiProperty() deletedAt!: Date;
-  @ApiProperty({ nullable: true, description: 'Hard delete scheduled (deletedAt + 30d grace)' })
+  @ApiProperty({ type: Date, nullable: true, description: 'Hard delete scheduled (deletedAt + 30d grace)' })
   graceEndsAt!: Date | null;
 }
 
@@ -59,8 +59,8 @@ export class CancelDeleteResponseDto {
 
 export class AuditLogRowDto {
   @ApiProperty() id!: string;
-  @ApiProperty({ nullable: true }) userId!: string | null;
-  @ApiProperty({ nullable: true, description: 'Admin que executou (null = system/worker)' })
+  @ApiProperty({ type: String, nullable: true }) userId!: string | null;
+  @ApiProperty({ type: String, nullable: true, description: 'Admin que executou (null = system/worker)' })
   actorId!: string | null;
   @ApiProperty({
     example: 'AdminCancelledDelete',
@@ -68,7 +68,7 @@ export class AuditLogRowDto {
       'Enum AUDIT_LOG_TYPES: UserReactivated | UserDataExported | SecretRotated | AdminCancelledDelete | TwoFactorEnabled | TwoFactorDisabled | UserDataImported | UserReminderSent',
   })
   type!: string;
-  @ApiProperty({ nullable: true, description: 'JSON arbitrário por tipo (adminId, jobId, etc)' })
+  @ApiProperty({ type: Object, nullable: true, description: 'JSON arbitrário por tipo (adminId, jobId, etc)' })
   metadata!: unknown;
   @ApiProperty() createdAt!: Date;
 }

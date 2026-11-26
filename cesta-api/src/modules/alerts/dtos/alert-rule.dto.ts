@@ -78,7 +78,7 @@ export class AlertRuleResponseDto {
     description: 'Payload polimórfico: combo/bundle = {productIds, target*}; trend = {productId, consecutiveWeeks}',
   })
   rules: AlertRulePayload;
-  @ApiProperty({ nullable: true }) lastTriggeredAt: Date | null;
+  @ApiProperty({ type: Date, nullable: true }) lastTriggeredAt: Date | null;
   @ApiProperty() createdAt: Date;
 
   static fromEntity(entity: AlertRule): AlertRuleResponseDto {

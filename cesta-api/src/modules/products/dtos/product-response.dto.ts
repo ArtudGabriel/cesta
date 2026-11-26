@@ -54,12 +54,12 @@ export class PriceByMarketDto {
   @ApiProperty() supermarketId: string;
   @ApiProperty() supermarketSlug: string;
   @ApiProperty() supermarketName: string;
-  @ApiProperty({ nullable: true }) supermarketColor: string | null;
+  @ApiProperty({ type: String, nullable: true }) supermarketColor: string | null;
   @ApiProperty({ example: 1.99 }) price: number;
   @ApiProperty({ type: () => UnitPriceDto, nullable: true })
   unitPrice: UnitPrice | null;
   @ApiProperty() onPromotion: boolean;
-  @ApiProperty({ nullable: true }) previousPrice: number | null;
+  @ApiProperty({ type: Number, nullable: true }) previousPrice: number | null;
   @ApiProperty() isAvailable: boolean;
   @ApiProperty() isStale: boolean;
   @ApiProperty() lastSyncedAt: Date;
@@ -69,23 +69,23 @@ export class PriceByMarketDto {
 export class ProductResponseDto {
   @ApiProperty() id: string;
   @ApiProperty() name: string;
-  @ApiProperty({ nullable: true }) brand: string | null;
-  @ApiProperty({ nullable: true }) imageUrl: string | null;
-  @ApiProperty({ nullable: true }) categoryId: string | null;
+  @ApiProperty({ type: String, nullable: true }) brand: string | null;
+  @ApiProperty({ type: String, nullable: true }) imageUrl: string | null;
+  @ApiProperty({ type: String, nullable: true }) categoryId: string | null;
   @ApiProperty() packageSize: number;
   @ApiProperty({ enum: Object.values(MeasureUnit) }) packageUnit: string;
   @ApiProperty({ enum: Object.values(MeasureUnit) }) comparisonUnit: string;
 
   // Nutrição
-  @ApiProperty({ nullable: true }) calories: number | null;
-  @ApiProperty({ nullable: true }) protein: number | null;
-  @ApiProperty({ nullable: true }) fat: number | null;
-  @ApiProperty({ nullable: true }) saturatedFat: number | null;
-  @ApiProperty({ nullable: true }) carbs: number | null;
-  @ApiProperty({ nullable: true }) sugar: number | null;
-  @ApiProperty({ nullable: true }) salt: number | null;
-  @ApiProperty({ nullable: true }) fiber: number | null;
-  @ApiProperty({ nullable: true, description: 'Base amount (100 for per-100g/ml, 1 for per-unit)' })
+  @ApiProperty({ type: Number, nullable: true }) calories: number | null;
+  @ApiProperty({ type: Number, nullable: true }) protein: number | null;
+  @ApiProperty({ type: Number, nullable: true }) fat: number | null;
+  @ApiProperty({ type: Number, nullable: true }) saturatedFat: number | null;
+  @ApiProperty({ type: Number, nullable: true }) carbs: number | null;
+  @ApiProperty({ type: Number, nullable: true }) sugar: number | null;
+  @ApiProperty({ type: Number, nullable: true }) salt: number | null;
+  @ApiProperty({ type: Number, nullable: true }) fiber: number | null;
+  @ApiProperty({ type: Number, nullable: true, description: 'Base amount (100 for per-100g/ml, 1 for per-unit)' })
   nutritionPer: number | null;
 
   @ApiProperty({ type: () => NutriScoreDto, nullable: true })
@@ -101,10 +101,10 @@ export class ProductResponseDto {
   @ApiProperty({ type: [PriceByMarketDto] })
   prices: PriceByMarketDto[];
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: String, nullable: true })
   cheapestSupermarketSlug: string | null;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: Number, nullable: true })
   cheapestPrice: number | null;
 
   @ApiProperty({ type: () => UnitPriceDto, nullable: true })

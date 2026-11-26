@@ -35,10 +35,10 @@ export class FavoriteProductDto {
   @ApiProperty()
   name: string;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: String, nullable: true })
   brand: string | null;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: String, nullable: true })
   imageUrl: string | null;
 
   @ApiProperty()

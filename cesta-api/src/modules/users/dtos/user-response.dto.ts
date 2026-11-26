@@ -5,13 +5,13 @@ export class UserResponseDto {
   @ApiProperty()
   id: string;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: String, nullable: true })
   email: string | null;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: String, nullable: true })
   phone: string | null;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: String, nullable: true })
   name: string | null;
 
   @ApiProperty({ example: 'es' })
@@ -48,10 +48,11 @@ export class UserResponseDto {
   })
   cookieConsentLevel: 'all' | 'essential' | null;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ type: Date, nullable: true })
   cookiesAcceptedAt: Date | null;
 
   @ApiProperty({
+    type: Date,
     nullable: true,
     description: 'Timestamp da confirmação de email via link Resend (Sprint 75). null = ainda pendente.',
   })
