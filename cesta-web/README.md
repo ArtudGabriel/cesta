@@ -50,6 +50,34 @@ HTTP listen). Script força defaults seguros de env (`DATABASE_URL`, `R2_*`,
 `TWO_FACTOR_ENC_KEY`, `JWT_*_SECRET_CURRENT`) via `CESTA_OPENAPI_DUMP=1` sem
 precisar de `.env` local nem DB rodando.
 
+## Types adoption policy (ADR 0023)
+
+Consumers (services, hooks, E2E mocks) consomem types gerados via barrel
+`src/types/api.ts`:
+
+```ts
+import type { Schemas, Operations } from "@/types/api";
+
+type CreateAlertPayload = Schemas["CreateAlertDto"];
+type ProductQuery = Operations["ProductsController_findMany"]["parameters"]["query"];
+```
+
+Política por categoria de payload:
+
+| Categoria | Política |
+|---|---|
+| Request body (POST/PATCH/PUT) | **Adotar** `Schemas["XxxDto"]` |
+| Query params | **Adotar** `Operations["XxxController_*"]["parameters"]["query"]` |
+| Response com nullable fields | **Handcrafted FROZEN** até backend fixar `@ApiProperty({ type, nullable })` (ver ADR 0023) |
+| Response sem nullable fields | **Adotar** `Schemas["XxxResponseDto"]` |
+
+**Replace in place** — zero types `_v2`, zero fallback paralelo. Handcrafted
+response types ficam em `features/*/types/*.types.ts` até backend fix no S211+.
+
+E2E mocks referenciam feature types diretamente (ex: `import type { Favorite }
+from "@/features/favorites/types/favorite.types"`) — proibido duplicar shape
+inline em `tests/e2e/*.spec.ts`.
+
 ## Documentação
 
 - [`../README.md`](../README.md) — overview, deploy, CI

@@ -1,8 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 import { dismissCookieBanner, envelope, fulfillJson } from "./helpers/auth";
+import type {
+  PriceByMarket,
+  Product,
+} from "@/features/catalog/types/catalog.types";
 
 /**
  * Sprint 202 — E2E /comparar flows.
+ * Sprint 210 — MockPrice/MockProduct alias feature types (zero paralelo).
  *
  * (a) /comparar sem products → empty state + CTA "Explorar productos".
  * (b) /comparar?products=id1,id2 → matrix (ou grid) renderiza. SSR
@@ -11,57 +16,10 @@ import { dismissCookieBanner, envelope, fulfillJson } from "./helpers/auth";
  * (c) toggle view Precios ↔ Nutrición (radiogroup compare).
  * (d) winner highlight — modo Tabla (matrix) tem `data-cheapest="true"`
  *     na célula do preço mais barato por produto × supermercado.
- *
- * Shapes: Product + PriceByMarket conforme
- * cesta-web/src/features/catalog/types/catalog.types.ts.
  */
 
-type NutriGrade = "A" | "B" | "C" | "D" | "E";
-type MeasureUnit = "LITER" | "MILLILITER" | "KILOGRAM" | "GRAM" | "UNIT";
-
-interface MockPrice {
-  supermarketId: string;
-  supermarketSlug: string;
-  supermarketName: string;
-  supermarketColor: string | null;
-  price: number;
-  unitPrice: { value: number; unit: "L" | "kg" | "100g" | "100ml" | "un" } | null;
-  onPromotion: boolean;
-  previousPrice: number | null;
-  isAvailable: boolean;
-  isStale: boolean;
-  lastSyncedAt: string;
-  confidenceScore: number;
-}
-
-interface MockProduct {
-  id: string;
-  name: string;
-  brand: string | null;
-  imageUrl: string | null;
-  categoryId: string | null;
-  packageSize: number;
-  packageUnit: MeasureUnit;
-  comparisonUnit: MeasureUnit;
-  calories: number | null;
-  protein: number | null;
-  fat: number | null;
-  saturatedFat: number | null;
-  carbs: number | null;
-  sugar: number | null;
-  salt: number | null;
-  fiber: number | null;
-  nutritionPer: number | null;
-  nutriScore: { score: number; grade: NutriGrade } | null;
-  isVegan: boolean;
-  isVegetarian: boolean;
-  isGlutenFree: boolean;
-  isLactoseFree: boolean;
-  prices: MockPrice[];
-  cheapestSupermarketSlug: string | null;
-  cheapestPrice: number | null;
-  cheapestUnitPrice: { value: number; unit: "L" | "kg" | "100g" | "100ml" | "un" } | null;
-}
+type MockPrice = PriceByMarket;
+type MockProduct = Product;
 
 function price(
   slug: string,

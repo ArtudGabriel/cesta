@@ -1,3 +1,13 @@
+import type { Schemas } from "@/types/api";
+
+/**
+ * Sprint 210 — request payloads adotam baseline DTOs (S209 ADR 0022).
+ * Response types (AuthResponse/AuthUser/LoginResponse/2FA*Response)
+ * permanecem handcrafted — baseline não anota esses endpoints com
+ * @ApiResponse completo + sofre `Record<string, never> | null` leakage
+ * em campos nullable (ADR 0023). Alvo S211+: backend @ApiResponse fix.
+ */
+
 export interface AuthUser {
   id: string;
   email: string | null;
@@ -19,25 +29,11 @@ export interface AuthResponse {
   tokens: AuthTokens;
 }
 
-export interface RegisterPayload {
-  email?: string;
-  phone?: string;
-  password: string;
-  name?: string;
-  locale?: "es" | "pt-BR";
-}
+export type RegisterPayload = Schemas["RegisterDto"];
 
-export interface LoginPayload {
-  email?: string;
-  phone?: string;
-  password: string;
-}
+export type LoginPayload = Schemas["LoginDto"];
 
-export interface ReactivatePayload {
-  email?: string;
-  phone?: string;
-  password: string;
-}
+export type ReactivatePayload = Schemas["ReactivateAccountDto"];
 
 export interface SoftDeletedMeta {
   deletedAt: string;

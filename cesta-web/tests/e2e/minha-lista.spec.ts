@@ -6,9 +6,12 @@ import {
   mockMeEndpoints,
   seedAuth,
 } from "./helpers/auth";
+import type { ShoppingList } from "@/features/shopping-lists/types/shopping-list.types";
 
 /**
  * Sprint 203 — E2E /minha-lista flows.
+ * Sprint 210 — MockShoppingList = Omit<ShoppingList,"items"> (shape canônica
+ * reuse; mocks cobrem só root card fields).
  *
  * (a) empty state + CTA "Crear nueva lista".
  * (b) criar lista → POST /shopping-lists → redirect /minha-lista/:id
@@ -23,15 +26,7 @@ import {
 
 const CUID_SAMPLE = "clzlist00000111111111111111";
 
-interface MockShoppingList {
-  id: string;
-  name: string;
-  itemCount: number;
-  cheapestTotal: number | null;
-  cheapestSupermarketSlug: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+type MockShoppingList = Omit<ShoppingList, "items">;
 
 function list(
   id: string,
