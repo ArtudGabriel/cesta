@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "sync": "tsx render-sync-blueprint.ts"
+    "test": "vitest run",
+    "sync": "tsx render-sync-blueprint.ts",
+    "smoke": "tsx smoke-test-prod.ts"
   },
   "keywords": [],
   "author": "",
@@ -15,6 +16,7 @@
     "@types/node": "^22.10.0",
     "tsx": "^4.23.0",
     "typescript": "^5.7.0",
+    "vitest": "^5.1.2",
     "yaml": "^2.9.0"
   }
 }
