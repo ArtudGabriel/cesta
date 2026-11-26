@@ -66,6 +66,9 @@ export function setupSwagger(
       .addTag('Alerts', 'Alertas de preço + regras combo/trend/bundle')
       .addTag('Receipts', 'Upload de notas fiscais + OCR async + items')
       .addTag('Expenses', 'Agregados de gasto (summary/category/supermarket/top-products)')
+      .addTag('Family Profiles', 'Perfil familiar + questionário dietético (PT/ES)')
+      .addTag('Family Baskets', 'Cesta familiar gerada (async worker) + edição de items')
+      .addTag('Catalog Sync', 'Admin — trigger + histórico de sync de adapters de supermercado')
       .build(),
   );
   SwaggerModule.setup(DOCS_PATH, app, document, {
