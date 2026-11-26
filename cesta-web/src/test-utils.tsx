@@ -2,7 +2,37 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, renderHook } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
+import type { AuthUser } from "@/features/auth/types/auth.types";
 import messages from "./i18n/messages/es.json";
+
+/**
+ * Sprint 212 — fixture shared por testes unitários. AuthUser agora =
+ * `Schemas["UserResponseDto"]` (baseline S211 ADR 0024). Factory preenche
+ * campos de preferences/consent/2FA com defaults sensatos.
+ */
+export function mockAuthUser(overrides: Partial<AuthUser> = {}): AuthUser {
+  return {
+    id: "u1",
+    email: "test@cesta.app",
+    phone: null,
+    name: "Test",
+    locale: "es",
+    roles: ["user"],
+    prefersVegan: false,
+    prefersVegetarian: false,
+    prefersGlutenFree: false,
+    prefersLactoseFree: false,
+    sortUnitPreference: "absolute",
+    nutriSortEnabled: false,
+    nutriHealthyOnly: false,
+    cookieConsentLevel: "essential",
+    cookiesAcceptedAt: null,
+    emailVerifiedAt: null,
+    twoFactorEnabled: false,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
 
 export function createTestQueryClient() {
   return new QueryClient({

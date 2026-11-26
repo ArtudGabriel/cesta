@@ -4,7 +4,7 @@ import { http, HttpResponse } from "msw";
 import { setAccessToken } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth.store";
 import { server } from "@/mocks/server";
-import { renderWithProviders } from "@/test-utils";
+import { renderWithProviders, mockAuthUser } from "@/test-utils";
 import { DsrSection } from "./dsr-section";
 
 const API = "http://localhost:3001/api/v1";
@@ -27,16 +27,7 @@ const anchorClick = vi.fn();
 beforeEach(() => {
   setAccessToken("mock-access-token");
   useAuthStore.setState({
-    user: {
-      id: "u1",
-      email: "test@cesta.app",
-      phone: null,
-      name: "Test",
-      locale: "es",
-      roles: ["user"],
-      emailVerifiedAt: null,
-      createdAt: "2026-01-01T00:00:00.000Z",
-    },
+    user: mockAuthUser(),
     isHydrated: true,
   });
   toastSuccess.mockClear();

@@ -1,28 +1,9 @@
-import type { NutriScore, UnitPrice } from "@/features/catalog/types/catalog.types";
+import type { Schemas } from "@/types/api";
 
-export interface FavoriteProduct {
-  id: string;
-  name: string;
-  brand: string | null;
-  imageUrl: string | null;
-  isVegan: boolean;
-  isVegetarian: boolean;
-  isGlutenFree: boolean;
-  isLactoseFree: boolean;
-  nutriScore: NutriScore | null;
-}
+/**
+ * Sprint 212 — response types adotam baseline (S211 ADR 0024). Zero paralelo.
+ */
 
-export interface CheapestPrice {
-  price: number;
-  supermarketSlug: string;
-  supermarketName: string;
-  unitPrice: UnitPrice | null;
-}
-
-export interface Favorite {
-  id: string;
-  productId: string;
-  createdAt: string;
-  product?: FavoriteProduct;
-  cheapestPrice?: CheapestPrice | null;
-}
+export type Favorite = Schemas["FavoriteResponseDto"];
+export type FavoriteProduct = Schemas["FavoriteProductDto"];
+export type CheapestPrice = Schemas["CheapestPriceDto"];

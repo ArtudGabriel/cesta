@@ -1,23 +1,21 @@
-import type { Product } from "@/features/catalog/types/catalog.types";
+import type { Schemas } from "@/types/api";
 
-export interface ShoppingListItem {
-  id: string;
-  productId: string;
-  quantity: number;
-  position: number;
-  product: Product;
-}
+/**
+ * Sprint 212 — response types adotam baseline (S211 ADR 0024). Request
+ * payloads continuam S210 (CreateListDto/UpdateListDto/AddItemDto/UpdateItemDto).
+ *
+ * G3 (DoD S212) preservações locais:
+ *   - `ListTotals` + `SupermarketTotal` + `itemsBreakdown` — baseline
+ *     `ListTotalsDto.bySupermarket: Record<string, never>[]` ainda é um
+ *     leak: backend decorator do controller `/shopping-lists/:id/totals`
+ *     não expôs schema concreto do breakdown por mercado. Mantido
+ *     handcrafted até @ApiResponse spec completo (deferred S213+).
+ *   - `HybridItem` deriva de `Schemas["HybridItemDto"]` (sem leak).
+ */
 
-export interface ShoppingList {
-  id: string;
-  name: string;
-  itemCount: number;
-  cheapestTotal: number | null;
-  cheapestSupermarketSlug: string | null;
-  createdAt: string;
-  updatedAt: string;
-  items?: ShoppingListItem[];
-}
+export type ShoppingList = Schemas["ShoppingListResponseDto"];
+export type ShoppingListItem = Schemas["ListItemDto"];
+export type HybridItem = Schemas["HybridItemDto"];
 
 export interface SupermarketTotal {
   supermarketId: string;
@@ -35,18 +33,6 @@ export interface SupermarketTotal {
     onPromotion: boolean;
     isAvailable: boolean;
   }>;
-}
-
-export interface HybridItem {
-  productId: string;
-  productName: string;
-  quantity: number;
-  supermarketSlug: string;
-  supermarketName: string;
-  supermarketColor: string | null;
-  unitPrice: number;
-  subtotal: number;
-  onPromotion: boolean;
 }
 
 export interface ListTotals {

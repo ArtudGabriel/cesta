@@ -50,17 +50,10 @@ export function useUpdateProfile() {
     },
     onSuccess: (profile) => {
       qc.setQueryData(PROFILE_KEY, profile);
-      // Sync Zustand store (afeta UI que lê do store, ex. header)
-      updateUser({
-        id: profile.id,
-        email: profile.email,
-        phone: profile.phone,
-        name: profile.name,
-        locale: profile.locale,
-        roles: profile.roles,
-        emailVerifiedAt: profile.emailVerifiedAt,
-        createdAt: profile.createdAt,
-      });
+      // Sync Zustand store (afeta UI que lê do store, ex. header).
+      // Sprint 212: AuthUser = Schemas["UserResponseDto"] — superset do
+      // Profile exceto `twoFactorEnabled` opcional (feature detection).
+      updateUser({ ...profile, twoFactorEnabled: profile.twoFactorEnabled ?? false });
       toast.success(t("success.profileUpdated"));
     },
   });

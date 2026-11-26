@@ -1,9 +1,28 @@
-export type MeasureUnit =
-  | "LITER"
-  | "MILLILITER"
-  | "KILOGRAM"
-  | "GRAM"
-  | "UNIT";
+import type { Operations, Schemas } from "@/types/api";
+
+/**
+ * Sprint 212 — Product/NutriScore/UnitPrice/PriceByMarket adotam baseline
+ * (S211 ADR 0024 saneou @ApiProperty nullable → schemas concretos). Zero
+ * paralelo, zero as any/as unknown.
+ *
+ * G3 (DoD S212) preservações locais:
+ *   - `Supermarket`, `Category` — backend `/supermarkets` e `/categories`
+ *     controllers ainda NÃO têm @ApiResponse spec (deferred S213+ catalog
+ *     controllers decoration). Shapes handcrafted até gerados.
+ *   - `MeasureUnit`, `UnitPriceSuffix`, `NutriGrade` — enums reutilizáveis
+ *     sem DTO próprio no baseline; derivados em cima do novo Product.
+ *
+ * Request types continuam S210 via `Operations["Controller_findMany"]`.
+ */
+
+export type Product = Schemas["ProductResponseDto"];
+export type NutriScore = Schemas["NutriScoreDto"];
+export type UnitPrice = Schemas["UnitPriceDto"];
+export type PriceByMarket = Schemas["PriceByMarketDto"];
+
+export type MeasureUnit = Product["packageUnit"];
+export type UnitPriceSuffix = UnitPrice["unit"];
+export type NutriGrade = NutriScore["grade"];
 
 export interface Supermarket {
   id: string;
@@ -24,66 +43,6 @@ export interface Category {
   order: number;
   children?: Category[];
 }
-
-export type UnitPriceSuffix = "L" | "kg" | "100g" | "100ml" | "un";
-
-export type NutriGrade = "A" | "B" | "C" | "D" | "E";
-
-export interface NutriScore {
-  score: number;
-  grade: NutriGrade;
-}
-
-export interface UnitPrice {
-  value: number;
-  unit: UnitPriceSuffix;
-}
-
-export interface PriceByMarket {
-  supermarketId: string;
-  supermarketSlug: string;
-  supermarketName: string;
-  supermarketColor: string | null;
-  price: number;
-  unitPrice: UnitPrice | null;
-  onPromotion: boolean;
-  previousPrice: number | null;
-  isAvailable: boolean;
-  isStale: boolean;
-  lastSyncedAt: string;
-  confidenceScore: number;
-}
-
-export interface Product {
-  id: string;
-  name: string;
-  brand: string | null;
-  imageUrl: string | null;
-  categoryId: string | null;
-  packageSize: number;
-  packageUnit: MeasureUnit;
-  comparisonUnit: MeasureUnit;
-  calories: number | null;
-  protein: number | null;
-  fat: number | null;
-  saturatedFat: number | null;
-  carbs: number | null;
-  sugar: number | null;
-  salt: number | null;
-  fiber: number | null;
-  nutritionPer: number | null;
-  nutriScore: NutriScore | null;
-  isVegan: boolean;
-  isVegetarian: boolean;
-  isGlutenFree: boolean;
-  isLactoseFree: boolean;
-  prices: PriceByMarket[];
-  cheapestSupermarketSlug: string | null;
-  cheapestPrice: number | null;
-  cheapestUnitPrice: UnitPrice | null;
-}
-
-import type { Operations } from "@/types/api";
 
 /**
  * Sprint 210 — filtros tipados via baseline query params (S209 ADR 0022).
