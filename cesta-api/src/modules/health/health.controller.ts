@@ -32,6 +32,27 @@ export class HealthController {
   })
   @HttpCode(HttpStatus.OK)
   async deep(@Res({ passthrough: true }) res: Response) {
+    return this.runDeep(res);
+  }
+
+  // Sprint 193 (S71 nit close): `/ready` como readiness probe padrão
+  // K8s/Render. Semantically idêntico a /health/deep — alias documenta
+  // convenção pra orquestradores (liveness=/health, readiness=/ready).
+  // /health/deep mantido pra backward compat com monitors externos
+  // (UptimeRobot, Better Uptime) configurados antes do rename.
+  @Public()
+  @Get('ready')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiOperation({
+    summary:
+      'Readiness probe (K8s/Render). Prisma SELECT 1 + Redis PING. Alias de /health/deep.',
+  })
+  @HttpCode(HttpStatus.OK)
+  async ready(@Res({ passthrough: true }) res: Response) {
+    return this.runDeep(res);
+  }
+
+  private async runDeep(res: Response) {
     const report = await this.health.report();
     if (report.status !== 'ok') {
       res.status(HttpStatus.SERVICE_UNAVAILABLE);

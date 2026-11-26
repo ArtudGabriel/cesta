@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { BRAND_COLORS } from "@/lib/brand";
 
 export const alt = "Cesta — comparación de precios";
 export const size = { width: 1200, height: 630 };
@@ -14,9 +15,9 @@ interface ProductForOg {
   cheapestPrice: number | null;
 }
 
-const CESTA_GREEN = "#1b6b48";
-const CREAM = "#F8F5F0";
-const INK = "#2A2420";
+const CESTA_GREEN = BRAND_COLORS.cestaGreen;
+const CREAM = BRAND_COLORS.cream;
+const INK = BRAND_COLORS.ink;
 const MUTED = "#6B6560";
 const CORAL = "#E8513A";
 

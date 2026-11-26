@@ -59,6 +59,20 @@ describe('HealthService.report', () => {
     expect(report.checks.redis.status).toBe('down');
     expect(report.checks.db.status).toBe('ok');
   });
+
+  // Sprint 193 (S71 nit close): ambos down → degraded; ambos errors capturados.
+  it('both down -> status degraded + db.error + redis.error populados', async () => {
+    repoMock.pingDb.mockRejectedValue(new Error('ECONNRESET db'));
+    redisMock.ping.mockRejectedValue(new Error('ECONNREFUSED redis'));
+
+    const report = await service.report();
+    expect(report.status).toBe('degraded');
+    expect(report.checks.db.status).toBe('down');
+    expect(report.checks.redis.status).toBe('down');
+    expect(report.checks.db.error).toContain('ECONNRESET db');
+    expect(report.checks.redis.error).toContain('ECONNREFUSED redis');
+  });
+
 });
 
 describe('HealthService.shallow (Sprint 87)', () => {
