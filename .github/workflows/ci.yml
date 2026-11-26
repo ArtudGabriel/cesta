@@ -72,7 +72,13 @@ jobs:
         continue-on-error: true
       - run: npm run audit:dtos
       - run: npm run audit:repos
-      - run: npm run test:coverage -- --ci
+      # Sprint 194 (S71 nit close): split test run from coverage gate pra
+      # clareza logs. Falha de test (bug) vs falha de threshold (regressão
+      # coverage) ficam distinguíveis via step name.
+      - name: Unit tests (jest, no coverage gate)
+        run: npm run test:ci
+      - name: Coverage threshold gate (jest --coverage)
+        run: npm run test:coverage:gate -- --ci
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -146,7 +152,11 @@ jobs:
             });"
       - run: npm run lint --if-present
         continue-on-error: true
-      - run: npm run test:coverage
+      # Sprint 194 (S71 nit close): split test run from coverage gate.
+      - name: Unit tests (vitest, no coverage gate)
+        run: npm run test:ci
+      - name: Coverage threshold gate (vitest --coverage)
+        run: npm run test:coverage:gate
       - uses: actions/upload-artifact@v4
         if: always()
         with:

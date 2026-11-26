@@ -112,31 +112,53 @@ cd cesta-api && npm ci && npx prisma generate && npm run lint --if-present && np
 cd cesta-web && npm ci && npm run lint --if-present && npx tsc --noEmit && npm run build
 ```
 
-### Coverage policy (Sprint 43 web + Sprint 56 api + Codecov)
+### Coverage policy (Sprint 43 web + Sprint 56 api + Sprint 194 rebase + Codecov)
 
-CI roda `npm run test:coverage` em ambos os lados (`cesta-web` via vitest+@vitest/coverage-v8, `cesta-api` via jest+istanbul), sobe os artifacts `coverage-report` e `coverage-api` (retention 7 dias), e tenta enviar o `lcov.info` de cada lado pro Codecov com flags `web` e `api` (passo `continue-on-error: true` — sem `CODECOV_TOKEN` configurado, o upload falha graceful, CI segue verde).
+CI roda tests + coverage gate em dois steps distintos (clareza logs: bug de teste vs regressão coverage):
 
-**Thresholds atuais** (baseline - 5pp):
+- `npm run test:ci` — unit tests sem coverage (fail fast).
+- `npm run test:coverage:gate` — coverage com threshold enforcement.
 
-| Métrica | Web (Sprint 43) | API (Sprint 56) | Baseline API |
-|---|---|---|---|
-| Statements | 6% | 9% | 12.46% |
-| Branches | 3% | 2% | 7.35% |
-| Functions | 4% | 4% | 9.6% |
-| Lines | 6% | 9% | 12.04% |
+Artifacts `coverage-report` + `coverage-api` subidos (retention 7 dias). Codecov upload com flags `web` + `api` (continua graceful sem `CODECOV_TOKEN`).
 
-Política: incrementar threshold incrementalmente a cada 5-10 sprints (ex: +5pp). Zero regressão aceita — PR cai se coverage despenca abaixo do threshold.
+**Thresholds atuais** (Sprint 194 rebase 2026-11-26, baseline -2pp):
 
-Pra habilitar upload Codecov em prod: criar conta em [codecov.io](https://codecov.io), autorizar o repo, copiar o token, adicionar como secret `CODECOV_TOKEN` no GitHub Actions. Em repo público o upload funciona sem token, só mais lento.
+| Métrica | Web threshold | Web baseline | API threshold | API baseline |
+|---|---|---|---|---|
+| Statements | 33% | 35.28% | 55% | 56.94% |
+| Branches | 27% | 29.75% | 46% | 48.32% |
+| Functions | 28% | 30.3% | 41% | 42.95% |
+| Lines | 33% | 35.81% | 55% | 57.57% |
 
-Antes de abrir PR:
+**Política:** zero regressão. PR cai se coverage despenca abaixo do threshold. Rebase threshold quando baseline subir ≥5pp acima do floor atual (procedure abaixo).
+
+**Regen baseline procedure** (quando threshold ficar defasado):
 
 ```bash
+# 1. Rodar coverage local para capturar baseline atual:
+cd cesta-api && npm run test:coverage        # → "Coverage summary" block
 cd cesta-web && npm run test:coverage
-# → stats no terminal + coverage/index.html (HTML report)
+
+# 2. Atualizar thresholds (baseline - 2pp, arredondado p/ baixo):
+#    cesta-api/package.json → "jest" > "coverageThreshold" > "global"
+#    cesta-web/vitest.config.ts → test.coverage.thresholds
+
+# 3. Documentar nova baseline + rationale aqui + no commit:
+#    "chore: rebase coverage threshold (baseline NN.N% → floor NN%)"
+
+# 4. CI re-run deve passar — se não, baseline atual já regressou,
+#    não rebase: investigar regressão primeiro.
 ```
 
-Download report em prod: GH Actions run → Artifacts → `coverage-report`.
+**Local verify antes de PR:**
+
+```bash
+cd cesta-api && npm run test:coverage:gate   # roda com threshold
+cd cesta-web && npm run test:coverage:gate
+# → coverage/index.html (HTML report drill-down por arquivo)
+```
+
+Download CI report: GH Actions run → Artifacts → `coverage-report` / `coverage-api`.
 
 ---
 
