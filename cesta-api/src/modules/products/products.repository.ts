@@ -234,7 +234,18 @@ export class ProductsRepository {
       //     word_similarity(q, SPLIT_PART("name",' ',1)) > 0.5 (cobre typo
       //     cases como "lecge"→name="Leche entera brik 1L" first_word="Leche"
       //     word_sim=0.5+).
-      // Boost cumulativo ambos triggers; threshold WHERE 0.3 raw preservado.
+      //  c) Sprint 185 (nit S182 P3): +0.3 quando LEFT(first_word,3) = LEFT(q,3)
+      //     E |len(first_word)-len(q)| <= 1 (short direct-typo signal). Cobre
+      //     "lecge"→"Leche" (3-prefix='lec'=='lec', len diff 0) sem favorecer
+      //     "Lechuga" (len diff 7-5=2). Independente de boost (b) — pega casos
+      //     onde word_similarity do first_word < 0.5 mas prefix curto + comprimento
+      //     indicam typo direto.
+      // Boost cumulativo todos triggers; threshold WHERE 0.3 raw preservado.
+      //
+      // Sprint 185 tiebreak determinístico: scores empatados → nome mais curto
+      // primeiro, depois alfabético. Garante ordenação estável independente do
+      // plano de execução Postgres (seen in prod: Lechuga top1 Leche #2 com
+      // scores próximos).
       const trgmIds = await this.prisma.$queryRaw<Array<{ id: string }>>`
         SELECT "id"
         FROM "products"
@@ -259,7 +270,15 @@ export class ProductsRepository {
               THEN 0.3
               ELSE 0
             END
-        ) DESC
+          + CASE
+              WHEN LEFT(LOWER(SPLIT_PART("name", ' ', 1)), 3) = LEFT(LOWER(${q}), 3)
+                AND ABS(char_length(SPLIT_PART("name", ' ', 1)) - char_length(${q})) <= 1
+              THEN 0.3
+              ELSE 0
+            END
+        ) DESC,
+        char_length("name") ASC,
+        "name" ASC
         LIMIT ${take}
       `;
       if (trgmIds.length > 0) {

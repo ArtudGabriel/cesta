@@ -12,9 +12,9 @@
   "description": "",
   "type": "module",
   "devDependencies": {
-    "@types/node": "^26.6.11",
-    "tsx": "^4.23.15",
-    "typescript": "^7.0.2",
-    "yaml": "^2.9.1"
+    "@types/node": "^22.10.0",
+    "tsx": "^4.23.0",
+    "typescript": "^5.7.0",
+    "yaml": "^2.9.0"
   }
 }

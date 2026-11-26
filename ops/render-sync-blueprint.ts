@@ -50,7 +50,7 @@ type Blueprint = { services: BlueprintService[] };
 
 const API_BASE = process.env.RENDER_API_BASE ?? 'https://api.render.com/v1';
 const API_KEY = process.env.RENDER_API_KEY;
-const OVERRIDE_SERVICE_ID = process.env.CESTA_API_SERVICE_ID;
+const SERVICE_ID = process.env.CESTA_API_SERVICE_ID;
 const APPLY = process.argv.includes('--apply');
 
 function die(msg: string, code = 1): never {
@@ -90,20 +90,6 @@ async function render<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
-async function findServiceId(name: string): Promise<string> {
-  if (OVERRIDE_SERVICE_ID) return OVERRIDE_SERVICE_ID;
-  type Row = { service: ServiceObj; cursor?: string };
-  const rows = await render<Row[]>(`/services?name=${encodeURIComponent(name)}&limit=20`);
-  const match = rows.find((r) => r.service?.name === name);
-  if (!match) {
-    die(
-      `no Render service named "${name}". The dashboard service is "cesta" ` +
-        `(renames pending). Set CESTA_API_SERVICE_ID=<srv-...> to override.`,
-    );
-  }
-  return match.service.id;
-}
-
 async function getService(id: string): Promise<ServiceObj> {
   return render<ServiceObj>(`/services/${id}`);
 }
@@ -112,11 +98,23 @@ function currentBuildCommand(svc: ServiceObj): string | undefined {
   return svc.serviceDetails?.envSpecificDetails?.buildCommand;
 }
 
-function desiredBuildCommand(bp: BlueprintService): string {
+// Composed command: `cd ${rootDir} && ${buildCommand}` when the blueprint
+// declares a rootDir AND the dashboard rootDir is empty. If the dashboard
+// already carries a rootDir, prefixing with `cd ${rootDir}` would
+// double-cd (dashboard cd's into rootDir, then the command cd's again).
+// In that case the raw buildCommand is sufficient.
+function desiredBuildCommand(bp: BlueprintService, dashboardRootDir: string): string {
   const cmd = bp.buildCommand!;
-  const rd = bp.rootDir?.trim();
-  if (!rd) return cmd;
-  return `cd ${rd} && ${cmd}`;
+  const bpRd = bp.rootDir?.trim();
+  const dashRd = dashboardRootDir.trim();
+  if (!bpRd) return cmd;
+  if (dashRd === bpRd) return cmd;
+  if (dashRd === '') return `cd ${bpRd} && ${cmd}`;
+  die(
+    `rootDir mismatch and non-empty on dashboard: blueprint="${bpRd}" dashboard="${dashRd}".\n` +
+      `Composing "cd ${bpRd} && ..." would double-cd. Resolve the dashboard\n` +
+      `rootDir manually (empty it or align it to the blueprint) before syncing.`,
+  );
 }
 
 async function patchBuildCommand(id: string, buildCommand: string): Promise<void> {
@@ -130,20 +128,27 @@ async function patchBuildCommand(id: string, buildCommand: string): Promise<void
 
 async function main(): Promise<void> {
   if (!API_KEY) die('RENDER_API_KEY not set');
+  if (!SERVICE_ID) {
+    die(
+      'CESTA_API_SERVICE_ID not set. The dashboard service is "cesta", not ' +
+        '"cesta-api"; name-based lookup is intentionally omitted (Sprint 185) ' +
+        'to force a conscious target. Set CESTA_API_SERVICE_ID=<srv-...>.',
+    );
+  }
 
   const bp = loadBlueprint();
-  const desired = desiredBuildCommand(bp);
-  console.log('>>> Blueprint desired buildCommand:');
-  console.log(`    ${desired}`);
+  console.log(`>>> Render service id: ${SERVICE_ID}`);
 
-  const id = await findServiceId(bp.name);
-  console.log(`>>> Render service id: ${id}`);
-
-  const before = await getService(id);
+  const before = await getService(SERVICE_ID);
   const beforeCmd = currentBuildCommand(before);
+  const dashboardRootDir = before.rootDir ?? '';
   console.log('>>> Dashboard current buildCommand:');
   console.log(`    ${beforeCmd ?? '(unset)'}`);
-  console.log(`>>> Dashboard rootDir (read-only, NOT patched): "${before.rootDir ?? ''}"`);
+  console.log(`>>> Dashboard rootDir (read-only, NOT patched): "${dashboardRootDir}"`);
+
+  const desired = desiredBuildCommand(bp, dashboardRootDir);
+  console.log('>>> Blueprint desired buildCommand:');
+  console.log(`    ${desired}`);
 
   if (beforeCmd === desired) {
     console.log('>>> No drift. Dashboard buildCommand already matches blueprint.');
@@ -160,10 +165,10 @@ async function main(): Promise<void> {
   }
 
   console.log('>>> PATCH serviceDetails.envSpecificDetails.buildCommand ...');
-  await patchBuildCommand(id, desired);
+  await patchBuildCommand(SERVICE_ID, desired);
   console.log('>>> PATCH ok. Re-GETting service to verify isolated diff ...');
 
-  const after = await getService(id);
+  const after = await getService(SERVICE_ID);
   const afterCmd = currentBuildCommand(after);
 
   const expected = {
@@ -192,7 +197,7 @@ async function main(): Promise<void> {
   }
 
   console.log('>>> Verified: only buildCommand changed. startCommand and rootDir intact.');
-  console.log(`>>> Service ${id} dashboard now matches blueprint.`);
+  console.log(`>>> Service ${SERVICE_ID} dashboard now matches blueprint.`);
 }
 
 main().catch((err) => die(err instanceof Error ? err.message : String(err)));
