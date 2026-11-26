@@ -3,7 +3,9 @@ services:
     name: cesta-api
     runtime: node
     rootDir: cesta-api
-    buildCommand: npm ci && npx prisma generate && npx prisma migrate deploy && npm run build
+    # Sprint 183 (ADR 0013): migrate deploy wrapped in retry 3x
+    # backoff 10/20/40s to survive transient P1002 Neon.
+    buildCommand: bash render-build.sh
     startCommand: node dist/src/main.js
     healthCheckPath: /health
     plan: free
@@ -13,6 +15,11 @@ services:
       - key: PORT
         value: 3001
       - key: DATABASE_URL
+        sync: false
+      # Sprint 183: Neon NON-pooled URL for prisma migrate (bypass pgbouncer
+      # connection ceiling / advisory-lock contention). Set manually in
+      # Render dashboard; append ?connect_timeout=30 query param.
+      - key: DATABASE_URL_UNPOOLED
         sync: false
       - key: REDIS_URL
         sync: false
