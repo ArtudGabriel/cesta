@@ -95,18 +95,26 @@ test.describe("Gastos flows (route interception)", () => {
 
     await page.goto("/gastos");
 
-    // Inject file no input file hidden (bypass botão Camera/Upload que
-    // depende de diálogo nativo file picker).
-    const fileInputs = page.locator('input[type="file"]');
-    await fileInputs.first().setInputFiles({
+    // AJUSTE S203 QA: setInputFiles direto em input[type=file].first()
+    // falhava — picava file input errado OR não disparava handleFile. Fix:
+    // usar filechooser event (padrão Playwright pra ref.click() pattern).
+    // Click "Subir imagen" (uploadCta ES) → cameraRef/galleryRef.click() →
+    // Playwright intercepta file dialog → setFiles dispara onChange real.
+    const uploadBtn = page.getByRole("button", { name: /subir imagen/i });
+    await expect(uploadBtn).toBeVisible({ timeout: 10_000 });
+
+    const fileChooserPromise = page.waitForEvent("filechooser");
+    await uploadBtn.click();
+    const fileChooser = await fileChooserPromise;
+    await fileChooser.setFiles({
       name: "ticket.jpg",
       mimeType: "image/jpeg",
       buffer: TINY_JPEG,
     });
 
-    // Preview aparece após setPending.
+    // Preview monta após handleFile → setPending.
     await expect(page.getByTestId("scan-button-preview")).toBeVisible({
-      timeout: 5_000,
+      timeout: 10_000,
     });
 
     // Submit → POST /receipts (mock 202) → router.push(/gastos/:id).
