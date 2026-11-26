@@ -28,7 +28,14 @@ async function mockReceiptsList(page: Page, receipts: unknown[] = []) {
       // multipart/form-data — não parseamos aqui, só confirmamos 202 shape.
       await fulfillJson(route, 202, envelope({
         jobId: "job_abc123",
-        receiptId: "crec11111111111111111111111",
+        // AJUSTE 2 QA S203 (Boss opt B): formato REAL prod. Cesta prefixa
+        // receipts com 'crec' + 24+ chars cuid-style. Literal anterior
+        // 'crec' + 23 chars (27 total) violava regex spec /crec[a-z0-9]{24,}/
+        // off-by-one — mascarado antes por regex frouxo (Boss rejeitou
+        // opts A/C que esconderiam formato real bug). Agora 28 chars total,
+        // passa tanto o filtro CUID_PATTERN em receipt page.tsx (^c[a-z0-9]{24,}$)
+        // quanto o regex spec.
+        receiptId: "creclzpn87xk0001q2w3e4r5t6y7",
         status: "QUEUED",
       }));
       return;
