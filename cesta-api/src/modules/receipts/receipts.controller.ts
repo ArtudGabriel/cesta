@@ -12,12 +12,32 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiAcceptedResponse,
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiPayloadTooLargeResponse,
+  ApiTags,
+  ApiUnauthorizedResponse,
+  ApiUnsupportedMediaTypeResponse,
+} from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { randomBytes } from 'crypto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import {
+  ReceiptItemDto,
+  ReceiptResponseDto,
+} from './dtos/receipt-response.dto';
 import {
   CreateReceiptItemDto,
   UpdateReceiptItemDto,
@@ -37,6 +57,10 @@ const storage = diskStorage({
   },
 });
 
+/**
+ * Sprint 206 — @ApiResponse coverage expand receipts (ADR 0021 7→10).
+ * Upload endpoint retorna 202 (job OCR async) com {jobId, receiptId}.
+ */
 @ApiTags('Receipts')
 @ApiBearerAuth()
 @Controller('receipts')
@@ -57,6 +81,21 @@ export class ReceiptsController {
       },
     },
   })
+  @ApiAcceptedResponse({
+    description: 'Upload aceito; OCR processa em background. Poll GET /receipts/:id.',
+    schema: {
+      type: 'object',
+      properties: {
+        jobId: { type: 'string' },
+        receiptId: { type: 'string' },
+        status: { type: 'string', example: 'queued' },
+      },
+    },
+  })
+  @ApiBadRequestResponse({ description: 'Arquivo ausente ou campo inválido' })
+  @ApiPayloadTooLargeResponse({ description: `Imagem > ${MAX_IMAGE_MB}MB` })
+  @ApiUnsupportedMediaTypeResponse({ description: 'MIME fora de jpeg/png/webp/heic' })
+  @ApiUnauthorizedResponse({ description: 'JWT inválido ou ausente' })
   @UseInterceptors(
     FileInterceptor('image', {
       storage,
@@ -77,12 +116,18 @@ export class ReceiptsController {
 
   @Get()
   @ApiOperation({ summary: 'Minhas notas' })
+  @ApiOkResponse({ type: [ReceiptResponseDto] })
+  @ApiUnauthorizedResponse({ description: 'JWT inválido ou ausente' })
   findAll(@CurrentUser('id') userId: string) {
     return this.service.findAll(userId);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Detalhe da nota (com items)' })
+  @ApiOkResponse({ type: ReceiptResponseDto })
+  @ApiNotFoundResponse({ description: 'Nota não encontrada' })
+  @ApiForbiddenResponse({ description: 'Nota pertence a outro usuário' })
+  @ApiUnauthorizedResponse({ description: 'JWT inválido ou ausente' })
   findOne(@CurrentUser('id') userId: string, @Param('id') id: string) {
     return this.service.findOne(userId, id);
   }
@@ -90,6 +135,11 @@ export class ReceiptsController {
   @Patch(':id')
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @ApiOperation({ summary: 'Atualizar metadados da nota (mercado/data/total/notes)' })
+  @ApiOkResponse({ type: ReceiptResponseDto })
+  @ApiBadRequestResponse({ description: 'DTO inválido' })
+  @ApiNotFoundResponse({ description: 'Nota não encontrada' })
+  @ApiForbiddenResponse({ description: 'Nota pertence a outro usuário' })
+  @ApiUnauthorizedResponse({ description: 'JWT inválido ou ausente' })
   updateMeta(
     @CurrentUser('id') userId: string,
     @Param('id') id: string,
@@ -102,6 +152,11 @@ export class ReceiptsController {
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @ApiOperation({ summary: 'Adiciona item manual na nota' })
+  @ApiCreatedResponse({ type: ReceiptItemDto })
+  @ApiBadRequestResponse({ description: 'DTO inválido' })
+  @ApiNotFoundResponse({ description: 'Nota não encontrada' })
+  @ApiForbiddenResponse({ description: 'Nota pertence a outro usuário' })
+  @ApiUnauthorizedResponse({ description: 'JWT inválido ou ausente' })
   addItem(
     @CurrentUser('id') userId: string,
     @Param('id') receiptId: string,
@@ -113,6 +168,11 @@ export class ReceiptsController {
   @Patch(':id/items/:itemId')
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @ApiOperation({ summary: 'Editar item da nota (qty/preço/produto)' })
+  @ApiOkResponse({ type: ReceiptItemDto })
+  @ApiBadRequestResponse({ description: 'DTO inválido' })
+  @ApiNotFoundResponse({ description: 'Nota ou item não encontrado' })
+  @ApiForbiddenResponse({ description: 'Nota pertence a outro usuário' })
+  @ApiUnauthorizedResponse({ description: 'JWT inválido ou ausente' })
   updateItem(
     @CurrentUser('id') userId: string,
     @Param('id') receiptId: string,
@@ -126,6 +186,10 @@ export class ReceiptsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @ApiOperation({ summary: 'Remove item da nota' })
+  @ApiNoContentResponse({ description: 'Item removido' })
+  @ApiNotFoundResponse({ description: 'Nota ou item não encontrado' })
+  @ApiForbiddenResponse({ description: 'Nota pertence a outro usuário' })
+  @ApiUnauthorizedResponse({ description: 'JWT inválido ou ausente' })
   async removeItem(
     @CurrentUser('id') userId: string,
     @Param('id') receiptId: string,
@@ -137,6 +201,10 @@ export class ReceiptsController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Excluir nota' })
+  @ApiNoContentResponse({ description: 'Nota removida' })
+  @ApiNotFoundResponse({ description: 'Nota não encontrada' })
+  @ApiForbiddenResponse({ description: 'Nota pertence a outro usuário' })
+  @ApiUnauthorizedResponse({ description: 'JWT inválido ou ausente' })
   async remove(@CurrentUser('id') userId: string, @Param('id') id: string) {
     await this.service.remove(userId, id);
   }
