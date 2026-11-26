@@ -3,7 +3,6 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { Queue } from 'bullmq';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
@@ -21,6 +20,7 @@ import {
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { initSentry } from './common/sentry/sentry.init';
+import { setupSwagger } from './swagger/swagger.setup';
 
 async function bootstrap(): Promise<void> {
   initSentry();
@@ -87,13 +87,9 @@ async function bootstrap(): Promise<void> {
   app.useGlobalFilters(new AllExceptionsFilter());
   app.useGlobalInterceptors(new TransformInterceptor());
 
-  const swagger = new DocumentBuilder()
-    .setTitle('Cesta API')
-    .setDescription('API de comparação de preços de supermercados — Comunidade de Madrid')
-    .setVersion('0.1.0')
-    .addBearerAuth()
-    .build();
-  SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swagger));
+  // Sprint 204: mount /api/docs + env-gated. Ver setupSwagger pra scope
+  // + ADR 0021 pra decorator coverage plan S204 → S20X.
+  setupSwagger(app);
 
   const port = config.get<number>('PORT', 3001);
   await app.listen(port, '0.0.0.0');
