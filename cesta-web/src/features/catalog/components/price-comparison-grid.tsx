@@ -7,6 +7,7 @@ import { formatUnitPrice } from "../utils/format-unit-price";
 import { calculateDiscount } from "../utils/discount";
 import { useLocale } from "@/hooks/use-locale";
 import { DiscountBadge } from "./discount-badge";
+import { SupermarketBadge } from "./supermarket-badge";
 import type { PriceByMarket } from "../types/catalog.types";
 
 interface PriceComparisonGridProps {
@@ -47,12 +48,12 @@ export function PriceComparisonGrid({ prices }: PriceComparisonGridProps) {
               !p.isAvailable && "opacity-50",
             )}
           >
-            <span
-              className="h-10 w-10 flex-shrink-0 rounded-btn flex items-center justify-center text-xs font-bold text-white"
-              style={{ backgroundColor: p.supermarketColor ?? "var(--color-cesta-green)" }}
-            >
-              {p.supermarketName.slice(0, 2).toUpperCase()}
-            </span>
+            <SupermarketBadge
+              slug={p.supermarketSlug}
+              name={p.supermarketName}
+              color={p.supermarketColor}
+              size={40}
+            />
 
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-ink">{p.supermarketName}</p>

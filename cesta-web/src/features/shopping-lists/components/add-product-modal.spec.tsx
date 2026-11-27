@@ -8,9 +8,18 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: routerPush, replace: vi.fn() }),
 }));
 
+const toastSuccess = vi.fn();
+vi.mock("sonner", () => ({
+  toast: {
+    success: (...args: unknown[]) => toastSuccess(...args),
+    error: vi.fn(),
+  },
+}));
+
 const addMutate = vi.fn();
 vi.mock("../hooks/use-shopping-lists", () => ({
   useAddItem: () => ({ mutate: addMutate, isPending: false }),
+  useList: () => ({ data: { id: "list-1", name: "Mi lista semanal" } }),
 }));
 
 const useProductsMock = vi.fn();
@@ -60,6 +69,7 @@ describe("AddProductModal (Sprint 238 #3 fotos + #4 tap-detalhe)", () => {
     routerPush.mockReset();
     addMutate.mockReset();
     useProductsMock.mockReset();
+    toastSuccess.mockReset();
   });
 
   it("S238 #3: produto com imageUrl renderiza Image (fallback só quando null)", () => {
@@ -122,9 +132,37 @@ describe("AddProductModal (Sprint 238 #3 fotos + #4 tap-detalhe)", () => {
     );
     const addBtn = getByTestId("add-product-add-btn");
     fireEvent.click(addBtn);
-    expect(addMutate).toHaveBeenCalledWith({ productId: "p4", quantity: 1 });
+    // S242: payload backend-shaped (productId+quantity); onSuccess callback
+    // separado é passado em mutate's segundo argumento, não dentro do payload.
+    expect(addMutate).toHaveBeenCalledWith(
+      { productId: "p4", quantity: 1 },
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
     expect(routerPush).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("S242 #5: onSuccess dispara toast success com product + list name + duration 3s", () => {
+    useProductsMock.mockReturnValue({
+      data: { items: [fakeProduct("p5", "Aceite oliva 1L", null)] },
+      isLoading: false,
+    });
+    const { getByTestId } = renderWithProviders(
+      <AddProductModal listId="list-1" open={true} onClose={vi.fn()} />,
+    );
+    const addBtn = getByTestId("add-product-add-btn");
+    fireEvent.click(addBtn);
+    // Captura e invoca a callback onSuccess passada ao mutate
+    const callArgs = addMutate.mock.calls[0];
+    const options = callArgs[1] as {
+      onSuccess: (list: { name: string }) => void;
+    };
+    options.onSuccess({ name: "Mi lista semanal" });
+    expect(toastSuccess).toHaveBeenCalledTimes(1);
+    const [message, opts] = toastSuccess.mock.calls[0];
+    expect(message).toContain("Aceite oliva 1L");
+    expect(message).toContain("Mi lista semanal");
+    expect(opts).toEqual({ duration: 3000 });
   });
 
   it("open=false não renderiza nada", () => {

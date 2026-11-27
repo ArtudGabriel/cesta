@@ -3,6 +3,7 @@
 import { Check, Minus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { cn, formatPrice } from "@/lib/utils";
+import { SupermarketBadge } from "@/features/catalog/components/supermarket-badge";
 import type { ListTotals } from "../types/shopping-list.types";
 
 interface TotalsByMarketProps {
@@ -52,12 +53,12 @@ export function TotalsByMarket({ totals }: TotalsByMarketProps) {
             )}
             data-testid={`totals-market-${market.supermarketSlug}`}
           >
-            <span
-              className="h-10 w-10 flex-shrink-0 rounded-btn flex items-center justify-center text-xs font-bold text-white"
-              style={{ backgroundColor: market.supermarketColor ?? "var(--color-cesta-green)" }}
-            >
-              {market.supermarketName.slice(0, 2).toUpperCase()}
-            </span>
+            <SupermarketBadge
+              slug={market.supermarketSlug}
+              name={market.supermarketName}
+              color={market.supermarketColor}
+              size={40}
+            />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-ink">
                 {market.supermarketName}

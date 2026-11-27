@@ -4,12 +4,13 @@ import { Loader2, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProductImage } from "@/features/catalog/components/product-image";
 import { useProducts } from "@/features/catalog/hooks/use-catalog";
 import { formatPrice } from "@/lib/utils";
-import { useAddItem } from "../hooks/use-shopping-lists";
+import { useAddItem, useList } from "../hooks/use-shopping-lists";
 
 interface AddProductModalProps {
   listId: string;
@@ -26,6 +27,9 @@ export function AddProductModal({ listId, open, onClose }: AddProductModalProps)
   const addItem = useAddItem(listId);
   const router = useRouter();
   const t = useTranslations("myList");
+  // Sprint 242 (#5): lê nome da lista pro toast "X adicionado a Y".
+  // useList já está no cache (ListDetailClient hidrata), zero request extra.
+  const { data: listData } = useList(listId);
 
   if (!open) return null;
 
@@ -123,7 +127,24 @@ export function AddProductModal({ listId, open, onClose }: AddProductModalProps)
                   <Button
                     size="sm"
                     onClick={() => {
-                      addItem.mutate({ productId: product.id, quantity: 1 });
+                      addItem.mutate(
+                        { productId: product.id, quantity: 1 },
+                        {
+                          // Sprint 242 (#5): toast success i18n no caller
+                          // porque sonner não roda dentro do Provider
+                          // next-intl do hook. duration 3s + dismissible
+                          // por padrão (comportamento sonner).
+                          onSuccess: (list) => {
+                            toast.success(
+                              t("itemAddedToast", {
+                                product: product.name,
+                                list: list.name ?? listData?.name ?? "",
+                              }),
+                              { duration: 3000 },
+                            );
+                          },
+                        },
+                      );
                     }}
                     disabled={addItem.isPending}
                     aria-label={t("addToList")}

@@ -319,6 +319,7 @@
     "searchEmpty": "Ningún producto coincide con la búsqueda.",
     "addToList": "Añadir a la lista",
     "openDetail": "Ver detalle de {name}",
+    "itemAddedToast": "{product} añadido a \"{list}\"",
     "decreaseQty": "Disminuir cantidad",
     "increaseQty": "Aumentar cantidad",
     "removeItem": "Eliminar",
