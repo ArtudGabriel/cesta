@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 /* eslint-disable no-console */
 /**
- * Sprint 229 G3 (ADR 0039) — audit do matching trigram + review queue.
+ * Sprint 229 G3 (ADR 0039) · S232 G3 cluster (ADR 0040) · S233 cleanup
+ * — audit do matching cross-mercado + review queue.
  *
  * Mede:
- *   1. Trigram linked (canonicalProductId NOT NULL · sem EAN) — chain G3.
- *   2. Review queue (product_match_reviews por status).
- *   3. Top 200 itens básicos cross-market match % (métrica Boss).
+ *   1. Canonical-linked products (canonicalProductId NOT NULL · sem EAN) —
+ *      G2 EAN runtime (ADR 0037) OR G3 cluster (ADR 0040) populou.
+ *   2. Review queue (product_match_reviews por status) — fila manual
+ *      opcional (ADR 0039; não escrita por match-cluster.mjs).
+ *   3. Top itens básicos cross-market (métrica Boss % multi-mercado).
  *
- * Read-only. Rodar antes/depois de `match-trigram.mjs --apply`.
+ * Read-only. Rodar antes/depois de `match-cluster.mjs --apply`.
  */
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';

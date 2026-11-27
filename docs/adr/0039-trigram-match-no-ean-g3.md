@@ -2,8 +2,8 @@
 
 - **Data:** 2026-11-27
 - **Sprint:** S229 G3 (P0-CORE matching cross-mercado, chain pós ADR 0036+0037+0038)
-- **Status:** Aceito (schema aditivo · script dry-run/apply · review queue para confiança média)
-- **Relaciona:** ADR 0036 (G1 Aldi JSON-LD), ADR 0037 (G2 canonical merge FK), ADR 0038 (G1b audit), memory [[project-product-matching-gap]]
+- **Status:** **Superseded by ADR 0040 (S232 G3 cluster-based)**. Script `scripts/match-trigram.mjs` **removido em S233** (`chore/s233-remove-match-trigram-legacy`) — regra replace in place. Tabela `product_match_reviews` (migration `20261127190000_sprint229_product_match_review`) **permanece** disponível pra fila de revisão manual futura (não escrita por `match-cluster.mjs`). Helpers `parseSize`/`sizeMatch` conceitualmente originados em S231 e inlined em S232 `match-cluster.mjs`.
+- **Relaciona:** ADR 0036 (G1 Aldi JSON-LD), ADR 0037 (G2 canonical merge FK), ADR 0038 (G1b audit), **ADR 0040 (G3 cluster · supersede)**, memory [[project-product-matching-gap]]
 
 ## Contexto
 
