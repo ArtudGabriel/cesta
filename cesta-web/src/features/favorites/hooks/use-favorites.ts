@@ -57,6 +57,9 @@ export function useAddFavorite() {
       qc.setQueryData<Favorite[]>(FAV_KEYS.list, [optimistic, ...prev]);
       return { prev };
     },
+    onSuccess: () => {
+      toast.success(t("success.favoriteAdded"));
+    },
     onError: (err: Error, _productId, ctx) => {
       if (ctx?.prev) qc.setQueryData(FAV_KEYS.list, ctx.prev);
       toast.error(err.message || t("error.favoriteAdd"));
@@ -80,6 +83,9 @@ export function useRemoveFavorite() {
         prev.filter((f) => f.productId !== productId),
       );
       return { prev };
+    },
+    onSuccess: () => {
+      toast.success(t("success.favoriteRemoved"));
     },
     onError: (err: Error, _productId, ctx) => {
       if (ctx?.prev) qc.setQueryData(FAV_KEYS.list, ctx.prev);
