@@ -26,7 +26,7 @@ describe('EmailService', () => {
     const svc = new EmailService(
       buildConfig({
         RESEND_API_KEY: 'disabled',
-        RESEND_FROM: 'Cesta <noreply@cesta.app>',
+        RESEND_FROM_ADDRESS: 'noreply', RESEND_FROM_DOMAIN: 'cesta.app', RESEND_FROM_NAME: 'Cesta',
       }),
     );
 
@@ -44,7 +44,7 @@ describe('EmailService', () => {
     const svc = new EmailService(
       buildConfig({
         RESEND_API_KEY: 're_key_live',
-        RESEND_FROM: 'Cesta <noreply@cesta.app>',
+        RESEND_FROM_ADDRESS: 'noreply', RESEND_FROM_DOMAIN: 'cesta.app', RESEND_FROM_NAME: 'Cesta',
       }),
     );
 
@@ -70,7 +70,7 @@ describe('EmailService', () => {
     const svc = new EmailService(
       buildConfig({
         RESEND_API_KEY: 're_key_live',
-        RESEND_FROM: 'Cesta <noreply@cesta.app>',
+        RESEND_FROM_ADDRESS: 'noreply', RESEND_FROM_DOMAIN: 'cesta.app', RESEND_FROM_NAME: 'Cesta',
       }),
     );
 
@@ -90,7 +90,7 @@ describe('EmailService', () => {
     const svc = new EmailService(
       buildConfig({
         RESEND_API_KEY: 're_key_live',
-        RESEND_FROM: 'Cesta <noreply@cesta.app>',
+        RESEND_FROM_ADDRESS: 'noreply', RESEND_FROM_DOMAIN: 'cesta.app', RESEND_FROM_NAME: 'Cesta',
       }),
     );
 
@@ -114,7 +114,7 @@ describe('EmailService', () => {
     const svc = new EmailService(
       buildConfig({
         RESEND_API_KEY: 're_key_live',
-        RESEND_FROM: 'Cesta <noreply@cesta.app>',
+        RESEND_FROM_ADDRESS: 'noreply', RESEND_FROM_DOMAIN: 'cesta.app', RESEND_FROM_NAME: 'Cesta',
       }),
     );
 
@@ -132,7 +132,7 @@ describe('EmailService', () => {
     const svc = new EmailService(
       buildConfig({
         RESEND_API_KEY: 're_key_live',
-        RESEND_FROM: 'Cesta <noreply@cesta.app>',
+        RESEND_FROM_ADDRESS: 'noreply', RESEND_FROM_DOMAIN: 'cesta.app', RESEND_FROM_NAME: 'Cesta',
       }),
     );
     const logSpy = jest
@@ -159,7 +159,7 @@ describe('EmailService', () => {
     const svc = new EmailService(
       buildConfig({
         RESEND_API_KEY: 're_key_live',
-        RESEND_FROM: 'Cesta <noreply@cesta.app>',
+        RESEND_FROM_ADDRESS: 'noreply', RESEND_FROM_DOMAIN: 'cesta.app', RESEND_FROM_NAME: 'Cesta',
       }),
     );
     const errSpy = jest

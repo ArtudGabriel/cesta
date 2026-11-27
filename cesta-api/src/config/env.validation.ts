@@ -74,8 +74,21 @@ export class EnvironmentVariables {
   @MinLength(1)
   RESEND_API_KEY: string = 'disabled';
 
+  // Sprint 227 (#5 bundle): Render prod expõe `RESEND_FROM_ADDRESS` +
+  // `RESEND_FROM_DOMAIN` separados (dominio verificado em Resend). Código
+  // antigo lia um unico `RESEND_FROM='Cesta <noreply@cesta.app>'` que nunca
+  // existiu em prod — fallback default mandava com `cesta.app` nao
+  // verificado, Resend recusava silencioso. Replace in place: compomos
+  // From no EmailService a partir dos 2 valores.
   @IsString()
-  RESEND_FROM: string = 'Cesta <noreply@cesta.app>';
+  RESEND_FROM_ADDRESS: string = 'noreply';
+
+  @IsString()
+  RESEND_FROM_DOMAIN: string = 'cesta.app';
+
+  @IsOptional()
+  @IsString()
+  RESEND_FROM_NAME?: string = 'Cesta';
 
   @IsString()
   EMAIL_VERIFY_BASE_URL: string = 'http://localhost:3000';
