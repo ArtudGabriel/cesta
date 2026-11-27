@@ -13,6 +13,8 @@ import {
   parseSize,
   sizeMatch,
   normalizeNameForMatch,
+  extractVariants,
+  variantMatch,
 } from './brand-normalize.mjs';
 
 let pass = 0;
@@ -125,6 +127,44 @@ test('multi-pack token removido', () => {
   const n = normalizeNameForMatch('Coca-Cola Zero 12 x 330 ml pack 12', 'Coca-Cola');
   assert.match(n, /zero/);
   assert.doesNotMatch(n, /12|330|pack/);
+});
+
+console.log('\nextractVariants / variantMatch (Sprint 235)');
+test('Coca-Cola Zero ≠ Coca-Cola Original', () => {
+  const vz = extractVariants('Coca-Cola Zero Azucar 2L');
+  const vo = extractVariants('Coca-Cola Original 2L');
+  assert.equal(vz.has('zero'), true);
+  assert.equal(vo.has('original'), true);
+  assert.equal(variantMatch(vz, vo), false);
+});
+test('Coca-Cola Zero == Coca-Cola Zero (ambos sides)', () => {
+  const v1 = extractVariants('Coca-Cola Zero Azucar 2L');
+  const v2 = extractVariants('Refresco Coca Cola zero sin azucar 2 L');
+  assert.equal(variantMatch(v1, v2), true);
+});
+test('Milka avelã ≠ Milka classic', () => {
+  const va = extractVariants('Chocolate Milka con avelana 125g');
+  const vc = extractVariants('Chocolate Milka con leche 125g');
+  assert.equal(va.has('avelana'), true);
+  assert.equal(variantMatch(va, vc), false);
+});
+test("Lay's Horno ≠ Lay's regular (un lado so)", () => {
+  const vh = extractVariants("Lay's Horno al punto de sal 150g");
+  const vr = extractVariants("Lay's al punto de sal 150g");
+  assert.equal(vh.has('horno'), true);
+  assert.equal(vr.has('horno'), false);
+  assert.equal(variantMatch(vh, vr), false);
+});
+test('Oreo golden ≠ Oreo original', () => {
+  const vg = extractVariants('Mini galletas Oreo golden 160g');
+  const vo = extractVariants('Mini galletas Oreo 160g');
+  assert.equal(vg.has('golden'), true);
+  assert.equal(variantMatch(vg, vo), false);
+});
+test('ambos sem variants → match (set vazio vs vazio)', () => {
+  const v1 = extractVariants('Pan de molde integral 460g');
+  const v2 = extractVariants('Pan molde integral 460 g');
+  assert.equal(variantMatch(v1, v2), true);
 });
 
 console.log(`\n${pass} pass · ${fail} fail`);

@@ -303,6 +303,83 @@ export function sizeMatchEff(a, b) {
 // (b) Name normalizer pra trigram
 // ────────────────────────────────────────────────────────────
 
+// ────────────────────────────────────────────────────────────
+// (S235) Variant/flavor tokens
+// ────────────────────────────────────────────────────────────
+
+/**
+ * Tokens de variante/sabor que, se presentes em um lado do par mas NÃO
+ * no outro, significa produto distinto (Zero vs Original · Golden vs
+ * regular · Horno vs tradicional). Gate variant exige igualdade EXATA
+ * do set de tokens variante extraídos de cada lado.
+ *
+ * Normalizados: sem acento, lowercase, hyphen→espaço.
+ */
+export const VARIANT_TOKENS = [
+  // Coca-Cola / Pepsi / refrigerantes — discriminantes principais.
+  // NÃO incluir 'azucar'/'cafeina' stand-alone (filler que co-ocorre com
+  // 'zero'/'sin cafeina' · causaria mismatch espúrio).
+  // 'sin azucar' redundante com 'zero' · omitido pra evitar false mismatch.
+  'zero', 'light', 'lite', 'original', 'classic', 'diet', 'max',
+  'sin cafeina',
+  'limon', 'naranja', 'cherry', 'lima',
+  // Chocolate (Milka · Oreo · Lindt)
+  'golden', 'avellana', 'avelana', 'almendra', 'amendoa', 'noisette',
+  'blanco', 'negro', 'oscuro',
+  'relleno', 'bombon',
+  // Lay's / patatas fritas
+  'horno', 'jamon', 'campesinas', 'barbacoa', 'cebolla',
+  // Cerveza
+  'rubia', 'tostada', 'negra', 'ipa', 'radler', 'sin alcohol',
+  // Leche/yogur/dairy — discriminantes de tipo
+  'entera', 'semidesnatada', 'desnatada', 'sin lactosa',
+  'griego', 'fresa', 'vainilla',
+  // Carne — cortes
+  'picada', 'fileteada', 'lonchas', 'asado',
+  // Papel/higiene
+  'blanqueador', 'triple capa', 'doble capa',
+];
+
+// Pre-build regex pra cada token (word boundary · multi-word apóia · hyphen flex).
+const VARIANT_PATTERNS = VARIANT_TOKENS
+  .slice()
+  .sort((a, b) => b.length - a.length) // multi-word primeiro
+  .map((tok) => ({
+    tok,
+    re: new RegExp(
+      '\\b' + tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/[-\s]+/g, '[-\\s]*') + '\\b',
+      'i',
+    ),
+  }));
+
+/**
+ * Extrai set de variantes do nome. Retorna Set<string> com tokens
+ * canônicos do dicionário. Acentos removidos antes do match.
+ */
+export function extractVariants(text) {
+  const out = new Set();
+  if (!text || typeof text !== 'string') return out;
+  const norm = text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  for (const { tok, re } of VARIANT_PATTERNS) {
+    if (re.test(norm)) out.add(tok);
+  }
+  return out;
+}
+
+/**
+ * Compara sets de variantes. Pra match exato cross-mercado, o par
+ * precisa ter EXATAMENTE o mesmo set (Zero == Zero · Light == Light ·
+ * Original == Original). Zero vs Original → mismatch. Tanto diferença
+ * quanto um-lado-só → NÃO match.
+ */
+export function variantMatch(a, b) {
+  if (a.size !== b.size) return false;
+  for (const t of a) if (!b.has(t)) return false;
+  return true;
+}
+
 const GENERIC_WORDS = [
   'refresco',
   'bebida',

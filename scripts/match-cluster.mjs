@@ -38,6 +38,8 @@ import {
   sizeMatchEff,
   effectiveSize,
   normalizeNameForMatch,
+  extractVariants,
+  variantMatch,
 } from './lib/brand-normalize.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -254,7 +256,7 @@ async function main() {
     console.log(`Brand match: ${brandPairs.length}`);
 
     // Fase 3: size strict (parseSize S234 expanded + packageSize fallback).
-    console.log('[3/5] JS size strict (parseSize/sizeMatchEff S234)...');
+    console.log('[3/6] JS size strict (parseSize/sizeMatchEff S234)...');
     const sizePairs = brandPairs.filter((p) =>
       sizeMatchEff(
         { name: p.a_name, packageSize: p.a_package_size, packageUnit: p.a_package_unit },
@@ -262,6 +264,16 @@ async function main() {
       ),
     );
     console.log(`Size match: ${sizePairs.length}`);
+
+    // Sprint 235 Fase 3.5: variant tokens strict (Zero vs Original · Horno
+    // vs regular · Golden vs classic).
+    console.log('[3.5/6] JS variant tokens strict (extractVariants/variantMatch S235)...');
+    const variantPairs = sizePairs.filter((p) => {
+      const va = extractVariants(p.a_name);
+      const vb = extractVariants(p.b_name);
+      return variantMatch(va, vb);
+    });
+    console.log(`Variant match: ${variantPairs.length}`);
 
     if (process.env.DEBUG_SIZE && brandPairs.length > 0 && sizePairs.length < 20) {
       console.log('\nDEBUG_SIZE sample brandPairs rejected por size:');
@@ -282,8 +294,8 @@ async function main() {
     }
 
     // Fase 4: token Jaccard sobre nome normalizado.
-    console.log('[4/5] JS token Jaccard (normalizeNameForMatch · Jaccard >= tokenMin)...');
-    const tokenPairs = sizePairs
+    console.log('[4/6] JS token Jaccard (normalizeNameForMatch · Jaccard >= tokenMin)...');
+    const tokenPairs = variantPairs
       .map((p) => {
         const na = normalizeNameForMatch(p.a_name, p.a_brand_eff);
         const nb = normalizeNameForMatch(p.b_name, p.b_brand_eff);
@@ -294,7 +306,7 @@ async function main() {
     console.log(`Token Jaccard >= ${tokenMin}: ${tokenPairs.length}`);
 
     // Fase 5: union-find cluster.
-    console.log('[5/5] Union-find cluster + eleição canonical...');
+    console.log('[5/6] Union-find cluster + eleição canonical...');
     const uf = new UnionFind();
     const products = new Map();
     for (const p of tokenPairs) {
