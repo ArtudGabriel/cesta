@@ -31,6 +31,15 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**.froiz.com" },
       { protocol: "https", hostname: "**.aldi.es" },
       { protocol: "https", hostname: "images.openfoodfacts.org" },
+      // Sprint 227 (#10 bundle): CDNs externos reais em imageUrl prod que
+      // crasham Next Image SSR com "Invalid src prop ... hostname X is not
+      // configured". Confirmado prod scan page 2: s7g10.scene7.com (Aldi
+      // CDN Scene7 fallback) + prod-mercadona.imgix.net (Mercadona imgix
+      // CDN fallback). froiz.com bare (sem subdominio) nao casa com
+      // **.froiz.com — adicionar root domain tambem.
+      { protocol: "https", hostname: "s7g10.scene7.com" },
+      { protocol: "https", hostname: "prod-mercadona.imgix.net" },
+      { protocol: "https", hostname: "froiz.com" },
     ],
   },
   turbopack: {

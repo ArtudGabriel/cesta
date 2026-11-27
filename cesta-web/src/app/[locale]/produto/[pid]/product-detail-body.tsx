@@ -54,7 +54,13 @@ export function ProductDetailBody({ product }: { product: Product }) {
 
       <div className="px-4 pb-4">
         <Image
-          src={product.imageUrl ?? "/placeholder.webp"}
+          // Sprint 227 (#10 bundle): || em vez de ?? — imageUrl="" (empty
+          // string) passa pelo nullish-coalescing e crasha Next Image com
+          // "Invalid src prop (hostname is not configured)" / "image src
+          // cannot be empty". Backend pode devolver "" em edge cases
+          // (backfill parcial, migrate legacy). Falsy-coalesce cobre null
+          // E "".
+          src={product.imageUrl || "/placeholder.webp"}
           alt={product.name}
           width={400}
           height={400}

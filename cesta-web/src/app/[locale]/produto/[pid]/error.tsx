@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -16,8 +17,14 @@ export default function Error({
   const tProduct = useTranslations("product");
 
   useEffect(() => {
-    // Error boundary já logado pelo SentryBoundary root; redundante mas garante
-    // digest em cold builds (pré-flush).
+    // Sprint 227 (#10 bundle): segment error boundaries do Next 16 capturam
+    // o erro ANTES do SentryBoundary root (special file hierarchy) — sem
+    // capture explícito aqui o crash nunca chega no Sentry e QA fica cego.
+    // ADR vinculada S227 resumir; fix idempotente (no-op se init skipped).
+    Sentry.captureException(error, {
+      tags: { route: "produto/[pid]", boundary: "segment" },
+      extra: { digest: error.digest },
+    });
     console.error("[produto/[pid]] render error", error);
   }, [error]);
 
