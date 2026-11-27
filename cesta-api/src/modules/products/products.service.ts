@@ -1,4 +1,5 @@
 import { HttpStatus, Injectable } from '@nestjs/common';
+import { Category, Product } from '@prisma/client';
 import { AppException } from '../../common/exceptions/app-exception';
 import { ProductFiltersDto } from './dtos/product-filters.dto';
 import { ProductResponseDto } from './dtos/product-response.dto';
@@ -7,6 +8,7 @@ import {
   ProductSearchResponseDto,
 } from './dtos/product-search.dto';
 import { SuggestResponseDto, SuggestionDto } from './dtos/suggest-query.dto';
+import { scorePhraseMatch } from './match-score.util';
 import { ProductsRepository } from './products.repository';
 
 const GRADE_ORDER: Record<string, number> = { A: 0, B: 1, C: 2, D: 3, E: 4 };
@@ -24,35 +26,31 @@ export class ProductsService {
   constructor(private readonly repo: ProductsRepository) {}
 
   async findMany(filters: ProductFiltersDto) {
-    // Sprint 167 fix: nutriScore é computado no DTO (não é coluna indexada).
-    // Antes: repo.findMany(skip/take) → filter in-memory sobre página atual →
-    // total = mapped.length. Semantica quebrada: total refletia apenas a
-    // página, não o universo filtrado global. User via "15 resultados" quando
-    // total real podia ser 200 em páginas subsequentes.
-    //
-    // Novo contrato: nutriScore ativo → oversample todo match do WHERE
-    // (até POST_FILTER_OVERSAMPLE), filtra em memória, sort em memória
-    // (determinístico cross-page), aplica slice(skip, skip+limit) manual.
-    // Total = universo pós-filtro. Pagination consistente entre páginas.
-    if (filters.nutriScore) {
-      return this.findManyWithPostFilter(filters);
+    // Sprint 167: nutriScore é computado no DTO (não é coluna indexada), então
+    // filter + sort precisam oversample pra total consistente cross-page.
+    // Sprint 237: busca por texto também entra no post-process pra aplicar
+    // ranking phrase-match tier antes de preço (regression 'leche entera'
+    // retornando 'Chocolate con leche almendras enteras' primeiro só por preço).
+    // Mesma mecânica: oversample AND-of-OR WHERE, score em memória, slice.
+    const hasSearch = filters.search?.trim() ? filters.search.trim() : null;
+    const needsPostProcess = Boolean(filters.nutriScore) || Boolean(hasSearch);
+
+    if (!needsPostProcess) {
+      const { items, total } = await this.repo.findMany(filters);
+      const mapped = this.applySort(
+        items.map(ProductResponseDto.fromEntity),
+        filters.sortBy,
+      );
+      return { items: mapped, total, page: filters.page, limit: filters.limit };
     }
 
-    const { items, total } = await this.repo.findMany(filters);
-    const mapped = this.applySort(
-      items.map(ProductResponseDto.fromEntity),
-      filters.sortBy,
-    );
-
-    return {
-      items: mapped,
-      total,
-      page: filters.page,
-      limit: filters.limit,
-    };
+    return this.findManyWithPostProcess(filters, hasSearch);
   }
 
-  private async findManyWithPostFilter(filters: ProductFiltersDto) {
+  private async findManyWithPostProcess(
+    filters: ProductFiltersDto,
+    searchQuery: string | null,
+  ) {
     const oversampleFilters: ProductFiltersDto = {
       ...filters,
       skip: 0,
@@ -68,22 +66,34 @@ export class ProductsService {
       // Product) é prerequisite antes de catalog crescer além do cap.
       throw new AppException(
         'PRODUCTS.NUTRI_FILTER_CAP_EXCEEDED',
-        `nutriScore filter undercount risk: ${rawTotal} produtos excedem cap ${POST_FILTER_OVERSAMPLE}. Denormalizar grade antes de habilitar filtro em escala.`,
+        `Post-process undercount risk: ${rawTotal} produtos excedem cap ${POST_FILTER_OVERSAMPLE}.`,
         HttpStatus.SERVICE_UNAVAILABLE,
         { rawTotal, cap: POST_FILTER_OVERSAMPLE },
       );
     }
 
     let mapped = items.map(ProductResponseDto.fromEntity);
-    const threshold = GRADE_ORDER[filters.nutriScore!];
-    mapped = mapped.filter((p) => {
-      const grade = p.nutriScore?.grade;
-      if (!grade) return false;
-      return GRADE_ORDER[grade] <= threshold;
-    });
+
+    if (filters.nutriScore) {
+      const threshold = GRADE_ORDER[filters.nutriScore];
+      mapped = mapped.filter((p) => {
+        const grade = p.nutriScore?.grade;
+        if (!grade) return false;
+        return GRADE_ORDER[grade] <= threshold;
+      });
+    }
 
     const filteredTotal = mapped.length;
-    mapped = this.applySort(mapped, filters.sortBy);
+
+    if (searchQuery) {
+      const rawById = new Map<
+        string,
+        Product & { category: Category | null }
+      >(items.map((r) => [r.id, r]));
+      mapped = this.applySearchRanking(mapped, rawById, searchQuery);
+    } else {
+      mapped = this.applySort(mapped, filters.sortBy);
+    }
 
     const skip = filters.skip ?? 0;
     const limit = filters.limit;
@@ -95,6 +105,43 @@ export class ProductsService {
       page: filters.page,
       limit: filters.limit,
     };
+  }
+
+  /**
+   * Sprint 237: tiers determinísticos (name-start / name-middle / brand-start
+   * / brand-middle / tokens-only AND) + category match secundário + preço ASC
+   * terciário. Cobre regression 'leche entera' → 'Leche entera brik 1L' top.
+   * Preserva compatibilidade com sortBy='cheapest' pra empates dentro do tier.
+   */
+  private applySearchRanking(
+    mapped: ProductResponseDto[],
+    rawById: Map<string, Product & { category: Category | null }>,
+    query: string,
+  ): ProductResponseDto[] {
+    return mapped
+      .map((dto) => {
+        const raw = rawById.get(dto.id);
+        // category.slug é locale-neutro ('lacteos') e já lowercased com
+        // separador '-'. normalizeForMatch converte '-' em espaço, então
+        // query 'lácteos' → 'lacteos' casa slug 'lacteos'. Nomes localizados
+        // (nameEs/namePt) ficariam fora pra uma das línguas.
+        const score = scorePhraseMatch({
+          name: dto.name,
+          brand: dto.brand,
+          categoryName: raw?.category?.slug ?? null,
+          query,
+        });
+        return {
+          dto,
+          score: score.combined,
+          price: dto.cheapestPrice ?? Number.POSITIVE_INFINITY,
+        };
+      })
+      .sort((a, b) => {
+        if (a.score !== b.score) return a.score - b.score;
+        return a.price - b.price;
+      })
+      .map((x) => x.dto);
   }
 
   private applySort(

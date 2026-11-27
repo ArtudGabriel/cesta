@@ -8,6 +8,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../../database/prisma.service';
 import { ProductFiltersDto } from './dtos/product-filters.dto';
+import { scorePhraseMatch } from './match-score.util';
 
 export type ProductWithPrices = Product & {
   prices: (ProductPrice & { supermarket: Supermarket })[];
@@ -362,16 +363,26 @@ export class ProductsRepository {
       }
     }
 
-    const qLower = q.toLowerCase();
+    // Sprint 237: scoring por phrase tiers (name start → name middle → brand
+    // start → brand middle → tokens-only AND match). Tiebreak secundário por
+    // cheapestPrice ASC (preserva comportamento anterior pra empates dentro
+    // do mesmo tier). Reintroduz determinismo que Fuse.js re-rank no front
+    // (useFuzzySuggestions) estava borrando pra buscas de frase exata.
     const scored = rows.map((r) => {
-      const name = r.name.toLowerCase();
-      const brand = r.brand?.toLowerCase() ?? '';
-      const startsName = name.startsWith(qLower);
-      const startsBrand = brand.startsWith(qLower);
-      const score = startsName ? 0 : startsBrand ? 1 : 2;
-      return { row: r, score };
+      const cheapest = r.prices[0]
+        ? Number(r.prices[0].currentPrice)
+        : Number.POSITIVE_INFINITY;
+      const score = scorePhraseMatch({
+        name: r.name,
+        brand: r.brand,
+        query: q,
+      });
+      return { row: r, score: score.combined, cheapest };
     });
-    scored.sort((a, b) => a.score - b.score);
+    scored.sort((a, b) => {
+      if (a.score !== b.score) return a.score - b.score;
+      return a.cheapest - b.cheapest;
+    });
     return scored.slice(0, limit).map((s) => s.row);
   }
 

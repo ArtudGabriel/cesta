@@ -45,6 +45,10 @@ function wrap(ui: React.ReactNode) {
 describe("SearchSuggestions", () => {
   beforeEach(() => {
     routerPush.mockReset();
+    // jsdom não implementa scrollIntoView; mock noop pra setas não quebrarem.
+    if (!HTMLElement.prototype.scrollIntoView) {
+      HTMLElement.prototype.scrollIntoView = vi.fn();
+    }
   });
 
   it("mostra empty state quando query sem resultados", async () => {
@@ -88,7 +92,37 @@ describe("SearchSuggestions", () => {
     expect(onSelect).toHaveBeenCalled();
   });
 
-  it("Enter sem navegação via setas seleciona primeira sugestão", async () => {
+  it("S237: Enter vai pra tela de resultados (/?q=...) não pro produto", async () => {
+    vi.spyOn(service.catalogService, "suggest").mockResolvedValue([
+      {
+        id: "p1",
+        name: "Leche entera",
+        brand: null,
+        imageUrl: null,
+        cheapestPrice: null,
+      },
+    ] as unknown as Awaited<ReturnType<typeof service.catalogService.suggest>>);
+    const onSelect = vi.fn();
+    const { findByRole } = render(
+      wrap(
+        <SearchSuggestions
+          query="leche entera"
+          onSelect={onSelect}
+          onSelectRecent={vi.fn()}
+          onClose={vi.fn()}
+        />,
+      ),
+    );
+    await findByRole("option");
+    fireEvent.keyDown(document, { key: "Enter" });
+    expect(routerPush).toHaveBeenCalledWith("/?q=leche%20entera");
+    expect(routerPush).not.toHaveBeenCalledWith(
+      expect.stringMatching(/^\/produto\//),
+    );
+    expect(onSelect).toHaveBeenCalled();
+  });
+
+  it("S237: Enter com seta mesmo item highlighted ainda vai pra resultados", async () => {
     vi.spyOn(service.catalogService, "suggest").mockResolvedValue([
       {
         id: "p1",
@@ -109,8 +143,12 @@ describe("SearchSuggestions", () => {
       ),
     );
     await findByRole("option");
+    fireEvent.keyDown(document, { key: "ArrowDown" });
     fireEvent.keyDown(document, { key: "Enter" });
-    expect(routerPush).toHaveBeenCalledWith("/produto/p1");
+    expect(routerPush).toHaveBeenCalledWith("/?q=leche");
+    expect(routerPush).not.toHaveBeenCalledWith(
+      expect.stringMatching(/^\/produto\//),
+    );
   });
 
   it("Escape dispara onClose", async () => {
