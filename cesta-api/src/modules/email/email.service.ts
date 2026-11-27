@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as Sentry from '@sentry/node';
 import { Resend } from 'resend';
 
 export interface VerificationEmailPayload {
@@ -91,6 +92,30 @@ type GraceCopy = {
 // GDPR Sprint 59: email é PII. Nunca logar in-clear — Sentry breadcrumb captura
 // NestJS Logger auto e vaza em Replay/Issues. maskEmail mantém a observabilidade
 // (prefixo pra diagnose + domínio pra identificar provider) sem expor o local-part.
+// Sprint 227 #5 follow-up: parser tolerante pra RESEND_FROM_ADDRESS em
+// 3 formatos (ver constructor coment). Exportado pra teste unit.
+export function buildFromString(
+  address: string,
+  domain: string,
+  name: string | undefined | null,
+): string {
+  const addr = (address ?? '').trim();
+  const dom = (domain ?? '').trim();
+  const nm = (name ?? '').trim();
+
+  // Formato (c): string completa 'Nome <local@dominio>' — usa direto.
+  if (addr.includes('<')) {
+    return addr;
+  }
+  // Formato (b): local@dominio completo — reembrulha com nome se presente.
+  if (addr.includes('@')) {
+    return nm ? `${nm} <${addr}>` : addr;
+  }
+  // Formato (a): so local-part — compoe com domain.
+  const mail = `${addr}@${dom}`;
+  return nm ? `${nm} <${mail}>` : mail;
+}
+
 function maskEmail(email: string): string {
   const at = email.indexOf('@');
   if (at < 0) return '***';
@@ -108,14 +133,34 @@ export class EmailService {
 
   constructor(private readonly config: ConfigService) {
     const apiKey = this.config.get<string>('RESEND_API_KEY', 'disabled');
-    this.from = this.config.get<string>(
-      'RESEND_FROM',
-      'Cesta <noreply@cesta.app>',
-    );
+    // Sprint 227 (#5 bundle): Render prod expõe RESEND_FROM_ADDRESS +
+    // RESEND_FROM_DOMAIN separados (dominio verificado). Compor from aqui
+    // garante uso do dominio verificado mesmo quando RESEND_FROM_NAME e
+    // opcional (nome amigavel na exibicao do remetente). Sem este fix,
+    // codigo caia no default 'Cesta <noreply@cesta.app>' com `cesta.app`
+    // nao verificado em Resend → envio silencioso recusado.
+    //
+    // Sprint 227 #5 follow-up (QA REPROVA pre-gate 4): Render prod
+    // `RESEND_FROM_ADDRESS` as vezes vem com a string FROM completa
+    // (ex 'Equipe Cesta <onboarding@resend.dev>'). Composicao antiga
+    // malformava: 'Cesta <Equipe Cesta <onboarding@resend.dev>@resend.dev>'
+    // → Resend 422 Invalid from. Parser abaixo detecta '<' ou '@' no
+    // valor e usa como-esta (skip composicao) — tolera 3 formatos:
+    //   a) address puro (ex 'noreply') → compoe `${name} <${address}@${domain}>`
+    //   b) address com '@' (ex 'onboarding@resend.dev') → compoe `${name} <${address}>`
+    //   c) address com '<' (string from completa) → usa direto
+    const address = this.config.get<string>('RESEND_FROM_ADDRESS', 'noreply');
+    const domain = this.config.get<string>('RESEND_FROM_DOMAIN', 'cesta.app');
+    const name = this.config.get<string>('RESEND_FROM_NAME', 'Cesta');
+    this.from = buildFromString(address, domain, name);
     this.client = apiKey && apiKey !== 'disabled' ? new Resend(apiKey) : null;
     if (!this.client) {
       this.logger.warn(
         'Resend desabilitado (RESEND_API_KEY=disabled). EmailService virou no-op.',
+      );
+    } else {
+      this.logger.log(
+        `Resend ativo (from=${this.from}). Envios reais habilitados.`,
       );
     }
   }
@@ -144,9 +189,31 @@ export class EmailService {
         text,
       });
       if (result.error) {
+        // Sprint 227 (#5 bundle): expor codigo + nome do erro Resend
+        // (ex "validation_error", "testing_emails_only", "domain_not_verified")
+        // + Sentry capture — antes mensagem genérica dificultava diagnose
+        // (user QA via "sem email" sem sinal no Render log).
+        const err = result.error as {
+          message: string;
+          name?: string;
+          statusCode?: number;
+        };
         this.logger.error(
-          `Resend falhou para ${masked}: ${result.error.message}`,
+          `Resend falhou para ${masked}: [${err.name ?? 'unknown'} status=${err.statusCode ?? '?'}] ${err.message}`,
         );
+        Sentry.captureMessage('Resend send failed', {
+          level: 'error',
+          tags: {
+            email_kind: 'verification',
+            resend_error_name: err.name ?? 'unknown',
+          },
+          extra: {
+            masked_to: masked,
+            from: this.from,
+            status_code: err.statusCode,
+            message: err.message,
+          },
+        });
         return;
       }
       this.logger.log(
@@ -155,6 +222,10 @@ export class EmailService {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.error(`Resend exception para ${masked}: ${msg}`);
+      Sentry.captureException(err, {
+        tags: { email_kind: 'verification' },
+        extra: { masked_to: masked, from: this.from },
+      });
     }
   }
 
