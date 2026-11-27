@@ -137,7 +137,10 @@ export function AlertRuleWizard() {
       >
         <h2 className="text-lg font-semibold">{t("typePickerTitle")}</h2>
         <div className="grid gap-2">
-          {(["combo", "trend", "bundle"] as const).map((rt) => (
+          {/* Sprint 228 #17: trend primeiro (default · 1 produto · queda %)
+              porque user maioria quer monitorar preço de UM item. Combo +
+              bundle são secundários (2+ produtos). */}
+          {(["trend", "combo", "bundle"] as const).map((rt) => (
             <button
               key={rt}
               type="button"
@@ -215,7 +218,7 @@ export function AlertRuleWizard() {
                 step={0.01}
                 value={targetTotal}
                 onChange={(e) => setTargetTotal(e.target.value)}
-                placeholder="10.00"
+                placeholder="0.00"
                 data-testid="rule-input-target-total"
               />
             </div>
@@ -232,7 +235,7 @@ export function AlertRuleWizard() {
                 step={0.01}
                 value={targetSavings}
                 onChange={(e) => setTargetSavings(e.target.value)}
-                placeholder="5.00"
+                placeholder="0.00"
                 data-testid="rule-input-target-savings"
               />
             </div>

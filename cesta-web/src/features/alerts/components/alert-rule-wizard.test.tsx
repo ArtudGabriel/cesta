@@ -67,6 +67,9 @@ describe("AlertRuleWizard (Sprint 105)", () => {
     toastSuccess.mockClear();
     toastError.mockClear();
     sentryCapture.mockClear();
+    // jsdom não implementa scrollIntoView; validate() dispara rAF que
+    // chama scrollIntoView no erro inline (uncaught exception quebra teste).
+    Element.prototype.scrollIntoView = vi.fn();
   });
 
   it("step 1: lista os 3 tipos; clicar em combo avança pra form", () => {
@@ -78,6 +81,48 @@ describe("AlertRuleWizard (Sprint 105)", () => {
 
     fireEvent.click(getByTestId("rule-type-combo"));
     expect(getByTestId("rule-wizard-form")).toBeTruthy();
+  });
+
+  // ────────────────────────────────────────────────────────────
+  // Sprint 228 #17 — trend como default (1 produto · queda %)
+  // ────────────────────────────────────────────────────────────
+
+  it("S228 #17: Tendência de bajada aparece PRIMEIRO no type picker (default 1 produto)", () => {
+    const { container } = renderWithProviders(<AlertRuleWizard />);
+    const buttons = Array.from(
+      container.querySelectorAll("[data-testid^='rule-type-']"),
+    );
+    expect(buttons[0].getAttribute("data-testid")).toBe("rule-type-trend");
+    expect(buttons[1].getAttribute("data-testid")).toBe("rule-type-combo");
+    expect(buttons[2].getAttribute("data-testid")).toBe("rule-type-bundle");
+  });
+
+  it("S228 #17: combo targetTotal placeholder é 0.00 (não 10.00)", () => {
+    const { getByTestId } = renderWithProviders(<AlertRuleWizard />);
+    fireEvent.click(getByTestId("rule-type-combo"));
+    const input = getByTestId("rule-input-target-total") as HTMLInputElement;
+    expect(input.placeholder).toBe("0.00");
+  });
+
+  it("S228 #17: bundle targetSavings placeholder é 0.00 (não 5.00)", () => {
+    const { getByTestId } = renderWithProviders(<AlertRuleWizard />);
+    fireEvent.click(getByTestId("rule-type-bundle"));
+    const input = getByTestId("rule-input-target-savings") as HTMLInputElement;
+    expect(input.placeholder).toBe("0.00");
+  });
+
+  it("S228 #17: combo sem produtos → erro guia user pra Tendência", async () => {
+    const { getByTestId, container } = renderWithProviders(<AlertRuleWizard />);
+    fireEvent.click(getByTestId("rule-type-combo"));
+    fireEvent.change(getByTestId("rule-input-target-total"), {
+      target: { value: "10.50" },
+    });
+    fireEvent.click(getByTestId("rule-submit"));
+
+    await waitFor(() => {
+      expect(container.textContent).toMatch(/Tendencia|Tendência/);
+    });
+    expect(alertsService.createCombo).not.toHaveBeenCalled();
   });
 
   it("combo: submit válido chama createCombo e navega pra /alertas", async () => {
@@ -184,7 +229,7 @@ describe("AlertRuleWizard (Sprint 105)", () => {
     fireEvent.click(getByTestId("rule-submit"));
 
     await waitFor(() => {
-      expect(container.textContent).toMatch(/2 productos|2 produtos/i);
+      expect(container.textContent).toMatch(/2\+? productos|2\+? produtos/i);
     });
     expect(alertsService.createCombo).not.toHaveBeenCalled();
   });
