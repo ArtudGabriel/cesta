@@ -78,6 +78,9 @@ function product(
     cheapestPrice: cheapest?.price ?? null,
     cheapestUnitPrice: cheapest?.unitPrice ?? null,
     isStale: cheapest?.isStale ?? false,
+    canonicalProductId: null,
+    canonicalGroupSize: 1,
+    isSameProduct: false,
   };
 }
 

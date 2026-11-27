@@ -1832,6 +1832,10 @@ export interface components {
             packageUnit: "LITER" | "MILLILITER" | "KILOGRAM" | "GRAM" | "UNIT";
             /** @enum {string} */
             comparisonUnit: "LITER" | "MILLILITER" | "KILOGRAM" | "GRAM" | "UNIT";
+            canonicalProductId: string | null;
+            /** @example 1 */
+            canonicalGroupSize: number;
+            isSameProduct: boolean;
             calories: number | null;
             protein: number | null;
             fat: number | null;

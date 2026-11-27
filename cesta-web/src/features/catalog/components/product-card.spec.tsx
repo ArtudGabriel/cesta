@@ -52,6 +52,9 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
     cheapestPrice: 1.2,
     cheapestUnitPrice: { value: 1.2, unit: "L" },
     isStale: false,
+    canonicalProductId: null,
+    canonicalGroupSize: 1,
+    isSameProduct: false,
     ...overrides,
   };
 }

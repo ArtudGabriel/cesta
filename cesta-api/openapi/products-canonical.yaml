@@ -1,0 +1,197 @@
+openapi: 3.0.3
+info:
+  title: Cesta Products API — "mesmo produto" canonical read path
+  description: |
+    Sprint 244 — SDD-lite spec. Extensão do read path de produtos para
+    agregar preços cross-mercado dentro do grupo canônico (produtos
+    ligados via `Product.canonicalProductId` em S228 G2 + S232 G3
+    cluster match · ADRs 0037, 0040, 0041, 0044).
+
+    **Modelo**: cada Product aponta para um canônico via
+    `canonicalProductId` (null = próprio canônico; string = child).
+    Produtos no mesmo cluster têm supermarket_ids DISJUNTOS por
+    construção (S232 cluster rule), então agregar preços por
+    `canonicalProductId` dá um card único "mesmo produto" cross-mercado.
+
+    **Endpoints afetados**:
+      - GET /products/:id            — resolve canônico + agrega preços
+      - GET /products                 — dedupe canonical (1 row por cluster)
+      - GET /products/search          — dedupe canonical
+      - GET /products/suggest         — dedupe canonical
+      - GET /products/compare         — expande ids ao canônico + agrega
+
+    **Novos campos** em ProductResponseDto:
+      - canonicalProductId: string | null  — FK (null quando o próprio é canônico)
+      - canonicalGroupSize: integer        — count membros no grupo (1 quando standalone)
+      - isSameProduct: boolean             — true se canonicalGroupSize > 1 (badge verde)
+
+    **Garantias de compatibilidade**:
+      - Campos existentes preservam schema (ADR 0024).
+      - Dedupe de prices por supermarketId: quando dois membros do grupo
+        têm price pro mesmo supermarket, prefere o mais recente por
+        `lastSyncedAt DESC` (defesa contra S228 duplicates legado).
+  version: "1.0.0"
+servers:
+  - url: https://cesta-gsvc.onrender.com/api/v1
+    description: Production
+  - url: http://localhost:3001/api/v1
+    description: Local dev
+
+tags:
+  - name: Products
+
+paths:
+  /products/{id}:
+    get:
+      tags: [Products]
+      operationId: getProductById
+      summary: Detalhe do produto + preços agregados do grupo canônico
+      description: |
+        Se `id` pertence a um child (canonicalProductId não-null),
+        resolve ao canônico. Retorna ProductResponseDto com prices[]
+        agregado (canonical + children · dedupe por supermarketId ·
+        lastSyncedAt DESC como tiebreak). `canonicalGroupSize` reflete
+        o total de membros vivos (deletedAt IS NULL) no cluster.
+      security: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            description: cuid de QUALQUER membro do grupo canônico
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductResponse"
+        "404":
+          description: Produto não encontrado
+
+  /products:
+    get:
+      tags: [Products]
+      operationId: listProducts
+      summary: Lista produtos (1 card por grupo canônico)
+      description: |
+        WHERE canonicalProductId IS NULL. Dedupe por canonical; cada row
+        trazida inclui prices agregados do grupo (canonical + children).
+        Filtros (brand/supermarket/category/price range) aplicam ao
+        CANONICAL. Child presence em outro supermarket aparece no
+        prices[] agregado sem contar como filtro extra.
+      security: []
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: category
+          schema: { type: string }
+        - in: query
+          name: supermarket
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total, page, limit]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/ProductResponse" }
+                  total: { type: integer }
+                  page: { type: integer }
+                  limit: { type: integer }
+
+  /products/compare:
+    get:
+      tags: [Products]
+      operationId: compareProducts
+      summary: Comparar produtos (até 20) — expande ids ao canônico do grupo
+      description: |
+        Cada id vira o canônico do seu grupo (ou é dropado se duplicado
+        dentro da requisição). Produto retornado já traz prices[]
+        agregados. CompareMatrix no front renderiza 1 row por grupo.
+      security: []
+      parameters:
+        - in: query
+          name: ids
+          required: true
+          schema:
+            type: string
+            description: cuids separados por vírgula (até 20)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ProductResponse" }
+
+components:
+  schemas:
+    ProductResponse:
+      allOf:
+        - $ref: "#/components/schemas/ProductResponseBaseFields"
+        - type: object
+          properties:
+            canonicalProductId:
+              type: string
+              nullable: true
+              description: |
+                FK pro canônico. null quando o próprio produto é o
+                canônico (o endpoint SEMPRE retorna o canônico,
+                portanto esse campo é null em `/products/:id` quando o
+                grupo é standalone).
+            canonicalGroupSize:
+              type: integer
+              minimum: 1
+              description: |
+                Count de membros vivos (deletedAt IS NULL) no grupo.
+                1 = produto standalone. 2+ = grupo "mesmo produto".
+            isSameProduct:
+              type: boolean
+              description: |
+                Shortcut `canonicalGroupSize > 1`. Frontend usa pra
+                exibir badge verde "mesmo produto".
+
+    ProductResponseBaseFields:
+      type: object
+      description: |
+        Campos já existentes em ProductResponseDto. Schema inalterado.
+        Referência no código: cesta-api/src/modules/products/dtos/product-response.dto.ts
+      required: [id, name, prices]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        brand: { type: string, nullable: true }
+        imageUrl: { type: string, nullable: true, format: uri }
+        prices:
+          type: array
+          items: { $ref: "#/components/schemas/PriceByMarket" }
+        cheapestSupermarketSlug: { type: string, nullable: true }
+        cheapestPrice: { type: number, nullable: true }
+
+    PriceByMarket:
+      type: object
+      required: [supermarketId, supermarketSlug, price, isAvailable]
+      properties:
+        supermarketId: { type: string }
+        supermarketSlug: { type: string }
+        supermarketName: { type: string }
+        price: { type: number }
+        isAvailable: { type: boolean }
+        isStale: { type: boolean }
+        lastSyncedAt: { type: string, format: date-time }

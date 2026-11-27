@@ -11,6 +11,7 @@ import { DiscountBadge } from "./discount-badge";
 import { HighlightedText } from "./highlighted-text";
 import { NutriScoreBadge } from "./nutri-score-badge";
 import { ProductImage } from "./product-image";
+import { SameProductBadge } from "./same-product-badge";
 import { StaleBadge } from "./stale-badge";
 import type { Product } from "../types/catalog.types";
 
@@ -130,6 +131,12 @@ export function ProductCard({
                     return d ? <DiscountBadge discount={d} size="sm" /> : null;
                   })()}
                   {product.isStale && <StaleBadge size="sm" />}
+                  {product.isSameProduct && (
+                    <SameProductBadge
+                      count={product.canonicalGroupSize}
+                      size="sm"
+                    />
+                  )}
                 </div>
               </>
             )}
