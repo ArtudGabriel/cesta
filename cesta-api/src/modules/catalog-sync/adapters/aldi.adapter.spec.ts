@@ -12,145 +12,323 @@ jest.mock('../utils/user-agents', () => ({ pickUserAgent: () => 'test-ua' }));
 
 const mockedPoliteFetchRaw = politeFetchRaw as jest.MockedFunction<typeof politeFetchRaw>;
 
-// Fixtures observacionais capturadas S127 de aldi.es/es/ofertas.html.
-// Mínimo viável: 2 tiles com shape real (brand opcional, promoção, pack).
-const buildTile = (opts: {
+const SITEMAP_URL =
+  'https://www.aldi.es/sitemaps/.aldi-nord-sitemap-products.xml';
+const OFERTAS_URL = 'https://www.aldi.es/es/ofertas.html';
+
+function sitemapXml(productSlugs: Array<{ slug: string; id: string }>): string {
+  const urls = productSlugs
+    .map(
+      (p) =>
+        `<url><loc>https://www.aldi.es/producto/${p.slug}-${p.id}.html</loc></url>`,
+    )
+    .join('');
+  // include a non-product URL to assert filter
+  return `<?xml version="1.0" encoding="UTF-8"?><urlset>${urls}<url><loc>https://www.aldi.es/tiendas.html</loc></url></urlset>`;
+}
+
+function detailHtml(opts: {
   id: string;
   name: string;
   brand?: string;
-  price: string;
-  prevPrice?: string;
-  promoLabel?: string;
-  salesUnit?: string;
+  price: number | string;
   image?: string;
-}) => `
-<div class="product-tile" tabindex="0" role="link">
-  <div class="product-tile__image-section">
-    <img data-testid="image" srcset="https://s7g10.scene7.com/is/image/aldinord/${opts.id}_1.webp 360w, ${opts.image || `https://s7g10.scene7.com/is/image/aldinord/${opts.id}_4.webp`} 1440w" src="${opts.image || `https://s7g10.scene7.com/is/image/aldinord/${opts.id}_4.webp`}"/>
-  </div>
-  <div class="product-tile__content">
-    <p class="brand-name" data-testid="brand-name">${opts.brand || ''}</p>
-    <h2 class="product-name" data-testid="product-name">${opts.name}</h2>
-    <div data-testid="price-section">
-      ${opts.promoLabel ? `<span data-testid="tag-promo-label">${opts.promoLabel}</span>` : ''}
-      <div data-testid="tag-price-box">
-        <div data-testid="tag-current-price">
-          <span data-testid="tag-current-price-amount">${opts.price}</span>
-        </div>
-        ${opts.prevPrice ? `<div data-testid="tag-cross-price"><span data-testid="tag-cross-price-label"><span>${opts.prevPrice}</span></span></div>` : ''}
-      </div>
-      ${opts.salesUnit ? `<span data-testid="tag-sales-unit">${opts.salesUnit}</span>` : ''}
-    </div>
-  </div>
-  <a title="${opts.name}" href="https://www.aldi.es/producto/${opts.name.toLowerCase().replace(/\s+/g, '-')}-${opts.id}.html" data-testid="product-tile-grid-product-tile-1" class="link product-tile__action">${opts.name}</a>
-</div>`;
+  description?: string;
+  omitProductBlock?: boolean;
+  omitJsonLd?: boolean;
+  invalidJsonLd?: boolean;
+}): string {
+  if (opts.omitJsonLd) {
+    return `<html><body><h1>${opts.name}</h1></body></html>`;
+  }
+  if (opts.invalidJsonLd) {
+    return `<html><body><script type="application/ld+json">{not json</script></body></html>`;
+  }
+  const productBlock = opts.omitProductBlock
+    ? `<script type="application/ld+json">${JSON.stringify({ '@type': 'BreadcrumbList', itemListElement: [] })}</script>`
+    : `<script type="application/ld+json">${JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'Product',
+        name: opts.name,
+        image: opts.image
+          ? [opts.image]
+          : [`https://s7g10.scene7.com/is/image/aldinord/${opts.id}_pack`],
+        description: opts.description ?? '',
+        sku: opts.id,
+        brand: opts.brand ? { '@type': 'Brand', name: opts.brand } : undefined,
+        offers: {
+          '@type': 'Offer',
+          priceCurrency: 'EUR',
+          price: opts.price,
+          availability: 'https://schema.org/InStock',
+        },
+      })}</script>`;
+  return `<html><body>${productBlock}</body></html>`;
+}
 
-const OFERTAS_HTML = `<html><body>
-${buildTile({ id: '600575300', name: 'Naranja', price: '3.79', prevPrice: '4.85', promoLabel: '-21%', salesUnit: '4 kg unidad' })}
-${buildTile({ id: '123456', name: 'Leche entera brick', brand: 'Milsani', price: '0.89', salesUnit: '1 L unidad' })}
-${buildTile({ id: '789012', name: 'Queso curado', price: '5.49', salesUnit: '500 g unidad' })}
-${buildTile({ id: '555555', name: 'Cerveza pack 6', price: '3.49', salesUnit: 'pack 6 x 330 ml' })}
-${buildTile({ id: 'ZERO', name: 'Preço zero', price: '0', salesUnit: '1 unidad' })}
-</body></html>`;
+function ofertasHtml(
+  tiles: Array<{
+    id: string;
+    slug: string;
+    price: string;
+    prevPrice?: string;
+    promoLabel?: string;
+  }>,
+): string {
+  return `<html><body>${tiles
+    .map(
+      (t) => `
+      <div class="product-tile">
+        <a class="product-tile__action" href="https://www.aldi.es/producto/${t.slug}-${t.id}.html">${t.slug}</a>
+        ${t.promoLabel ? `<span data-testid="tag-promo-label">${t.promoLabel}</span>` : ''}
+        <span data-testid="tag-current-price-amount">${t.price}</span>
+        ${t.prevPrice ? `<span data-testid="tag-cross-price-label"><span>${t.prevPrice}</span></span>` : ''}
+      </div>`,
+    )
+    .join('')}</body></html>`;
+}
 
-describe('AldiAdapter', () => {
+/**
+ * Mock global.fetch (used by bareFetch for sitemap) distinct from
+ * politeFetchRaw (ofertas + detail pages).
+ */
+function installGlobalFetch(sitemap: string | null) {
+  const originalFetch = global.fetch;
+  global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+    const url = typeof input === 'string' ? input : input.toString();
+    if (url === SITEMAP_URL) {
+      if (sitemap === null) {
+        return { ok: false, status: 500, text: async () => '' } as any;
+      }
+      return { ok: true, status: 200, text: async () => sitemap } as any;
+    }
+    return { ok: false, status: 404, text: async () => '' } as any;
+  }) as any;
+  return () => {
+    global.fetch = originalFetch;
+  };
+}
+
+function wireDetailAndOfertas(
+  responses: Record<string, string>,
+  ofertas: string | null,
+) {
+  mockedPoliteFetchRaw.mockImplementation(async (url) => {
+    if (url === OFERTAS_URL) {
+      if (ofertas === null) return { body: '', status: 503, setCookie: [] } as any;
+      return { body: ofertas, status: 200, setCookie: [] } as any;
+    }
+    const detail = responses[url];
+    if (!detail) return { body: '', status: 404, setCookie: [] } as any;
+    return { body: detail, status: 200, setCookie: [] } as any;
+  });
+}
+
+describe('AldiAdapter S219 sitemap+JSON-LD', () => {
   let adapter: AldiAdapter;
+  let restoreFetch: () => void;
 
   beforeEach(() => {
     adapter = new AldiAdapter();
     mockedPoliteFetchRaw.mockReset();
   });
 
-  it('extrai product-tiles de /es/ofertas.html com preço, previousPrice e package', async () => {
-    mockedPoliteFetchRaw.mockResolvedValue({
-      body: OFERTAS_HTML,
-      status: 200,
-      setCookie: [],
-    } as any);
+  afterEach(() => {
+    restoreFetch?.();
+    delete process.env.ALDI_MAX_PRODUCTS;
+  });
+
+  it('crawl sitemap → fetch cada detail → extrai JSON-LD Product.offers.price', async () => {
+    const sitemap = sitemapXml([
+      { slug: 'cerveza-clasica', id: '50600' },
+      { slug: 'leche-entera', id: '123456' },
+    ]);
+    restoreFetch = installGlobalFetch(sitemap);
+    wireDetailAndOfertas(
+      {
+        'https://www.aldi.es/producto/cerveza-clasica-50600.html': detailHtml({
+          id: '50600',
+          name: 'Cerveza clásica',
+          brand: 'KARLSQUELL',
+          price: 0.29,
+          description: '500 ml lata',
+        }),
+        'https://www.aldi.es/producto/leche-entera-123456.html': detailHtml({
+          id: '123456',
+          name: 'Leche entera',
+          brand: 'Milsani',
+          price: 0.89,
+          description: '1 L brick',
+        }),
+      },
+      ofertasHtml([]),
+    );
 
     const products = await adapter.fetchProducts();
+    expect(products).toHaveLength(2);
     const byId = new Map(products.map((p) => [p.externalId, p]));
-
-    // 4 válidos (preço=0 filtrado) + 1 ZERO não-numérico id filtrado pelo URL_RE
-    expect(products.length).toBe(4);
-
-    expect(byId.get('600575300')).toMatchObject({
-      externalId: '600575300',
-      name: 'Naranja',
-      brand: null,
-      ean: null,
-      price: 3.79,
-      previousPrice: 4.85,
-      onPromotion: true,
-      packageUnit: 'KILOGRAM',
-      comparisonUnit: 'KILOGRAM',
-      packageSize: 4,
-      imageUrl: expect.stringContaining('scene7.com/is/image/aldinord/600575300'),
-      isAvailable: true,
+    expect(byId.get('50600')).toMatchObject({
+      externalId: '50600',
+      name: 'Cerveza clásica',
+      brand: 'KARLSQUELL',
+      price: 0.29,
+      onPromotion: false,
+      previousPrice: null,
+      packageUnit: 'MILLILITER',
+      packageSize: 500,
     });
-
     expect(byId.get('123456')).toMatchObject({
       externalId: '123456',
       brand: 'Milsani',
       price: 0.89,
-      previousPrice: null,
-      onPromotion: false,
       packageUnit: 'LITER',
       packageSize: 1,
     });
+  });
 
-    expect(byId.get('789012')).toMatchObject({
-      externalId: '789012',
-      price: 5.49,
-      packageUnit: 'GRAM',
-      comparisonUnit: 'KILOGRAM',
-      packageSize: 500,
-    });
+  it('overlay ofertas.html marca onPromotion + previousPrice + sobrescreve preço com tile', async () => {
+    const sitemap = sitemapXml([{ slug: 'naranja', id: '600575300' }]);
+    restoreFetch = installGlobalFetch(sitemap);
+    wireDetailAndOfertas(
+      {
+        'https://www.aldi.es/producto/naranja-600575300.html': detailHtml({
+          id: '600575300',
+          name: 'Naranja',
+          price: 4.85,
+          description: '4 kg unidad',
+        }),
+      },
+      ofertasHtml([
+        {
+          slug: 'naranja',
+          id: '600575300',
+          price: '3.79',
+          prevPrice: '4.85',
+          promoLabel: '-21%',
+        },
+      ]),
+    );
 
-    expect(byId.get('555555')).toMatchObject({
-      externalId: '555555',
-      price: 3.49,
-      packageUnit: 'MILLILITER',
-      comparisonUnit: 'LITER',
-      packageSize: 1980, // pack 6 x 330 ml = 1980 ml (unit=ML, size raw)
+    const products = await adapter.fetchProducts();
+    expect(products).toHaveLength(1);
+    expect(products[0]).toMatchObject({
+      externalId: '600575300',
+      price: 3.79,
+      previousPrice: 4.85,
+      onPromotion: true,
+      packageUnit: 'KILOGRAM',
+      packageSize: 4,
     });
   });
 
-  it('pula tiles sem URL válida ou preço inválido', async () => {
-    const bad = `<html><body>
-      <div class="product-tile">
-        <h2 data-testid="product-name">Sem href</h2>
-        <span data-testid="tag-current-price-amount">1.99</span>
-      </div>
-      <div class="product-tile">
-        <a href="/es/producto/sem-id-aqui.html" class="product-tile__action">x</a>
-        <h2 data-testid="product-name">URL sem id numeric</h2>
-        <span data-testid="tag-current-price-amount">2.99</span>
-      </div>
-    </body></html>`;
+  it('respeita ALDI_MAX_PRODUCTS cap', async () => {
+    process.env.ALDI_MAX_PRODUCTS = '1';
+    const sitemap = sitemapXml([
+      { slug: 'a', id: '1' },
+      { slug: 'b', id: '2' },
+      { slug: 'c', id: '3' },
+    ]);
+    restoreFetch = installGlobalFetch(sitemap);
+    wireDetailAndOfertas(
+      {
+        'https://www.aldi.es/producto/a-1.html': detailHtml({
+          id: '1',
+          name: 'A',
+          price: 1.0,
+        }),
+        'https://www.aldi.es/producto/b-2.html': detailHtml({
+          id: '2',
+          name: 'B',
+          price: 2.0,
+        }),
+        'https://www.aldi.es/producto/c-3.html': detailHtml({
+          id: '3',
+          name: 'C',
+          price: 3.0,
+        }),
+      },
+      ofertasHtml([]),
+    );
+
+    const products = await adapter.fetchProducts();
+    expect(products).toHaveLength(1);
+    expect(products[0].externalId).toBe('1');
+  });
+
+  it('dropouts: pula detail sem JSON-LD Product block, price inválido, fetch fail', async () => {
+    const sitemap = sitemapXml([
+      { slug: 'ok', id: '100' },
+      { slug: 'nojsonld', id: '200' },
+      { slug: 'noproduct', id: '300' },
+      { slug: 'noprice', id: '400' },
+      { slug: 'fetchfail', id: '500' },
+    ]);
+    restoreFetch = installGlobalFetch(sitemap);
+    wireDetailAndOfertas(
+      {
+        'https://www.aldi.es/producto/ok-100.html': detailHtml({
+          id: '100',
+          name: 'OK',
+          price: 1.5,
+        }),
+        'https://www.aldi.es/producto/nojsonld-200.html': detailHtml({
+          id: '200',
+          name: 'NoJsonLd',
+          price: 1.5,
+          omitJsonLd: true,
+        }),
+        'https://www.aldi.es/producto/noproduct-300.html': detailHtml({
+          id: '300',
+          name: 'NoProduct',
+          price: 1.5,
+          omitProductBlock: true,
+        }),
+        'https://www.aldi.es/producto/noprice-400.html': detailHtml({
+          id: '400',
+          name: 'NoPrice',
+          price: 0,
+        }),
+        // fetchfail-500 intentionally missing → mock returns 404
+      },
+      ofertasHtml([]),
+    );
+
+    const products = await adapter.fetchProducts();
+    expect(products).toHaveLength(1);
+    expect(products[0].externalId).toBe('100');
+  });
+
+  it('sitemap vazio ou fetch fail → [] sem throw', async () => {
+    restoreFetch = installGlobalFetch(null);
     mockedPoliteFetchRaw.mockResolvedValue({
-      body: bad,
+      body: '',
       status: 200,
       setCookie: [],
     } as any);
-
     const products = await adapter.fetchProducts();
     expect(products).toEqual([]);
   });
 
-  it('retorna [] quando ofertas.html retorna status não-200', async () => {
-    mockedPoliteFetchRaw.mockResolvedValue({
-      body: '',
-      status: 503,
-      setCookie: [],
-    } as any);
+  it('ofertas.html indisponível → produtos ainda extraídos sem overlay', async () => {
+    const sitemap = sitemapXml([{ slug: 'x', id: '999' }]);
+    restoreFetch = installGlobalFetch(sitemap);
+    wireDetailAndOfertas(
+      {
+        'https://www.aldi.es/producto/x-999.html': detailHtml({
+          id: '999',
+          name: 'X',
+          price: 2.5,
+        }),
+      },
+      null,
+    );
     const products = await adapter.fetchProducts();
-    expect(products).toEqual([]);
-  });
-
-  it('retorna [] quando politeFetchRaw lança', async () => {
-    mockedPoliteFetchRaw.mockRejectedValue(new Error('network'));
-    const products = await adapter.fetchProducts();
-    expect(products).toEqual([]);
+    expect(products).toHaveLength(1);
+    expect(products[0]).toMatchObject({
+      externalId: '999',
+      price: 2.5,
+      onPromotion: false,
+      previousPrice: null,
+    });
   });
 });
