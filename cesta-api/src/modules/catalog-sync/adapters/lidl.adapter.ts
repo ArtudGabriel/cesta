@@ -13,8 +13,9 @@ import type {
 // Cada produto tem shape:
 //   { erpNumber, fullTitle, image, keyfacts.analyticsCategory,
 //     price: { price: <number>, displayedCurrency: "€" }, productType, ... }
-// Não há sitemap de produtos — scan via SEED_QUERIES (~40 queries × ~96 produtos
-// cada = ~3800 potenciais).
+// Não há sitemap de produtos — scan via SEED_QUERIES. Pós-S222: ~81 queries
+// × ~47 erpNumber anchors/query = ~3807 potenciais pre-dedup; unique
+// esperado ~1500-2300 (overlap inter-query 40-60%).
 //
 // LIDL NÃO tem anti-bot aparente. Headers XHR-like passam de IPs datacenter
 // (ao contrário de Eroski S125 — contratos CDN diferentes).
@@ -73,6 +74,24 @@ const SEED_QUERIES = [
   'pienso perro', 'pienso gato',
 ];
 
+interface LidlDropouts {
+  queryFetchFail: number;
+  queryException: number;
+  queryNoAnchors: number;
+  segmentNoId: number;
+  segmentNoName: number;
+  segmentNoPrice: number;
+  segmentBadPrice: number;
+  segmentDuplicate: number;
+}
+
+type LidlSegmentDropouts = Pick<
+  LidlDropouts,
+  'segmentNoId' | 'segmentNoName' | 'segmentNoPrice' | 'segmentBadPrice'
+>;
+
+type LidlExtractDropouts = LidlSegmentDropouts & Pick<LidlDropouts, 'segmentDuplicate'>;
+
 @Injectable()
 export class LidlAdapter implements SupermarketAdapter {
   readonly slug = 'lidl';
@@ -82,8 +101,11 @@ export class LidlAdapter implements SupermarketAdapter {
   async fetchProducts(): Promise<RawProduct[]> {
     // Sprint 222: dropout counters observability (paridade DIA S218 / Eroski
     // S220 / Froiz S221). Expõe por que anchors não viraram produto final.
-    const dropouts = {
+    // Sprint 223: queryException distingue falhas no catch outer (extract
+    // throws, regex ReDoS edge) do queryFetchFail (fetchSearchHtml null).
+    const dropouts: LidlDropouts = {
       queryFetchFail: 0,
+      queryException: 0,
       queryNoAnchors: 0,
       segmentNoId: 0,
       segmentNoName: 0,
@@ -110,13 +132,14 @@ export class LidlAdapter implements SupermarketAdapter {
           products.push(item);
         }
       } catch (error) {
+        dropouts.queryException += 1;
         const msg = error instanceof Error ? error.message : String(error);
         this.logger.warn(`LIDL query "${query}" falhou: ${msg}`);
       }
     }
 
     this.logger.log(
-      `LIDL: ${products.length} produtos coletados (${queries.length} queries) · dropouts fetch=${dropouts.queryFetchFail} noanchors=${dropouts.queryNoAnchors} noid=${dropouts.segmentNoId} noname=${dropouts.segmentNoName} noprice=${dropouts.segmentNoPrice} badprice=${dropouts.segmentBadPrice} dup=${dropouts.segmentDuplicate}`,
+      `LIDL: ${products.length} produtos coletados (${queries.length} queries) · dropouts fetch=${dropouts.queryFetchFail} exc=${dropouts.queryException} noanchors=${dropouts.queryNoAnchors} noid=${dropouts.segmentNoId} noname=${dropouts.segmentNoName} noprice=${dropouts.segmentNoPrice} badprice=${dropouts.segmentBadPrice} dup=${dropouts.segmentDuplicate}`,
     );
     return products;
   }
@@ -151,13 +174,7 @@ export class LidlAdapter implements SupermarketAdapter {
    */
   private extractProducts(
     html: string,
-    dropouts: {
-      segmentNoId: number;
-      segmentNoName: number;
-      segmentNoPrice: number;
-      segmentBadPrice: number;
-      segmentDuplicate: number;
-    },
+    dropouts: LidlExtractDropouts,
     seen: Set<string>,
   ): { products: RawProduct[]; rawAnchors: number } {
     const products: RawProduct[] = [];
@@ -185,12 +202,7 @@ export class LidlAdapter implements SupermarketAdapter {
 
   private parseSegment(
     segment: string,
-    dropouts: {
-      segmentNoId: number;
-      segmentNoName: number;
-      segmentNoPrice: number;
-      segmentBadPrice: number;
-    },
+    dropouts: LidlSegmentDropouts,
   ): RawProduct | null {
     const idMatch = segment.match(/"erpNumber":"(\d+)"/);
     if (!idMatch) {

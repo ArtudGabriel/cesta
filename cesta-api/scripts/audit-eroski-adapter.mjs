@@ -72,7 +72,14 @@ function detectCaps(src) {
     src.match(/DEFAULT_MAX_CATEGORIES\s*=\s*(\d+)/)?.[1] ?? null;
   const envName =
     src.match(/process\.env\.(EROSKI_[A-Z_]+)/)?.[1] ?? null;
-  const lvlFilter = src.match(/segments\.length\s*>=?\s*(\d+)/)?.[1] ?? null;
+  // S223: adapter passou a usar `segments.length >= MIN_CATEGORY_SEGMENTS`
+  // (const nomeado), então a regex antiga `segments.length >= <literal>` não
+  // casava mais e o audit caía no fallback `lvl >= 2`. Preferir ler o valor
+  // da const; fallback mantido pro caso de inline numérico futuro.
+  const lvlFilter =
+    src.match(/MIN_CATEGORY_SEGMENTS\s*=\s*(\d+)/)?.[1] ??
+    src.match(/segments\.length\s*>=?\s*(\d+)/)?.[1] ??
+    null;
   return { defaultMax, envName, lvlFilter };
 }
 
