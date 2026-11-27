@@ -19,7 +19,12 @@ import type {
 // LIDL NÃO tem anti-bot aparente. Headers XHR-like passam de IPs datacenter
 // (ao contrário de Eroski S125 — contratos CDN diferentes).
 const BASE_URL = 'https://www.lidl.es/q/search';
-const MAX_QUERIES = 40;
+// Sprint 222: cap 40 → 81 (pattern S218 DIA). Audit live 2026-11-27 provou
+// endpoint retorna ~47 erpNumber anchors/query sem paginação; SEED_QUERIES
+// array estava truncado por cap antigo. Target 81 queries (gap-fill Spanish
+// grocery vocabulary alinhado DIA pós-S218). Ceiling pre-dedup ~81 × 47 =
+// ~3807; dedup inter-query 40-60% overlap → unique ~1500-2300.
+const MAX_QUERIES = 81;
 
 /**
  * S187 (nit S186 P3): upper bound do [\s\S]{0,N}? em parseSegment price regex.
@@ -40,16 +45,32 @@ const MAX_QUERIES = 40;
  */
 const MAX_PRICE_BLOCK_BYTES = 2000;
 
+// Sprint 222: expanded from 43 to 81 seeds para fechar gap Spanish grocery
+// vocabulary (pattern S218 DIA 41→81). Adiciona dairy variants (nata/batido/
+// kefir), bakery subs (tostadas/bollo/croissant/magdalena), cured meat
+// specifics (carne picada/bacon/salchicha/hamburguesa/lomo), seafood
+// (bacalao/gambas/mejillones), produce staples (cebolla/pimiento/ajo/limon/
+// zanahoria/pepino/aguacate/brocoli), drinks (coca cola/cafe/te), pantry
+// breadth (vinagre/mayonesa/ketchup/chocolate/miel/garbanzos/lentejas),
+// frozen/snack specifics (pizza congelada/patatas fritas/frutos secos),
+// cleaning breadth (bolsas basura/lavavajillas/suavizante), hygiene
+// (desodorante/toallitas/panales), pet (pienso perro/pienso gato).
+// Endpoint teto ~47 erpNumber anchors/query (confirmado probe live 12
+// queries 2026-11-27). Ceiling pre-dedup ~3807; unique esperado ~1500-2300.
 const SEED_QUERIES = [
-  'leche', 'yogur', 'queso', 'huevos', 'mantequilla',
-  'pan', 'cereales', 'galletas', 'bolleria',
-  'pollo', 'carne', 'jamon', 'chorizo', 'embutido',
-  'salmon', 'atun', 'merluza', 'pescado',
-  'platano', 'tomate', 'patata', 'manzana', 'naranja', 'lechuga',
-  'agua', 'zumo', 'refresco', 'cerveza', 'vino',
-  'aceite', 'arroz', 'pasta', 'azucar', 'sal', 'harina',
-  'pizza', 'helado', 'congelado',
-  'detergente', 'papel', 'champu', 'gel', 'pasta dentifrica',
+  'leche', 'yogur', 'queso', 'huevos', 'mantequilla', 'nata', 'batido', 'kefir',
+  'pan', 'cereales', 'galletas', 'tostadas', 'bollo', 'croissant', 'magdalena',
+  'pollo', 'carne picada', 'jamon', 'chorizo', 'bacon', 'salchicha', 'hamburguesa', 'lomo',
+  'salmon', 'atun', 'merluza', 'bacalao', 'gambas', 'mejillones',
+  'platano', 'tomate', 'patatas', 'manzana', 'naranja', 'lechuga',
+  'cebolla', 'pimiento', 'ajo', 'limon', 'zanahoria', 'pepino', 'aguacate', 'brocoli',
+  'agua', 'zumo', 'coca cola', 'cerveza', 'vino', 'refresco', 'cafe', 'te',
+  'aceite oliva', 'arroz', 'pasta', 'azucar', 'sal', 'harina',
+  'vinagre', 'mayonesa', 'ketchup', 'chocolate', 'miel', 'garbanzos', 'lentejas',
+  'pizza congelada', 'helado', 'patatas fritas', 'frutos secos',
+  'detergente', 'papel higienico', 'bolsas basura', 'lavavajillas', 'suavizante',
+  'champu', 'gel', 'pasta dentifrica', 'desodorante', 'toallitas', 'panales',
+  'pienso perro', 'pienso gato',
 ];
 
 @Injectable()
@@ -59,6 +80,17 @@ export class LidlAdapter implements SupermarketAdapter {
   private readonly ua = pickUserAgent();
 
   async fetchProducts(): Promise<RawProduct[]> {
+    // Sprint 222: dropout counters observability (paridade DIA S218 / Eroski
+    // S220 / Froiz S221). Expõe por que anchors não viraram produto final.
+    const dropouts = {
+      queryFetchFail: 0,
+      queryNoAnchors: 0,
+      segmentNoId: 0,
+      segmentNoName: 0,
+      segmentNoPrice: 0,
+      segmentBadPrice: 0,
+      segmentDuplicate: 0,
+    };
     const seen = new Set<string>();
     const products: RawProduct[] = [];
     const queries = SEED_QUERIES.slice(0, MAX_QUERIES);
@@ -66,11 +98,15 @@ export class LidlAdapter implements SupermarketAdapter {
     for (const query of queries) {
       try {
         const html = await this.fetchSearchHtml(query);
-        if (!html) continue;
-        const items = this.extractProducts(html);
-        for (const item of items) {
-          if (seen.has(item.externalId)) continue;
-          seen.add(item.externalId);
+        if (!html) {
+          dropouts.queryFetchFail += 1;
+          continue;
+        }
+        const extracted = this.extractProducts(html, dropouts, seen);
+        if (extracted.rawAnchors === 0) {
+          dropouts.queryNoAnchors += 1;
+        }
+        for (const item of extracted.products) {
           products.push(item);
         }
       } catch (error) {
@@ -80,7 +116,7 @@ export class LidlAdapter implements SupermarketAdapter {
     }
 
     this.logger.log(
-      `LIDL: ${products.length} produtos coletados (${queries.length} queries)`,
+      `LIDL: ${products.length} produtos coletados (${queries.length} queries) · dropouts fetch=${dropouts.queryFetchFail} noanchors=${dropouts.queryNoAnchors} noid=${dropouts.segmentNoId} noname=${dropouts.segmentNoName} noprice=${dropouts.segmentNoPrice} badprice=${dropouts.segmentBadPrice} dup=${dropouts.segmentDuplicate}`,
     );
     return products;
   }
@@ -113,8 +149,18 @@ export class LidlAdapter implements SupermarketAdapter {
    * de `erpNumber` OU fim do array. Decodamos entities por segmento e
    * extraímos campos via regex (JSON shape estável).
    */
-  private extractProducts(html: string): RawProduct[] {
-    const out: RawProduct[] = [];
+  private extractProducts(
+    html: string,
+    dropouts: {
+      segmentNoId: number;
+      segmentNoName: number;
+      segmentNoPrice: number;
+      segmentBadPrice: number;
+      segmentDuplicate: number;
+    },
+    seen: Set<string>,
+  ): { products: RawProduct[]; rawAnchors: number } {
+    const products: RawProduct[] = [];
     const anchors: number[] = [];
     const anchorRegex = /&quot;erpNumber&quot;:&quot;\d+&quot;/g;
     let m: RegExpExecArray | null;
@@ -125,21 +171,44 @@ export class LidlAdapter implements SupermarketAdapter {
       const start = anchors[i];
       const end = i + 1 < anchors.length ? anchors[i + 1] : start + 8000;
       const segment = this.decodeHtmlEntities(html.slice(start, end));
-      const parsed = this.parseSegment(segment);
-      if (parsed) out.push(parsed);
+      const parsed = this.parseSegment(segment, dropouts);
+      if (!parsed) continue;
+      if (seen.has(parsed.externalId)) {
+        dropouts.segmentDuplicate += 1;
+        continue;
+      }
+      seen.add(parsed.externalId);
+      products.push(parsed);
     }
-    return out;
+    return { products, rawAnchors: anchors.length };
   }
 
-  private parseSegment(segment: string): RawProduct | null {
+  private parseSegment(
+    segment: string,
+    dropouts: {
+      segmentNoId: number;
+      segmentNoName: number;
+      segmentNoPrice: number;
+      segmentBadPrice: number;
+    },
+  ): RawProduct | null {
     const idMatch = segment.match(/"erpNumber":"(\d+)"/);
-    if (!idMatch) return null;
+    if (!idMatch) {
+      dropouts.segmentNoId += 1;
+      return null;
+    }
     const externalId = idMatch[1];
 
     const titleMatch = segment.match(/"fullTitle":"((?:[^"\\]|\\.)*)"/);
-    if (!titleMatch) return null;
+    if (!titleMatch) {
+      dropouts.segmentNoName += 1;
+      return null;
+    }
     const name = this.unescapeJson(titleMatch[1]);
-    if (!name) return null;
+    if (!name) {
+      dropouts.segmentNoName += 1;
+      return null;
+    }
 
     // S186: regex precisa atravessar sub-objetos (e.g. "packaging":{}, "discount":{...},
     // "specialTaxes":[]) que agora aparecem dentro do objeto price entre a abertura
@@ -150,9 +219,15 @@ export class LidlAdapter implements SupermarketAdapter {
       `"price":\\{[\\s\\S]{0,${MAX_PRICE_BLOCK_BYTES}}?"price":(\\d+(?:\\.\\d+)?)`,
     );
     const priceMatch = segment.match(priceRegex);
-    if (!priceMatch) return null;
+    if (!priceMatch) {
+      dropouts.segmentNoPrice += 1;
+      return null;
+    }
     const price = Number(priceMatch[1]);
-    if (!Number.isFinite(price) || price <= 0) return null;
+    if (!Number.isFinite(price) || price <= 0) {
+      dropouts.segmentBadPrice += 1;
+      return null;
+    }
 
     const imageMatch = segment.match(/"image":"((?:[^"\\]|\\.)*)"/);
     const imageUrl = imageMatch ? this.unescapeJson(imageMatch[1]) : null;

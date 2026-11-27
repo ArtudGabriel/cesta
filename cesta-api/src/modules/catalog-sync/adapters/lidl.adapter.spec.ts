@@ -143,6 +143,36 @@ describe('LidlAdapter', () => {
     expect(products).toEqual([]);
   });
 
+  it('S222: logga dropouts com granularidade queryFetchFail/segmentNoPrice', async () => {
+    let call = 0;
+    mockedPoliteFetchRaw.mockImplementation(() => {
+      call += 1;
+      // 1a query falha fetch, demais retornam HTML inválido (produtos sem preço)
+      if (call === 1) return Promise.reject(new Error('timeout'));
+      return Promise.resolve({ body: INVALID_HTML, status: 200, setCookie: [] }) as any;
+    });
+    const logSpy = jest.spyOn((adapter as any).logger, 'log');
+    await adapter.fetchProducts();
+    const finalLog = logSpy.mock.calls
+      .map((c) => c[0] as string)
+      .find((m) => m.startsWith('LIDL:'));
+    expect(finalLog).toBeDefined();
+    expect(finalLog).toContain('fetch=1');
+    expect(finalLog).toContain('noprice=');
+    expect(finalLog).toContain('badprice=');
+  });
+
+  it('S222: SEED_QUERIES array = 81 (pattern DIA S218 alinhado)', async () => {
+    mockedPoliteFetchRaw.mockResolvedValue({
+      body: '[]',
+      status: 200,
+      setCookie: [],
+    } as any);
+    await adapter.fetchProducts();
+    // Cada query faz 1 fetch; se queries=81, fetchSearchHtml chamado 81 vezes.
+    expect(mockedPoliteFetchRaw).toHaveBeenCalledTimes(81);
+  });
+
   it('S186: extrai price com sub-objetos dentro do price (packaging, discount, zones)', async () => {
     // Shape prod atual (capturado 2026-11-26): objeto price agora contém
     // packaging:{}, discount:{...}, specialTaxes:[] etc antes do campo price
