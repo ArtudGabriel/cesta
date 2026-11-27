@@ -2,6 +2,7 @@ import {
   computeIsStale,
   parseStaleThresholdHours,
   ProductResponseDto,
+  resolveIsStale,
 } from './product-response.dto';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -82,6 +83,38 @@ describe('computeIsStale', () => {
 
   it('retorna true quando Date invalid', () => {
     expect(computeIsStale('not-a-date', now, threshold48hMs)).toBe(true);
+  });
+});
+
+describe('resolveIsStale (Sprint 226 AJUSTE P1)', () => {
+  const now = new Date('2026-11-27T12:00:00Z').getTime();
+  const fresh = new Date(now - 10 * HOUR_MS);
+  const old = new Date(now - 12 * 24 * HOUR_MS); // 12d, Froiz empírico
+
+  it('OR DB column: dbIsStale=true + timestamp fresco -> true', () => {
+    // Adapter rodou last sync, markStaleForSupermarket flipou coluna
+    // (produto delistado). Idade do timestamp irrelevante.
+    expect(resolveIsStale(true, fresh)).toBe(true);
+  });
+
+  it('OR age-based: dbIsStale=false + timestamp 12d -> true (Froiz bug)', () => {
+    // Cron falhou entre ciclos. Coluna fica false pela last successful
+    // upsert, mas idade excede threshold. Badge precisa firar.
+    // Nao podemos chamar computeIsStale sem threshold override, mas o
+    // STALE_THRESHOLD_MS de modulo load (48h) cobre 12d > 48h.
+    expect(resolveIsStale(false, old)).toBe(true);
+  });
+
+  it('ambos false -> false', () => {
+    expect(resolveIsStale(false, fresh)).toBe(false);
+  });
+
+  it('dbIsStale=true vence mesmo com timestamp null', () => {
+    expect(resolveIsStale(true, null)).toBe(true);
+  });
+
+  it('timestamp null fallback -> true', () => {
+    expect(resolveIsStale(false, null)).toBe(true);
   });
 });
 

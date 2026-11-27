@@ -53,6 +53,22 @@ const STALE_THRESHOLD_HOURS = parseStaleThresholdHours(
 );
 const STALE_THRESHOLD_MS = STALE_THRESHOLD_HOURS * 60 * 60 * 1000;
 
+// Sprint 226 AJUSTE P1 (PR #192 Reviewer): combina os DOIS sinais de
+// staleness em OR.
+//
+//   (a) Coluna `ProductPrice.isStale` escrita por catalog-sync:
+//       `markStaleForSupermarket` flipa true pra rows que o adapter NÃO
+//       tocou no run (produto delistado, miss de scrape). Sinal autoritativo
+//       do adapter.
+//
+//   (b) `computeIsStale(lastSyncedAt)`: fallback baseado em idade do
+//       timestamp (threshold env). Captura casos em que o cron NUNCA
+//       completou (Froiz 12d sem run; adapter down; Render spin-down perdeu
+//       janela). Nessa situação a coluna (a) fica desatualizada (last
+//       successful upsert deixou isStale=false) e só o (b) detecta.
+//
+// Sem o (b), o badge não firava pra adapters que caíram entre dois ciclos
+// (bug reportado 2026-11-27 Froiz 3/3 lastSyncedAt 12d, coluna false).
 export function computeIsStale(
   lastSyncedAt: Date | string | null | undefined,
   nowMs: number = Date.now(),
@@ -65,6 +81,13 @@ export function computeIsStale(
       : new Date(lastSyncedAt).getTime();
   if (!Number.isFinite(ts)) return true;
   return nowMs - ts > thresholdMs;
+}
+
+export function resolveIsStale(
+  dbIsStale: boolean,
+  lastSyncedAt: Date | string | null | undefined,
+): boolean {
+  return dbIsStale || computeIsStale(lastSyncedAt);
 }
 
 export class NutriScoreDto {
@@ -243,7 +266,7 @@ function mapPrice(
     onPromotion: p.onPromotion,
     previousPrice: p.previousPrice ? Number(p.previousPrice) : null,
     isAvailable: p.isAvailable,
-    isStale: computeIsStale(p.lastSyncedAt),
+    isStale: resolveIsStale(p.isStale, p.lastSyncedAt),
     lastSyncedAt: p.lastSyncedAt,
     confidenceScore: Number(p.confidenceScore),
   };

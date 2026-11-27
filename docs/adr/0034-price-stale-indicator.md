@@ -43,13 +43,14 @@ Hoje já temos `ProductPrice.lastSyncedAt` escrito em todo `catalog-sync` run. F
 `cesta-api/src/modules/products/dtos/product-response.dto.ts`:
 
 1. `computeIsStale(lastSyncedAt, now?, thresholdMs?)` — helper puro, exportado pra testes unit sem acoplar `Date.now`. `null`/inválido → `true` (worst-case transparent; preço ausente nunca engana).
-2. `PriceByMarketDto.isStale: boolean` — por mercado.
-3. `ProductResponseDto.isStale: boolean` — mirror do cheapest price (home card / /produto). Quando produto não tem preço disponível → `false` (sem badge; `cheapestPrice=null` já cobre o caso).
+2. `resolveIsStale(dbIsStale, lastSyncedAt)` — **AJUSTE P1 (PR #192)**: OR combinando o sinal do adapter (coluna `ProductPrice.isStale` escrita por `markStaleForSupermarket` quando o run não tocou a row) com o fallback age-based (threshold env). Sem o segundo, badge não firava pra adapters que caíram entre dois ciclos — reproduzido empírico 2026-11-27 Froiz 3/3 lastSyncedAt 12d, coluna `false` (último upsert reset). `mapPrice` usa `resolveIsStale(p.isStale, p.lastSyncedAt)`.
+3. `PriceByMarketDto.isStale: boolean` — por mercado.
+4. `ProductResponseDto.isStale: boolean` — mirror do cheapest price (home card / /produto). Quando produto não tem preço disponível → `false` (sem badge; `cheapestPrice=null` já cobre o caso).
 
 Favoritos (`cesta-api/src/modules/favorites`):
 
-- Repository seleciona `lastSyncedAt` no join.
-- Service propaga `isStale` no `CheapestPriceDto`.
+- Repository seleciona `lastSyncedAt` **e `isStale`** no join prices.
+- Service propaga via `resolveIsStale` no `CheapestPriceDto`.
 
 ### Frontend
 

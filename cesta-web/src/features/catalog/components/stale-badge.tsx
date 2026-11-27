@@ -15,8 +15,11 @@ interface StaleBadgeProps {
  * Consome `product.isStale` ou `price.isStale` do backend. Não decide
  * localmente — zero fetch extra, zero Date.now.
  *
- * Chrome informativo público (preço + estado do catálogo) → `data-sentry-unmask`
- * pra diagnose Session Replay sem vazar PII (regra GDPR cesta.md).
+ * `data-sentry-unmask` é opcional (chrome diagnostic pra Session Replay);
+ * NÃO é requisito GDPR — o default do SDK já mascara por `maskAllText`, só
+ * campos com PII precisariam de `data-sentry-mask` explícito. Aqui é
+ * catálogo público (estado do preço), e marcar unmask apenas facilita
+ * reproduzir bugs de badge sem trocar config do Replay.
  */
 export function StaleBadge({ size = "sm", className }: StaleBadgeProps) {
   const t = useTranslations("catalog.stale");

@@ -33,6 +33,7 @@ export interface FavoriteWithProductRow extends FavoriteRow {
     prices: Array<{
       currentPrice: unknown;
       lastSyncedAt: Date;
+      isStale: boolean;
       supermarket: { slug: string; name: string };
     }>;
   };
@@ -97,6 +98,7 @@ export class FavoritesRepository {
               select: {
                 currentPrice: true,
                 lastSyncedAt: true,
+                isStale: true,
                 supermarket: { select: { slug: true, name: true } },
               },
             },

@@ -3,7 +3,7 @@ import { MeasureUnit } from '@prisma/client';
 import { calculateUnitPrice } from '../../common/utils/price-normalization';
 import { calculateNutriScore } from '../../common/utils/nutri-score';
 import {
-  computeIsStale,
+  resolveIsStale,
   resolveNutriCategory,
 } from '../products/dtos/product-response.dto';
 import {
@@ -17,6 +17,7 @@ interface RawCheapest {
   supermarketSlug: string;
   supermarketName: string;
   lastSyncedAt: Date;
+  dbIsStale: boolean;
 }
 
 @Injectable()
@@ -49,6 +50,7 @@ export class FavoritesService {
           supermarketSlug: p.supermarket.slug,
           supermarketName: p.supermarket.name,
           lastSyncedAt: p.lastSyncedAt,
+          dbIsStale: p.isStale,
         })),
       );
       const cheapest: CheapestPriceDto | null = cheapestRaw
@@ -62,8 +64,9 @@ export class FavoritesService {
               f.product.packageUnit,
               f.product.comparisonUnit,
             ),
-            // Sprint 226 (ADR 0034): badge /favoritos.
-            isStale: computeIsStale(cheapestRaw.lastSyncedAt),
+            // Sprint 226 AJUSTE P1: OR coluna DB `isStale` + age-based
+            // (cron falhou entre ciclos → coluna fica false mas idade > 48h).
+            isStale: resolveIsStale(cheapestRaw.dbIsStale, cheapestRaw.lastSyncedAt),
           }
         : null;
       return {
