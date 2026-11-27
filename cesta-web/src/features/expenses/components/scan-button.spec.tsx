@@ -65,7 +65,10 @@ describe("ScanButton (Sprint 176)", () => {
     pickFile(container, file);
 
     fireEvent.click(getByTestId("scan-button-submit"));
-    expect(uploadState.mutate).toHaveBeenCalledWith({ file });
+    expect(uploadState.mutate).toHaveBeenCalledWith(
+      { file },
+      expect.objectContaining({ onSettled: expect.any(Function) }),
+    );
 
     // Novo pick + Cancelar
     pickFile(container, file);
@@ -101,6 +104,17 @@ describe("ScanButton (Sprint 176)", () => {
     const { getByLabelText } = renderWithProviders(<ScanButton />);
     const scan = getByLabelText(/Escanear ticket/);
     expect(scan.className).toContain("min-h-[44px]");
+  });
+
+  it("S228 #15b: double-click fast → mutate chamado SÓ 1x (ref-guard inflight)", () => {
+    const { container, getByTestId } = renderWithProviders(<ScanButton />);
+    const file = new File(["x"], "ticket.jpg", { type: "image/jpeg" });
+    pickFile(container, file);
+    const submit = getByTestId("scan-button-submit");
+    // Dois clicks síncronos antes do re-render do isPending=true:
+    fireEvent.click(submit);
+    fireEvent.click(submit);
+    expect(uploadState.mutate).toHaveBeenCalledTimes(1);
   });
 
   it("S176 AJUSTE GDPR: preview wrapper masked + file.name/size SEM data-sentry-unmask inline (herda mask)", () => {
