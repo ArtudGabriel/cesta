@@ -17,7 +17,8 @@ export type ProductWithPrices = Product & {
 const PRICE_INCLUDE = {
   prices: {
     include: { supermarket: true },
-    where: { supermarket: { isActive: true } },
+    // Sprint 234 G3 recall fix (ADR 0041): filtra soft-deleted seed prices.
+    where: { supermarket: { isActive: true }, deletedAt: null },
   },
   // Sprint 61: category.slug alimenta o mapping de variante Nutri-Score em
   // `ProductResponseDto.fromEntity`.
@@ -121,6 +122,7 @@ export class ProductsRepository {
             some: {
               isAvailable: true,
               previousPrice: { not: null },
+              deletedAt: null,
             },
           },
         },
@@ -130,7 +132,7 @@ export class ProductsRepository {
       this.prisma.product.findMany({
         where: {
           deletedAt: null,
-          prices: { some: { isAvailable: true } },
+          prices: { some: { isAvailable: true, deletedAt: null } },
         },
         include: PRICE_INCLUDE,
         take: cap,
@@ -174,7 +176,11 @@ export class ProductsRepository {
           name: true,
           imageUrl: true,
           prices: {
-            where: { isAvailable: true, supermarket: { isActive: true } },
+            where: {
+              isAvailable: true,
+              supermarket: { isActive: true },
+              deletedAt: null,
+            },
             orderBy: { currentPrice: 'asc' },
             take: 1,
             select: { currentPrice: true },
@@ -227,7 +233,11 @@ export class ProductsRepository {
         brand: true,
         imageUrl: true,
         prices: {
-          where: { isAvailable: true, supermarket: { isActive: true } },
+          where: {
+            isAvailable: true,
+            supermarket: { isActive: true },
+            deletedAt: null,
+          },
           orderBy: { currentPrice: 'asc' },
           take: 1,
           select: {
@@ -329,7 +339,11 @@ export class ProductsRepository {
             brand: true,
             imageUrl: true,
             prices: {
-              where: { isAvailable: true, supermarket: { isActive: true } },
+              where: {
+                isAvailable: true,
+                supermarket: { isActive: true },
+                deletedAt: null,
+              },
               orderBy: { currentPrice: 'asc' },
               take: 1,
               select: {

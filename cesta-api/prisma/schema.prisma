@@ -305,6 +305,10 @@ model ProductPrice {
   isAvailable     Boolean   @default(true) @map("is_available")
   lastSyncedAt    DateTime  @default(now()) @map("last_synced_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
+  // Sprint 234 G3 recall fix (ADR 0041): soft-delete pra seed cleanup
+  // reversível. Price fica no DB mas UI filtra deletedAt IS NULL.
+  // Rollback: UPDATE product_prices SET deleted_at = NULL.
+  deletedAt       DateTime? @map("deleted_at")
 
   product       Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
   supermarket   Supermarket        @relation(fields: [supermarketId], references: [id])
@@ -313,6 +317,7 @@ model ProductPrice {
   @@unique([productId, supermarketId])
   @@index([supermarketId, lastSyncedAt])
   @@index([onPromotion, isAvailable])
+  @@index([deletedAt])
   @@map("product_prices")
 }
 
