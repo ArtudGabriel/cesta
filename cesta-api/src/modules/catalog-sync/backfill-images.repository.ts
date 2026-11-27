@@ -5,6 +5,7 @@ export interface BackfillCandidate {
   id: string;
   name: string;
   ean: string | null;
+  sourceImageUrl: string | null;
 }
 
 export interface BackfillProductSnapshot {
@@ -17,12 +18,15 @@ export interface BackfillProductSnapshot {
 export class BackfillImagesRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Sprint 224 (MVP Bloco 2): prioriza produtos com sourceImageUrl non-null
+  // (adapters recentes Eroski/Froiz → scan resolve sem OFF). Produtos sem
+  // sourceImageUrl E com EAN seguem path OFF fallback.
   findCandidates(limit: number): Promise<BackfillCandidate[]> {
     return this.prisma.product.findMany({
       where: { imageUrl: null, deletedAt: null },
-      select: { id: true, name: true, ean: true },
+      select: { id: true, name: true, ean: true, sourceImageUrl: true },
       take: limit,
-      orderBy: { createdAt: 'asc' },
+      orderBy: [{ sourceImageUrl: { sort: 'desc', nulls: 'last' } }, { createdAt: 'asc' }],
     });
   }
 
