@@ -17,3 +17,30 @@ export const RETIRED_SLUGS: ReadonlyArray<string> = ['carrefour', 'alcampo'];
 export function activeSchedule(): ReadonlyArray<{ slug: string; cron: string }> {
   return FULL_SCHEDULE;
 }
+
+/**
+ * Sprint 241 (#6 badge DESACTUALIZADO):
+ *
+ * BullMQ default `attempts: 1` fazia qualquer falha transiente do adapter
+ * (403 anti-bot, CDN timeout, Render spin-down) deixar o run fail-sem-retry
+ * até o próximo cron (24h depois pros diários, 7d pro Froiz). Resultado:
+ * ProductPrice.lastSyncedAt congelado, badge DESACTUALIZADO disparado
+ * mesmo sendo problema transiente de 1 ciclo.
+ *
+ * Retry policy: 3 tentativas, exponential backoff (5min → 10min → 20min).
+ * Max 35min de janela de retry, folgado dentro do intervalo de qualquer
+ * cron atual (menor = daily = 24h). Permite recuperação de transiente
+ * dentro do mesmo "dia lógico" do schedule.
+ */
+export const SCHEDULED_CRON_RETRY_ATTEMPTS = 3;
+export const SCHEDULED_CRON_RETRY_BACKOFF_MS = 5 * 60 * 1000;
+
+export const SCHEDULED_CRON_JOB_OPTIONS = {
+  attempts: SCHEDULED_CRON_RETRY_ATTEMPTS,
+  backoff: {
+    type: 'exponential' as const,
+    delay: SCHEDULED_CRON_RETRY_BACKOFF_MS,
+  },
+  removeOnComplete: 50,
+  removeOnFail: 50,
+} as const;
