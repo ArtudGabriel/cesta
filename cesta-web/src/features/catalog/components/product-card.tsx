@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { Tag } from "lucide-react";
 import { cn, formatPrice } from "@/lib/utils";
@@ -11,6 +10,7 @@ import { useLocale } from "@/hooks/use-locale";
 import { DiscountBadge } from "./discount-badge";
 import { HighlightedText } from "./highlighted-text";
 import { NutriScoreBadge } from "./nutri-score-badge";
+import { ProductImage } from "./product-image";
 import type { Product } from "../types/catalog.types";
 
 interface ProductCardProps {
@@ -46,12 +46,14 @@ export function ProductCard({
       >
         <div className="flex items-start gap-3">
           <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-btn bg-surface">
-            <Image
-              src={product.imageUrl ?? "/placeholder.webp"}
+            {/* Sprint 227 (#3 bundle): ProductImage · icone+label 'Sin foto' quando null/onError. */}
+            <ProductImage
+              src={product.imageUrl}
               alt=""
               width={64}
               height={64}
               sizes="64px"
+              showLabel={false}
               className="h-full w-full rounded-btn object-cover"
             />
             {product.nutriScore && (

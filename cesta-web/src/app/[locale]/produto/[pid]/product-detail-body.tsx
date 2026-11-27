@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowLeft } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,7 @@ import { NutritionTable } from "@/features/catalog/components/nutrition-table";
 import { PackageInfoStrip } from "@/features/catalog/components/package-info-strip";
 import { PriceComparisonGrid } from "@/features/catalog/components/price-comparison-grid";
 import { PriceHistoryChart } from "@/features/catalog/components/price-history-chart";
+import { ProductImage } from "@/features/catalog/components/product-image";
 import { useSupermarkets } from "@/features/catalog/hooks/use-catalog";
 import { useLocale } from "@/hooks/use-locale";
 import { formatUnitPrice } from "@/features/catalog/utils/format-unit-price";
@@ -53,14 +53,14 @@ export function ProductDetailBody({ product }: { product: Product }) {
       </header>
 
       <div className="px-4 pb-4">
-        <Image
-          // Sprint 227 (#10 bundle): || em vez de ?? — imageUrl="" (empty
-          // string) passa pelo nullish-coalescing e crasha Next Image com
-          // "Invalid src prop (hostname is not configured)" / "image src
-          // cannot be empty". Backend pode devolver "" em edge cases
-          // (backfill parcial, migrate legacy). Falsy-coalesce cobre null
-          // E "".
-          src={product.imageUrl || "/placeholder.webp"}
+        {/*
+          Sprint 227 (#3 bundle): ProductImage substitui Image +
+          /placeholder.webp. Icone ImageOff + label "Sin foto" quando null/
+          onError (host unlisted, 404). Fecha regra Boss: NUNCA skeleton
+          infinito pra produto sem foto.
+        */}
+        <ProductImage
+          src={product.imageUrl}
           alt={product.name}
           width={400}
           height={400}
