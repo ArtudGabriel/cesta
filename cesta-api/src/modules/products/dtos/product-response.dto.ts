@@ -38,6 +38,35 @@ export function resolveNutriCategory(
   return NUTRI_CATEGORY_MAP[categorySlug] ?? 'general';
 }
 
+// Sprint 226 (ADR 0034): threshold lido no load (zero env read por request).
+// Expor computeIsStale pra specs unit sem acoplar Date.now.
+export function parseStaleThresholdHours(
+  raw: string | number | undefined,
+): number {
+  if (raw === undefined || raw === null || raw === '') return 48;
+  const n = typeof raw === 'number' ? raw : Number(raw);
+  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 48;
+}
+
+const STALE_THRESHOLD_HOURS = parseStaleThresholdHours(
+  process.env.PRICE_STALE_THRESHOLD_HOURS,
+);
+const STALE_THRESHOLD_MS = STALE_THRESHOLD_HOURS * 60 * 60 * 1000;
+
+export function computeIsStale(
+  lastSyncedAt: Date | string | null | undefined,
+  nowMs: number = Date.now(),
+  thresholdMs: number = STALE_THRESHOLD_MS,
+): boolean {
+  if (!lastSyncedAt) return true;
+  const ts =
+    lastSyncedAt instanceof Date
+      ? lastSyncedAt.getTime()
+      : new Date(lastSyncedAt).getTime();
+  if (!Number.isFinite(ts)) return true;
+  return nowMs - ts > thresholdMs;
+}
+
 export class NutriScoreDto {
   @ApiProperty({ example: -2 }) score: number;
   @ApiProperty({ example: 'A', enum: ['A', 'B', 'C', 'D', 'E'] })
@@ -110,6 +139,11 @@ export class ProductResponseDto {
   @ApiProperty({ type: () => UnitPriceDto, nullable: true })
   cheapestUnitPrice: UnitPrice | null;
 
+  // Sprint 226 (ADR 0034): preço cheapest desatualizado (horas desde
+  // lastSyncedAt > PRICE_STALE_THRESHOLD_HOURS). Base pra badge home/lista/
+  // favoritos. Badge por mercado usa `PriceByMarketDto.isStale`.
+  @ApiProperty() isStale: boolean;
+
   static fromEntity(
     product: Product & {
       prices?: (ProductPrice & { supermarket: Supermarket })[];
@@ -169,10 +203,12 @@ export class ProductResponseDto {
       dto.cheapestSupermarketSlug = cheapest.supermarketSlug;
       dto.cheapestPrice = cheapest.price;
       dto.cheapestUnitPrice = cheapest.unitPrice;
+      dto.isStale = cheapest.isStale;
     } else {
       dto.cheapestSupermarketSlug = null;
       dto.cheapestPrice = null;
       dto.cheapestUnitPrice = null;
+      dto.isStale = false;
     }
 
     return dto;
@@ -207,7 +243,7 @@ function mapPrice(
     onPromotion: p.onPromotion,
     previousPrice: p.previousPrice ? Number(p.previousPrice) : null,
     isAvailable: p.isAvailable,
-    isStale: p.isStale,
+    isStale: computeIsStale(p.lastSyncedAt),
     lastSyncedAt: p.lastSyncedAt,
     confidenceScore: Number(p.confidenceScore),
   };
