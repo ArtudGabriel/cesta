@@ -56,6 +56,14 @@ export function AddProductModal({ listId, open, onClose }: AddProductModalProps)
             <div className="flex justify-center py-6">
               <Loader2 className="h-5 w-5 animate-spin text-cesta-green" />
             </div>
+          ) : (data?.items ?? []).length === 0 ? (
+            // Sprint 227 (#14 bundle 1): empty state explicit. Antes: lista
+            // vazia silenciosa parecia bug (user nao sabia se backend 429,
+            // se search nao casou, se timeout). Agora distingue "buscou e
+            // nao achou" de "ainda carregando" + de erro via toast API.
+            <p className="py-6 text-center text-sm text-muted">
+              {search ? t("searchEmpty") : t("searchHint")}
+            </p>
           ) : (
             <ul className="space-y-2">
               {(data?.items ?? []).map((product) => (
