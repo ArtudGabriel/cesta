@@ -82,6 +82,8 @@ function parseArgs() {
  */
 async function findCandidates(prisma, { low, high, bonus, limit }) {
   // $queryRaw com valores tagged pra Prisma escapar.
+  // S231: retorna também brand+name originais pra classificação JS do
+  // size_match (parse feito em processo).
   return prisma.$queryRaw`
     WITH duplicates AS (
       SELECT id, name, brand, normalized_name
@@ -101,8 +103,10 @@ async function findCandidates(prisma, { low, high, bonus, limit }) {
     SELECT
       d.id AS duplicate_id,
       d.name AS duplicate_name,
+      d.brand AS duplicate_brand,
       c.id AS canonical_id,
       c.name AS canonical_name,
+      c.brand AS canonical_brand,
       c.normalized_name AS canonical_normalized,
       word_similarity(d.normalized_name, c.normalized_name)
         + CASE
@@ -137,6 +141,62 @@ async function findCandidates(prisma, { low, high, bonus, limit }) {
   `;
 }
 
+/**
+ * Sprint 231 (Boss trava 2026-11-27 18:46Z vinculante): extrai size
+ * canônico normalizado do nome. Retorna objeto `{value, unit}` ou null.
+ *
+ * - Litros: "2 l", "2l", "1.5l", "1,5 L" → { value: 2000, unit: 'ml' }.
+ * - Mililitros: "500 ml", "330ml" → { value: 500, unit: 'ml' }.
+ * - Quilos: "1kg", "0.5 kg", "500g", "500gr" → { value: 500, unit: 'g' }.
+ * - Pack: "pack 6", "pack-6", "x6", "6 un", "6 unidades" → { value: 6, unit: 'pack' }.
+ *
+ * Tudo convertido pra ml (líquido) ou g (sólido) ou pack (contagem) pra
+ * comparação direta `a.value == b.value && a.unit == b.unit`. 2L !== 1.5L ·
+ * 330ml !== 500ml · pack 6 !== unit (null unit).
+ */
+function parseSize(text) {
+  if (!text || typeof text !== 'string') return null;
+  const s = text.toLowerCase();
+  // Pack / contagem primeiro (menos ambíguo).
+  const packMatch = s.match(/(?:pack\s*|x\s*)(\d+)\b/);
+  if (packMatch) {
+    const n = parseInt(packMatch[1], 10);
+    if (Number.isFinite(n) && n > 1) return { value: n, unit: 'pack' };
+  }
+  // ml
+  const mlMatch = s.match(/(\d+(?:[.,]\d+)?)\s*ml\b/);
+  if (mlMatch) {
+    const v = parseFloat(mlMatch[1].replace(',', '.'));
+    if (Number.isFinite(v) && v > 0) return { value: Math.round(v), unit: 'ml' };
+  }
+  // l (não ml) - exige word boundary antes do l
+  const lMatch = s.match(/(\d+(?:[.,]\d+)?)\s*l\b(?!\w)/);
+  if (lMatch && !/ml\b/.test(s)) {
+    const v = parseFloat(lMatch[1].replace(',', '.'));
+    if (Number.isFinite(v) && v > 0) return { value: Math.round(v * 1000), unit: 'ml' };
+  }
+  // kg
+  const kgMatch = s.match(/(\d+(?:[.,]\d+)?)\s*kg\b/);
+  if (kgMatch) {
+    const v = parseFloat(kgMatch[1].replace(',', '.'));
+    if (Number.isFinite(v) && v > 0) return { value: Math.round(v * 1000), unit: 'g' };
+  }
+  // g / gr (não kg)
+  const gMatch = s.match(/(\d+(?:[.,]\d+)?)\s*gr?\b/);
+  if (gMatch && !/kg\b/.test(s)) {
+    const v = parseFloat(gMatch[1].replace(',', '.'));
+    if (Number.isFinite(v) && v > 0) return { value: Math.round(v), unit: 'g' };
+  }
+  return null;
+}
+
+function sizeMatch(a, b) {
+  const sa = parseSize(a);
+  const sb = parseSize(b);
+  if (!sa || !sb) return false; // sem size detectado em alguma → NÃO link
+  return sa.unit === sb.unit && sa.value === sb.value;
+}
+
 function cuid() {
   // Compatible com cuid prisma default: prefix 'c' + 24 chars hex-like.
   return 'c' + randomBytes(12).toString('hex');
@@ -161,27 +221,70 @@ async function main() {
       console.log('   Rollback review: DELETE FROM product_match_reviews WHERE created_at > <timestamp>;');
     }
 
-    const candidates = await findCandidates(prisma, { low, high, bonus, limit });
-    const total = candidates.length;
-    const high_matches = candidates.filter((c) => Number(c.score) >= high);
-    const review_matches = candidates.filter(
-      (c) => Number(c.score) >= low && Number(c.score) < high,
-    );
-    console.log(`\nCandidatos (dup com acima low=${low}): ${total}`);
-    console.log(`  high (>=${high}) → link direto: ${high_matches.length}`);
-    console.log(`  review ([${low},${high})) → fila manual: ${review_matches.length}`);
+    const rawCandidates = await findCandidates(prisma, { low, high, bonus, limit });
 
-    // Preview 5 high-matches + 5 review-matches
-    console.log('\nPreview high (link direto, top 5):');
-    for (const c of high_matches.slice(0, 5)) {
+    // Sprint 231 (Boss trava): enriquece com size_match + classifica de novo.
+    // HIGH link requer TODOS: score >= HIGH · brand_match · size_match.
+    // Qualquer gate falho descendo pra review (ou skip se score < LOW).
+    const candidates = rawCandidates.map((c) => {
+      const sizeM = sizeMatch(c.duplicate_name, c.canonical_name);
+      const score = Number(c.score);
+      const brandM = Boolean(c.brand_match);
+      const dupSize = parseSize(c.duplicate_name);
+      const canSize = parseSize(c.canonical_name);
+      let tier;
+      if (score >= high && brandM && sizeM) tier = 'high_auto';
+      else if (score >= low) tier = 'review'; // inclui score>=high mas sem size/brand match
+      else tier = 'skip';
+      return { ...c, size_match: sizeM, dup_size: dupSize, can_size: canSize, score_num: score, tier };
+    });
+
+    const total = candidates.length;
+    const high_matches = candidates.filter((c) => c.tier === 'high_auto');
+    const review_matches = candidates.filter((c) => c.tier === 'review');
+    const demoted_matches = candidates.filter(
+      (c) => c.score_num >= high && c.tier === 'review',
+    );
+    console.log(`\nCandidatos (score>=${low}): ${total}`);
+    console.log(`  high_auto (score>=${high} · brand=✓ · size=✓) → link direto: ${high_matches.length}`);
+    console.log(`  review (resto): ${review_matches.length}`);
+    console.log(`    dentre review: demoted (score>=${high} mas brand ou size falhou): ${demoted_matches.length}`);
+
+    function fmt(sz) {
+      return sz ? `${sz.value}${sz.unit}` : '∅';
+    }
+
+    // S231 Boss directive: sample 30 HIGH links PRÉ --apply pra QA review.
+    const SAMPLE = parseInt(process.env.SAMPLE_HIGH ?? '30', 10);
+    console.log(`\nSample HIGH (${Math.min(SAMPLE, high_matches.length)}/${high_matches.length}):`);
+    console.log('-'.repeat(72));
+    for (const c of high_matches.slice(0, SAMPLE)) {
       console.log(
-        `  score=${Number(c.score).toFixed(3)} brand=${c.brand_match ? '✓' : '×'}  "${c.duplicate_name.slice(0, 32)}" → "${c.canonical_name.slice(0, 32)}"`,
+        `  score=${c.score_num.toFixed(3)} brand=${c.brand_match ? '✓' : '×'} size=${c.size_match ? '✓' : '×'}  ` +
+          `"${c.duplicate_name.slice(0, 44)}" [${c.duplicate_brand ?? '∅'}|${fmt(c.dup_size)}] → ` +
+          `"${c.canonical_name.slice(0, 44)}" [${c.canonical_brand ?? '∅'}|${fmt(c.can_size)}]`,
       );
     }
-    console.log('\nPreview review (fila manual, top 5):');
-    for (const c of review_matches.slice(0, 5)) {
+
+    console.log(`\nSample REVIEW (top 10 demoted + top 10 low-score):`);
+    console.log('-'.repeat(72));
+    const reviewPreview = [
+      ...demoted_matches.slice(0, 10),
+      ...review_matches.filter((c) => c.score_num < high).slice(0, 10),
+    ];
+    for (const c of reviewPreview) {
+      const reason =
+        c.score_num >= high
+          ? !c.brand_match
+            ? 'brand×'
+            : !c.size_match
+              ? 'size×'
+              : '?'
+          : 'low-score';
       console.log(
-        `  score=${Number(c.score).toFixed(3)} brand=${c.brand_match ? '✓' : '×'}  "${c.duplicate_name.slice(0, 32)}" → "${c.canonical_name.slice(0, 32)}"`,
+        `  score=${c.score_num.toFixed(3)} reason=${reason}  ` +
+          `"${c.duplicate_name.slice(0, 40)}" [${c.duplicate_brand ?? '∅'}|${fmt(c.dup_size)}] → ` +
+          `"${c.canonical_name.slice(0, 40)}" [${c.canonical_brand ?? '∅'}|${fmt(c.can_size)}]`,
       );
     }
 
