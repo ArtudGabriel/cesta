@@ -5,15 +5,10 @@ import {
   recordJobStart,
   recordJobError,
 } from '../../common/sentry/processor-observability';
-// Sprint 178 — tsconfig esModuleInterop:true (root fix) tornou S177 require
-// unwrap desnecessário. TS agora emite __importDefault helper que faz
-// `mod.__esModule ? mod : { default: mod }` em runtime — CJS puro (sharp)
-// e ESM libs ambos funcionam via default import canônico. ADR 0011.
-import sharp from 'sharp';
-import { createWorker } from 'tesseract.js';
 import { PrismaService } from '../../database/prisma.service';
 import { withBandwidthOptions } from '../../common/bullmq/worker-options';
 import { fuzzyMatchProduct } from './fuzzy-match';
+import { OcrService } from './ocr.service';
 import { parseReceipt } from './receipt-parser';
 import { ReceiptsRepository } from './receipts.repository';
 import type { PriceCorrectionJob } from './price-correction.processor';
@@ -29,6 +24,7 @@ export class ReceiptsProcessor extends WorkerHost {
   constructor(
     private readonly repo: ReceiptsRepository,
     private readonly prisma: PrismaService,
+    private readonly ocr: OcrService,
     @InjectQueue(PRICE_CORRECTION_QUEUE)
     private readonly priceQueue: Queue<PriceCorrectionJob>,
   ) {
@@ -43,7 +39,13 @@ export class ReceiptsProcessor extends WorkerHost {
     try {
       await this.repo.updateStatus(receiptId, 'processing');
 
-      const text = await this.runOcr(imagePath);
+      // Sprint 240 (#14): OCR delegado a OcrService (worker singleton
+      // amortizado + resize defensivo). Loga timings pra regressão futura.
+      const ocrResult = await this.ocr.extractTextFromImage(imagePath);
+      const text = ocrResult.text;
+      this.logger.log(
+        `Receipt ${receiptId} OCR timings ms: preprocess=${ocrResult.timings.preprocessMs} ocr=${ocrResult.timings.ocrMs} init=${ocrResult.timings.initMs} total=${ocrResult.timings.totalMs} resized=${ocrResult.timings.resized}`,
+      );
       const parsed = parseReceipt(text);
 
       let supermarketId: string | null = null;
@@ -140,21 +142,4 @@ export class ReceiptsProcessor extends WorkerHost {
     }
   }
 
-  private async runOcr(imagePath: string): Promise<string> {
-    // Pre-process: grayscale + contrast normalization melhora OCR em
-    // tickets amassados/foto com flash.
-    const preprocessed = await sharp(imagePath)
-      .rotate()
-      .grayscale()
-      .normalize()
-      .toBuffer();
-
-    const worker = await createWorker('spa');
-    try {
-      const result = await worker.recognize(preprocessed);
-      return result.data.text ?? '';
-    } finally {
-      await worker.terminate();
-    }
-  }
 }
