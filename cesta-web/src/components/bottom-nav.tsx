@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useCompareStore } from "@/stores/compare.store";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -53,6 +54,12 @@ const HIDDEN_PREFIXES = ["/login", "/register", "/minha-cesta/configurar"];
 export function BottomNav() {
   const pathname = usePathname();
   const t = useTranslations("nav");
+  // Sprint 239 (#12): count de seleção persistida mostra badge no ícone
+  // Comparar enquanto o usuário navega por outras rotas. Hidratação só
+  // acontece client-side, então pré-rehydrate o count fica em 0 sem
+  // flicker (SSR ok).
+  const compareCount = useCompareStore((s) => s.ids.length);
+  const compareHydrated = useCompareStore((s) => s.isHydrated);
 
   const isAuthRoute = HIDDEN_PREFIXES.some((p) => pathname.startsWith(p));
   if (isAuthRoute) return null;
@@ -75,12 +82,16 @@ export function BottomNav() {
         {NAV_ITEMS.map(({ href, key, Icon, matches }) => {
           const active = matches(pathname);
           const label = t(key);
+          const showBadge = key === "compare" && compareHydrated && compareCount > 0;
+          const badgeLabel = showBadge
+            ? t("compareBadge", { count: compareCount })
+            : label;
           return (
             <li key={href} className="flex-1">
               <Link
                 href={href}
                 aria-current={active ? "page" : undefined}
-                aria-label={label}
+                aria-label={badgeLabel}
                 data-testid={`bottom-nav-${key}`}
                 className={cn(
                   "flex min-h-14 flex-col items-center justify-center gap-0.5 py-1.5",
@@ -92,13 +103,28 @@ export function BottomNav() {
                     : "text-neutral-500 hover:text-ink",
                 )}
               >
-                <Icon
-                  className={cn(
-                    "h-5 w-5 transition-transform motion-reduce:transition-none",
-                    active && (Icon === Heart ? "fill-current" : "stroke-[2.5] scale-110"),
+                <span className="relative inline-flex">
+                  <Icon
+                    className={cn(
+                      "h-5 w-5 transition-transform motion-reduce:transition-none",
+                      active && (Icon === Heart ? "fill-current" : "stroke-[2.5] scale-110"),
+                    )}
+                    aria-hidden
+                  />
+                  {showBadge && (
+                    <span
+                      aria-hidden
+                      data-testid="bottom-nav-compare-badge"
+                      className={cn(
+                        "absolute -right-2 -top-2 inline-flex min-w-[16px] items-center justify-center",
+                        "rounded-pill bg-cesta-green px-1 text-[10px] font-bold leading-none text-white",
+                        "border border-white",
+                      )}
+                    >
+                      {compareCount}
+                    </span>
                   )}
-                  aria-hidden
-                />
+                </span>
                 <span
                   data-sentry-unmask
                   className={cn(

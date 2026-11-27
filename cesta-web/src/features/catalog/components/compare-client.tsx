@@ -1,13 +1,14 @@
 "use client";
 
-import { ArrowLeft, Loader2, Plus } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth.store";
+import { useCompareStore, COMPARE_MAX } from "@/stores/compare.store";
+import { cn } from "@/lib/utils";
 import { useNutriPreferences } from "@/features/profile/hooks/use-nutri-preferences";
 import { useSortUnitPreference } from "@/features/profile/hooks/use-sort-unit-preference";
 import { useCompare } from "../hooks/use-compare";
@@ -18,7 +19,7 @@ import { CompareGrid, type ViewMode } from "./compare-grid";
 import { CompareMatrix } from "./compare-matrix";
 import { NutriFilters } from "./nutri-filters";
 
-const MAX = 4;
+const MAX = COMPARE_MAX;
 
 interface CompareClientProps {
   initialIds: string[];
@@ -40,7 +41,34 @@ export function CompareClient({ initialIds, initialData }: CompareClientProps) {
   const user = useAuthStore((s) => s.user);
   const isHydrated = useAuthStore((s) => s.isHydrated);
 
-  const [ids, setIds] = useState<string[]>(initialIds);
+  // Sprint 239 (#12): store é fonte de verdade entre rotas. Boot:
+  //   - initialIds vem do server (URL `?products=...`); se não vazio, URL
+  //     vence a storage (deep-link). Store é reconciliado uma vez.
+  //   - Se URL vazia, store hidrata (quando pronto) e URL recebe os ids via
+  //     router.replace pra reproduzir o estado atual no query string.
+  // Antes da hidratação o render usa initialIds (SSR estável, sem flicker).
+  const storeIds = useCompareStore((s) => s.ids);
+  const storeIsHydrated = useCompareStore((s) => s.isHydrated);
+  const storeSetIds = useCompareStore((s) => s.setIds);
+  const storeClear = useCompareStore((s) => s.clear);
+  const ids = storeIsHydrated ? storeIds : initialIds;
+  const didReconcileRef = useRef(false);
+
+  useEffect(() => {
+    if (!storeIsHydrated || didReconcileRef.current) return;
+    didReconcileRef.current = true;
+    if (initialIds.length > 0) {
+      if (initialIds.join(",") !== storeIds.join(",")) {
+        storeSetIds(initialIds);
+      }
+      return;
+    }
+    if (storeIds.length > 0) {
+      router.replace(`/comparar?products=${storeIds.join(",")}`, {
+        scroll: false,
+      });
+    }
+  }, [storeIsHydrated, initialIds, storeIds, storeSetIds, router]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -63,12 +91,17 @@ export function CompareClient({ initialIds, initialData }: CompareClientProps) {
 
   const updateIds = useCallback(
     (next: string[]) => {
-      setIds(next);
+      storeSetIds(next);
       const query = next.length > 0 ? `?products=${next.join(",")}` : "";
       router.replace(`/comparar${query}`, { scroll: false });
     },
-    [router],
+    [router, storeSetIds],
   );
+
+  const clearAll = useCallback(() => {
+    storeClear();
+    router.replace("/comparar", { scroll: false });
+  }, [router, storeClear]);
 
   const add = useCallback(
     (productId: string) => {
@@ -97,9 +130,31 @@ export function CompareClient({ initialIds, initialData }: CompareClientProps) {
         <h1 className="flex-1 font-display text-lg font-bold text-ink">
           {t("title")}
         </h1>
-        <span className="text-xs text-muted">
+        {/* Sprint 239 (#12): badge count visível + botão limpar seleção
+            persistida. aria-live permite leitor de tela anunciar mudanças. */}
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 rounded-pill bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-700",
+            ids.length > 0 && "bg-cesta-green/10 text-cesta-green",
+          )}
+          aria-live="polite"
+          data-testid="compare-count-badge"
+        >
           {ids.length}/{MAX}
         </span>
+        {ids.length > 0 && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={clearAll}
+            aria-label={t("clearSelection")}
+            data-testid="compare-clear-btn"
+            className="text-muted hover:text-ink"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
         {isHydrated && !user && (
           <Button asChild size="sm" variant="secondary">
             <Link href={`/login?returnUrl=${encodeURIComponent(`/comparar${ids.length > 0 ? `?products=${ids.join(",")}` : ""}`)}`}>
