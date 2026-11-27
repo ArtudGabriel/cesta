@@ -1,10 +1,10 @@
 "use client";
 
 import { Minus, Plus, Trash2 } from "lucide-react";
-import Image from "next/image";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { ProductImage } from "@/features/catalog/components/product-image";
 import { formatUnitPrice } from "@/features/catalog/utils/format-unit-price";
 import { useLocale } from "@/hooks/use-locale";
 import { cn, formatPrice } from "@/lib/utils";
@@ -38,11 +38,13 @@ export function ListItemRow({ listId, item }: ListItemRowProps) {
 
   return (
     <div className="flex items-center gap-3 rounded-card bg-white p-3 shadow-card">
-      <Image
-        src={item.product.imageUrl ?? "/placeholder.webp"}
+      {/* Sprint 227 (#3 bundle): ProductImage · icone+label 'Sin foto' quando null/onError. */}
+      <ProductImage
+        src={item.product.imageUrl}
         alt={item.product.name}
         width={48}
         height={48}
+        showLabel={false}
         className="h-12 w-12 flex-shrink-0 rounded-btn bg-surface object-contain"
       />
       <div className="min-w-0 flex-1">

@@ -230,6 +230,7 @@
     }
   },
   "catalog": {
+    "noImage": "Sin foto",
     "nutriFilters": {
       "sortByNutri": "Ordenar por Nutri-Score",
       "onlyHealthy": "Solo A+B",
