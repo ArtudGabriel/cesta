@@ -23,7 +23,17 @@ import type {
 const ROOT = 'https://supermercado.eroski.es';
 const SITEMAP_URL = `${ROOT}/sitemap.xml`;
 const CATEGORY_PATH_PREFIX = '/es/supermercado/';
-const DEFAULT_MAX_CATEGORIES = 60;
+// Sprint 220: cap default 60 → 300. Audit sitemap live 2026-11-27 revelou
+// 1317 folhas lvl3+ reais. Cap 60 limitava ceiling a ~900 produtos; DB prod
+// estava em 746 (~85% coverage do cap). Cap 300 destrava ceiling teórico
+// ~4500 produtos (300 × avg 15 tiles/leaf). Remoção total do cap deixada
+// pra sprint seguinte quando empírico validar rate-limit Eroski + tempo.
+const DEFAULT_MAX_CATEGORIES = 300;
+// Sprint 220: filter sitemap folhas >= 3 segmentos (filtro antigo era >= 2,
+// que pegava 1613 URLs mas ~296 delas eram hubs lvl2 sem SSR de tiles —
+// produziam ruído e inflaram dropout categoryNoTiles). Live probe confirmou
+// que tiles reais aparecem só a partir de lvl 3 do breadcrumb Eroski.
+const MIN_CATEGORY_SEGMENTS = 3;
 
 function resolveMaxCategories(): number {
   const raw = process.env.EROSKI_MAX_CATEGORIES;
@@ -65,8 +75,24 @@ export class EroskiAdapter implements SupermarketAdapter {
   private readonly ua = pickUserAgent();
 
   async fetchProducts(): Promise<RawProduct[]> {
+    // Sprint 220: observability por dropout cause (paridade Mercadona S217 /
+    // Aldi S219). Expõe por que tiles não viraram produto final — permite
+    // debugar yield baixo sem pedir shell prod.
+    const dropouts = {
+      sitemapEmpty: 0,
+      categoryFetchFail: 0,
+      categoryNoTiles: 0,
+      tileParseFail: 0,
+      tileNoItem: 0,
+      tileNoId: 0,
+      tileNoName: 0,
+      tileBadPrice: 0,
+      tileDuplicate: 0,
+    };
+
     const categoryUrls = await this.loadCategoryUrls();
     if (categoryUrls.length === 0) {
+      dropouts.sitemapEmpty = 1;
       throw new Error(
         'Eroski: 0 categorias no sitemap — CDN block ou sitemap vazio (ver logs loadCategoryUrls)',
       );
@@ -82,14 +108,16 @@ export class EroskiAdapter implements SupermarketAdapter {
       try {
         const html = await this.fetchHtml(url);
         if (!html) {
+          dropouts.categoryFetchFail += 1;
           errors.push(`${url}: fetchHtml null (CDN block ou timeout)`);
           continue;
         }
         fetchedCategories += 1;
-        const raws = this.extractFromCategory(html, url);
-        for (const raw of raws) {
-          if (seen.has(raw.externalId)) continue;
-          seen.add(raw.externalId);
+        const extracted = this.extractFromCategory(html, url, dropouts, seen);
+        if (extracted.rawTiles === 0) {
+          dropouts.categoryNoTiles += 1;
+        }
+        for (const raw of extracted.products) {
           products.push(raw);
         }
       } catch (error) {
@@ -110,7 +138,7 @@ export class EroskiAdapter implements SupermarketAdapter {
     }
 
     this.logger.log(
-      `Eroski: ${products.length} produtos coletados (${fetchedCategories}/${slice.length} categorias ok)`,
+      `Eroski: ${products.length} produtos coletados (${fetchedCategories}/${slice.length} categorias ok) · dropouts fetch=${dropouts.categoryFetchFail} notiles=${dropouts.categoryNoTiles} parse=${dropouts.tileParseFail} noitem=${dropouts.tileNoItem} noid=${dropouts.tileNoId} noname=${dropouts.tileNoName} badprice=${dropouts.tileBadPrice} dup=${dropouts.tileDuplicate}`,
     );
     return products;
   }
@@ -149,14 +177,16 @@ export class EroskiAdapter implements SupermarketAdapter {
       `Eroski sitemap source=${source} xmlLen=${xml.length} totalLocs=${locs.length}`,
     );
     // Categorias folha têm padrão /es/supermercado/<id>-<slug>/<id>-<slug>/.../
-    // Filtra URLs com pelo menos 2 segmentos após prefix (categoria de 2+ níveis).
+    // Sprint 220: filtro >= MIN_CATEGORY_SEGMENTS (3). Lvl2 hubs raramente
+    // SSR-rendem tiles; audit scripts/audit-eroski-adapter.mjs confirmou
+    // folhas reais só a partir de lvl3 (1317 URLs vs 1613 com filtro >=2).
     const filtered = locs.filter((u) => {
       if (!u.includes(CATEGORY_PATH_PREFIX)) return false;
       const tail = u.split(CATEGORY_PATH_PREFIX)[1] || '';
       const segments = tail.split('/').filter(Boolean);
-      return segments.length >= 2;
+      return segments.length >= MIN_CATEGORY_SEGMENTS;
     });
-    this.logger.log(`Eroski categorias folha: ${filtered.length}`);
+    this.logger.log(`Eroski categorias folha (lvl>=${MIN_CATEGORY_SEGMENTS}): ${filtered.length}`);
     return filtered;
   }
 
@@ -211,40 +241,85 @@ export class EroskiAdapter implements SupermarketAdapter {
     }
   }
 
-  private extractFromCategory(html: string, categoryUrl: string): RawProduct[] {
+  private extractFromCategory(
+    html: string,
+    categoryUrl: string,
+    dropouts: {
+      tileParseFail: number;
+      tileNoItem: number;
+      tileNoId: number;
+      tileNoName: number;
+      tileBadPrice: number;
+      tileDuplicate: number;
+    },
+    seen: Set<string>,
+  ): { products: RawProduct[]; rawTiles: number } {
     const $ = cheerio.load(html);
-    const out: RawProduct[] = [];
+    const products: RawProduct[] = [];
+    let rawTiles = 0;
     $('.product-title-link[data-metrics]').each((_, el) => {
+      rawTiles += 1;
       const metricsAttr = $(el).attr('data-metrics');
-      if (!metricsAttr) return;
+      if (!metricsAttr) {
+        dropouts.tileParseFail += 1;
+        return;
+      }
       let parsed: DataMetrics | null = null;
       try {
         parsed = JSON.parse(this.decodeHtmlEntities(metricsAttr)) as DataMetrics;
       } catch {
+        dropouts.tileParseFail += 1;
         return;
       }
       const item = parsed.ecommerce?.items?.[0];
-      if (!item) return;
-      const normalized = this.normalize(item, categoryUrl);
-      if (normalized) out.push(normalized);
+      if (!item) {
+        dropouts.tileNoItem += 1;
+        return;
+      }
+      const result = this.normalizeOrReason(item, categoryUrl);
+      if (result.product) {
+        if (seen.has(result.product.externalId)) {
+          dropouts.tileDuplicate += 1;
+          return;
+        }
+        seen.add(result.product.externalId);
+        products.push(result.product);
+      } else {
+        switch (result.cause) {
+          case 'no-id':
+            dropouts.tileNoId += 1;
+            break;
+          case 'no-name':
+            dropouts.tileNoName += 1;
+            break;
+          case 'bad-price':
+            dropouts.tileBadPrice += 1;
+            break;
+        }
+      }
     });
-    return out;
+    return { products, rawTiles };
   }
 
-  private normalize(
+  private normalizeOrReason(
     item: DataMetricsItem,
     categoryUrl: string,
-  ): RawProduct | null {
+  ): {
+    product: RawProduct | null;
+    cause?: 'no-id' | 'no-name' | 'bad-price';
+  } {
     const id = item.item_id != null ? String(item.item_id) : null;
-    if (!id) return null;
+    if (!id) return { product: null, cause: 'no-id' };
     const name = item.item_name;
-    if (!name) return null;
+    if (!name) return { product: null, cause: 'no-name' };
 
     const priceRaw = item.price;
-    if (priceRaw == null) return null;
+    if (priceRaw == null) return { product: null, cause: 'bad-price' };
     const price =
       typeof priceRaw === 'string' ? parseFloat(priceRaw) : Number(priceRaw);
-    if (!Number.isFinite(price) || price <= 0) return null;
+    if (!Number.isFinite(price) || price <= 0) {
+      return { product: null, cause: 'bad-price' };
+    }
 
     const { packageSize, packageUnit, comparisonUnit } =
       this.extractPackage(name);
@@ -253,19 +328,21 @@ export class EroskiAdapter implements SupermarketAdapter {
     const brandRaw = item.item_brand ? item.item_brand.replace(/\.$/, '') : null;
 
     return {
-      externalId: id,
-      name,
-      brand: brandRaw && brandRaw.length > 0 ? brandRaw : null,
-      ean: null,
-      categoryHint,
-      imageUrl,
-      packageSize,
-      packageUnit,
-      comparisonUnit,
-      price: Math.round(price * 100) / 100,
-      onPromotion: false,
-      previousPrice: null,
-      isAvailable: true,
+      product: {
+        externalId: id,
+        name,
+        brand: brandRaw && brandRaw.length > 0 ? brandRaw : null,
+        ean: null,
+        categoryHint,
+        imageUrl,
+        packageSize,
+        packageUnit,
+        comparisonUnit,
+        price: Math.round(price * 100) / 100,
+        onPromotion: false,
+        previousPrice: null,
+        isAvailable: true,
+      },
     };
   }
 
