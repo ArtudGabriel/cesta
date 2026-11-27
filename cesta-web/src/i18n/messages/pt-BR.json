@@ -838,7 +838,7 @@
         "typeRequired": "Escolha um tipo de regra",
         "trendProductIdRequired": "ID de produto inválido",
         "weeksRange": "Semanas entre 2 e 12",
-        "minTwoProducts": "Mínimo de 2 produtos",
+        "minTwoProducts": "Combo precisa de 2+ produtos. Para 1 só, use Tendência de queda.",
         "maxTwentyProducts": "Máximo de 20 produtos",
         "invalidProductId": "Algum ID de produto inválido",
         "targetTotalRange": "Total deve ser > 0.01 €",
