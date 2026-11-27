@@ -551,7 +551,9 @@
       "welcome": "Bem-vindo",
       "accountCreated": "Conta criada",
       "accountReactivated": "Conta reativada. Bem-vindo de volta!",
-      "profileUpdated": "Perfil atualizado"
+      "profileUpdated": "Perfil atualizado",
+      "favoriteAdded": "Adicionado aos favoritos",
+      "favoriteRemoved": "Removido dos favoritos"
     },
     "error": {
       "login": "Não conseguimos entrar",

@@ -33,8 +33,14 @@ export function FavoriteToggle({
   const pending = add.isPending || remove.isPending;
   const [gateOpen, setGateOpen] = useState(false);
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+  const [pulsing, setPulsing] = useState(false);
   const tAria = useTranslations("common.aria");
   const tFav = useTranslations("favorites");
+
+  function triggerPulse() {
+    setPulsing(true);
+    window.setTimeout(() => setPulsing(false), 300);
+  }
 
   function toggle(e: React.MouseEvent) {
     e.stopPropagation();
@@ -48,6 +54,7 @@ export function FavoriteToggle({
     if (isFavorite) {
       setRemoveConfirmOpen(true);
     } else {
+      triggerPulse();
       add.mutate(productId);
     }
   }
@@ -73,9 +80,10 @@ export function FavoriteToggle({
       >
         <Heart
           className={cn(
-            "transition-colors",
+            "transition-all duration-300 ease-out",
             iconSize,
             isFavorite ? "fill-coral text-coral" : "text-muted",
+            pulsing && "scale-125",
           )}
         />
       </button>
@@ -90,6 +98,7 @@ export function FavoriteToggle({
         onClose={() => setRemoveConfirmOpen(false)}
         onConfirm={() => {
           setRemoveConfirmOpen(false);
+          triggerPulse();
           remove.mutate(productId);
         }}
         title={tFav("confirmRemove")}
