@@ -244,12 +244,37 @@ model Product {
   receiptItems ReceiptItem[]
   alerts       Alert[]
   favorites    Favorite[]
+  matchReviewsAsDuplicate ProductMatchReview[] @relation("MatchReviewDuplicate")
+  matchReviewsAsCanonical ProductMatchReview[] @relation("MatchReviewCanonical")
 
   @@index([normalizedName])
   @@index([categoryId, deletedAt])
   @@index([brand])
   @@index([canonicalProductId])
   @@map("products")
+}
+
+// Sprint 229 G3 (ADR 0039): fila de revisão manual pra matches trigram
+// que ficaram abaixo do HIGH_THRESHOLD (default 0.75) mas acima do
+// LOW_THRESHOLD (default 0.6). Pares de alta confiança são linkados
+// direto via Product.canonicalProductId (S228 G2); baixa confiança
+// entra aqui pra Boss/ops decidir. unique(duplicate,canonical) previne
+// re-enqueue; status pending|approved|rejected pra UI/CLI consumir.
+model ProductMatchReview {
+  id                 String   @id @default(cuid())
+  duplicateProductId String   @map("duplicate_product_id")
+  canonicalProductId String   @map("canonical_product_id")
+  similarityScore    Decimal  @map("similarity_score") @db.Decimal(4, 3)
+  status             String   @default("pending") // "pending"|"approved"|"rejected"
+  createdAt          DateTime @default(now()) @map("created_at")
+  reviewedAt         DateTime? @map("reviewed_at")
+
+  duplicate Product @relation("MatchReviewDuplicate", fields: [duplicateProductId], references: [id], onDelete: Cascade)
+  canonical Product @relation("MatchReviewCanonical", fields: [canonicalProductId], references: [id], onDelete: Cascade)
+
+  @@unique([duplicateProductId, canonicalProductId])
+  @@index([status, createdAt])
+  @@map("product_match_reviews")
 }
 
 model Favorite {
