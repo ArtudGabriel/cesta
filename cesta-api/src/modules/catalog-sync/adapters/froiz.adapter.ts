@@ -13,18 +13,28 @@ import type {
 // Sprint 141: impl real substitui stub do S7. Pattern Eroski (S124/S125):
 // sitemap via bareFetch (CDN pode filtrar Sec-Fetch headers XHR-like
 // de IP datacenter), categoria HTML via politeFetchRaw com jitter.
-// 7099 produtos + 557 categorias leaf (depth=3) no sitemap; adapter
-// fatia primeiros N via FROIZ_MAX_CATEGORIES env.
+//
+// Sprint 221: 5º pattern distinto catalogado — sitemap+html-cards.
+// Diferente de Eroski S220 (data-metrics ecommerce JSON) e Aldi S219
+// (JSON-LD detail pages): Froiz tem só DOM cards puros em
+// `.product-grid .product`, sem IDs estáveis, sem EAN, sem structured
+// data. Match no DB via normalizedName (S116 auto).
 //
 // Pipeline:
-//  1. bareFetch sitemap.xml → 8280 <loc> entries (produtos + cats).
-//  2. Filtra categorias depth 3 e 4 (leaf = tem produtos).
+//  1. bareFetch sitemap.xml → ~8287 <loc> (7105 produtos + 1182 cats).
+//  2. Filtra categorias depth 3 e 4 (leaf = tem produtos; 1043 total).
 //  3. Pra cada categoria: politeFetchRaw → Cheerio → `.product` cards.
 //  4. Extrai name + current/previous price + offer flag + image.
 //  5. Normalized match pelo nome (sem EAN público).
+//
+// Sprint 221: cap default 60 → 300. Audit sitemap live 2026-11-27 revelou
+// 1043 folhas lvl3+4 reais. Cap 60 × avg 6.7 cards/leaf = ceiling ~400;
+// DB prod estava em 366 (~91% coverage do cap). Cap 300 destrava ceiling
+// teórico ~2010 produtos (300 × 6.7). Remoção total pra sprint seguinte
+// quando empírico validar rate-limit Froiz + tempo de sync.
 const BASE = 'https://supermercado.froiz.com';
 const SITEMAP_URL = `${BASE}/sitemap.xml`;
-const DEFAULT_MAX_CATEGORIES = 60;
+const DEFAULT_MAX_CATEGORIES = 300;
 const LEAF_DEPTHS = new Set([3, 4]);
 
 function resolveMaxCategories(): number {
@@ -46,8 +56,23 @@ export class FroizAdapter implements SupermarketAdapter {
   private readonly ua = pickUserAgent();
 
   async fetchProducts(): Promise<RawProduct[]> {
+    // Sprint 221: observability por dropout cause (paridade Eroski S220 /
+    // Aldi S219 / Mercadona S217). Expõe por que tiles não viraram produto
+    // final — permite debugar yield baixo sem pedir shell prod.
+    const dropouts = {
+      sitemapEmpty: 0,
+      categoryFetchFail: 0,
+      categoryNoTiles: 0,
+      tileNoName: 0,
+      tileNoPrice: 0,
+      tileBadPrice: 0,
+      tileNoId: 0,
+      tileDuplicate: 0,
+    };
+
     const categoryUrls = await this.loadCategoryUrls();
     if (categoryUrls.length === 0) {
+      dropouts.sitemapEmpty = 1;
       throw new Error(
         'Froiz: 0 categorias no sitemap — CDN block ou sitemap vazio (ver logs loadCategoryUrls)',
       );
@@ -63,14 +88,16 @@ export class FroizAdapter implements SupermarketAdapter {
       try {
         const html = await this.fetchHtml(url);
         if (!html) {
+          dropouts.categoryFetchFail += 1;
           errors.push(`${url}: fetchHtml null (CDN block ou timeout)`);
           continue;
         }
         fetchedCategories += 1;
-        const raws = this.extractFromCategory(html);
-        for (const raw of raws) {
-          if (seen.has(raw.externalId)) continue;
-          seen.add(raw.externalId);
+        const extracted = this.extractFromCategory(html, dropouts, seen);
+        if (extracted.rawTiles === 0) {
+          dropouts.categoryNoTiles += 1;
+        }
+        for (const raw of extracted.products) {
           products.push(raw);
         }
       } catch (error) {
@@ -87,7 +114,7 @@ export class FroizAdapter implements SupermarketAdapter {
     }
 
     this.logger.log(
-      `Froiz: ${products.length} produtos coletados (${fetchedCategories}/${slice.length} categorias ok)`,
+      `Froiz: ${products.length} produtos coletados (${fetchedCategories}/${slice.length} categorias ok) · dropouts fetch=${dropouts.categoryFetchFail} notiles=${dropouts.categoryNoTiles} noname=${dropouts.tileNoName} noprice=${dropouts.tileNoPrice} badprice=${dropouts.tileBadPrice} noid=${dropouts.tileNoId} dup=${dropouts.tileDuplicate}`,
     );
     return products;
   }
@@ -162,13 +189,28 @@ export class FroizAdapter implements SupermarketAdapter {
     }
   }
 
-  private extractFromCategory(html: string): RawProduct[] {
+  private extractFromCategory(
+    html: string,
+    dropouts: {
+      tileNoName: number;
+      tileNoPrice: number;
+      tileBadPrice: number;
+      tileNoId: number;
+      tileDuplicate: number;
+    },
+    seen: Set<string>,
+  ): { products: RawProduct[]; rawTiles: number } {
     const $ = cheerio.load(html);
-    const out: RawProduct[] = [];
+    const products: RawProduct[] = [];
+    let rawTiles = 0;
     $('.product-grid .product').each((_, el) => {
+      rawTiles += 1;
       const card = $(el);
       const name = card.find('.name').last().text().trim();
-      if (!name) return;
+      if (!name) {
+        dropouts.tileNoName += 1;
+        return;
+      }
       const priceSpans = card
         .find('.price span')
         .toArray()
@@ -176,9 +218,13 @@ export class FroizAdapter implements SupermarketAdapter {
         .filter((v): v is number => v != null);
       const onPromotion = card.find('.offer').text().trim().length > 0;
 
+      if (priceSpans.length === 0) {
+        dropouts.tileNoPrice += 1;
+        return;
+      }
+
       let current: number | null = null;
       let previous: number | null = null;
-      if (priceSpans.length === 0) return;
       if (onPromotion && priceSpans.length >= 2) {
         // em promoção: [previous, current]
         previous = priceSpans[0];
@@ -186,15 +232,26 @@ export class FroizAdapter implements SupermarketAdapter {
       } else {
         current = priceSpans[0];
       }
-      if (current == null || !Number.isFinite(current) || current <= 0) return;
+      if (current == null || !Number.isFinite(current) || current <= 0) {
+        dropouts.tileBadPrice += 1;
+        return;
+      }
 
       const img = card.find('img').attr('src') ?? null;
       const { packageSize, packageUnit, comparisonUnit } =
         this.parsePackage(name);
       const externalId = this.normalizeId(name);
-      if (!externalId) return;
+      if (!externalId) {
+        dropouts.tileNoId += 1;
+        return;
+      }
+      if (seen.has(externalId)) {
+        dropouts.tileDuplicate += 1;
+        return;
+      }
+      seen.add(externalId);
 
-      out.push({
+      products.push({
         externalId,
         name,
         brand: null,
@@ -211,7 +268,7 @@ export class FroizAdapter implements SupermarketAdapter {
         isAvailable: true,
       });
     });
-    return out;
+    return { products, rawTiles };
   }
 
   private parsePrice(text: string): number | null {
