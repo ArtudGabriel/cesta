@@ -8,6 +8,15 @@ import {
   recordJobError,
 } from '../../common/sentry/processor-observability';
 import { withBandwidthOptions } from '../../common/bullmq/worker-options';
+import {
+  FULL_SCHEDULE,
+  RETIRED_SLUGS,
+  activeSchedule,
+} from './catalog-sync.schedule';
+
+// Re-export pra manter compatibilidade com imports existentes (main.ts,
+// controller, module). S225: fonte da verdade mudou pra ./catalog-sync.schedule.
+export { FULL_SCHEDULE, RETIRED_SLUGS, activeSchedule };
 
 export const CATALOG_SYNC_QUEUE = 'catalog-sync';
 // Sprint 134-r (2ª iteração): queue separada para manual triggers via
@@ -20,32 +29,9 @@ export interface CatalogSyncJob {
   supermarketSlug: string;
 }
 
-// Agendamento — cron em Europe/Madrid. Espaçamento de 30min entre runs pra
-// aliviar DB. Froiz/LIDL/Aldi são semanais (terça) porque dependem de
-// scraping/folleto que não muda diariamente.
-//
-// Sprint 213 (ADR 0025 — Render bandwidth mitigation 2026-11-26):
-// Carrefour + Alcampo REMOVIDOS do SCHEDULE. Motivos:
-//   (1) ScrapingBee free tier esgotado (1000 calls/mês);
-//   (2) Puppeteer OOM Chromium × 512MB Render (histórico S138);
-//   (3) Outbound bandwidth inútil (sync falha → zero valor usuário).
-// Slugs continuam listados em RETIRED_SLUGS pra removeJobScheduler cleanup
-// de repeatables remanescentes de deploys anteriores. Scripts manuais locais
-// (`npm run sync:carrefour|sync:alcampo`) continuam disponíveis.
-const RETIRED_SLUGS = ['carrefour', 'alcampo'];
-
-const FULL_SCHEDULE: Array<{ slug: string; cron: string }> = [
-  { slug: 'mercadona', cron: '0 3 * * *' },
-  { slug: 'dia', cron: '30 4 * * *' },
-  { slug: 'eroski', cron: '0 5 * * *' },
-  { slug: 'froiz', cron: '0 6 * * 2' },
-  { slug: 'lidl', cron: '0 6 * * 2' },
-  { slug: 'aldi', cron: '0 7 * * 2' },
-];
-
-function activeSchedule(): Array<{ slug: string; cron: string }> {
-  return FULL_SCHEDULE;
-}
+// Agendamento — ver ./catalog-sync.schedule (ADR 0033 S225). Froiz semanal
+// (terça) · Mercadona/DIA/Eroski/LIDL/Aldi diários · Carrefour/Alcampo
+// RETIRED (S213 ADR 0025).
 
 // Sprint 119 follow-up: concurrency=3 permite adapters distintos rodarem em
 // paralelo (Mercadona + Carrefour + outro). Com concurrency=1 default, cada
