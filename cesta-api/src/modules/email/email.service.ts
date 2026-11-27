@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as Sentry from '@sentry/node';
 import { Resend } from 'resend';
 
 export interface VerificationEmailPayload {
@@ -108,14 +109,26 @@ export class EmailService {
 
   constructor(private readonly config: ConfigService) {
     const apiKey = this.config.get<string>('RESEND_API_KEY', 'disabled');
-    this.from = this.config.get<string>(
-      'RESEND_FROM',
-      'Cesta <noreply@cesta.app>',
-    );
+    // Sprint 227 (#5 bundle): Render prod expõe RESEND_FROM_ADDRESS +
+    // RESEND_FROM_DOMAIN separados (dominio verificado). Compor from aqui
+    // garante uso do dominio verificado mesmo quando RESEND_FROM_NAME e
+    // opcional (nome amigavel na exibicao do remetente). Sem este fix,
+    // codigo caia no default 'Cesta <noreply@cesta.app>' com `cesta.app`
+    // nao verificado em Resend → envio silencioso recusado.
+    const address = this.config.get<string>('RESEND_FROM_ADDRESS', 'noreply');
+    const domain = this.config.get<string>('RESEND_FROM_DOMAIN', 'cesta.app');
+    const name = this.config.get<string>('RESEND_FROM_NAME', 'Cesta');
+    this.from = name
+      ? `${name} <${address}@${domain}>`
+      : `${address}@${domain}`;
     this.client = apiKey && apiKey !== 'disabled' ? new Resend(apiKey) : null;
     if (!this.client) {
       this.logger.warn(
         'Resend desabilitado (RESEND_API_KEY=disabled). EmailService virou no-op.',
+      );
+    } else {
+      this.logger.log(
+        `Resend ativo (from=${this.from}). Envios reais habilitados.`,
       );
     }
   }
@@ -144,9 +157,31 @@ export class EmailService {
         text,
       });
       if (result.error) {
+        // Sprint 227 (#5 bundle): expor codigo + nome do erro Resend
+        // (ex "validation_error", "testing_emails_only", "domain_not_verified")
+        // + Sentry capture — antes mensagem genérica dificultava diagnose
+        // (user QA via "sem email" sem sinal no Render log).
+        const err = result.error as {
+          message: string;
+          name?: string;
+          statusCode?: number;
+        };
         this.logger.error(
-          `Resend falhou para ${masked}: ${result.error.message}`,
+          `Resend falhou para ${masked}: [${err.name ?? 'unknown'} status=${err.statusCode ?? '?'}] ${err.message}`,
         );
+        Sentry.captureMessage('Resend send failed', {
+          level: 'error',
+          tags: {
+            email_kind: 'verification',
+            resend_error_name: err.name ?? 'unknown',
+          },
+          extra: {
+            masked_to: masked,
+            from: this.from,
+            status_code: err.statusCode,
+            message: err.message,
+          },
+        });
         return;
       }
       this.logger.log(
@@ -155,6 +190,10 @@ export class EmailService {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.error(`Resend exception para ${masked}: ${msg}`);
+      Sentry.captureException(err, {
+        tags: { email_kind: 'verification' },
+        extra: { masked_to: masked, from: this.from },
+      });
     }
   }
 
