@@ -42,13 +42,36 @@ export interface OcrResult {
   };
 }
 
+/**
+ * Sprint 243 (graceful shutdown):
+ *
+ * Erro propagado quando `extractTextFromImage` roda após `onModuleDestroy`
+ * ter iniciado. Antes (S240), `getOrCreateWorker` fazia lazy init sem
+ * olhar pra flag de shutdown → logs Render 22:39:46Z mostraram instance
+ * `bhh5b` em shutdown re-inicializando Tesseract 2704ms DEPOIS do
+ * terminate, consumindo o upload #2 que BullMQ já havia enfileirado no
+ * worker local prestes a morrer. Job morria com o processo; retry nunca
+ * acontecia na instance nova. Agora: `extractTextFromImage` dispara
+ * `OcrServiceDestroyedError` quando destroyed=true; BullMQ marca o job
+ * failed; `attempts/backoff` do queue retry em instance saudável.
+ */
+export class OcrServiceDestroyedError extends Error {
+  constructor() {
+    super('OcrService is shutting down; job must be retried on another instance');
+    this.name = 'OcrServiceDestroyedError';
+  }
+}
+
 @Injectable()
 export class OcrService implements OnModuleDestroy {
   private readonly logger = new Logger(OcrService.name);
   private workerPromise: Promise<TesseractWorker> | null = null;
   private initDurationMs = 0;
+  private destroyed = false;
 
   async extractTextFromImage(imagePath: string): Promise<OcrResult> {
+    if (this.destroyed) throw new OcrServiceDestroyedError();
+
     const totalStart = Date.now();
 
     const preprocessStart = Date.now();
@@ -62,7 +85,16 @@ export class OcrService implements OnModuleDestroy {
     const preprocessed = await base.toBuffer();
     const preprocessMs = Date.now() - preprocessStart;
 
+    // Sprint 243: segunda checagem antes de materializar o worker. Se o
+    // shutdown chegou enquanto o sharp preprocessing estava awaitado,
+    // aborta antes de pagar o boot do Tesseract.
+    if (this.destroyed) throw new OcrServiceDestroyedError();
+
     const worker = await this.getOrCreateWorker();
+
+    // Terceira checagem: worker ficou pronto durante shutdown. BullMQ
+    // sinaliza stalled e um retry na instance viva pega o job.
+    if (this.destroyed) throw new OcrServiceDestroyedError();
 
     const ocrStart = Date.now();
     const result = await worker.recognize(preprocessed);
@@ -85,8 +117,13 @@ export class OcrService implements OnModuleDestroy {
    * recebem o worker vivo. Falhas durante o boot zeram o cache pra permitir
    * nova tentativa; sem isso, uma falha transiente deixaria o worker
    * permanentemente quebrado (workerPromise pending rejected).
+   *
+   * Sprint 243: dispara `OcrServiceDestroyedError` se o service já foi
+   * shutdown — evita re-criar o worker entre o terminate e o fim do
+   * processo (Render SIGTERM grace window).
    */
   private async getOrCreateWorker(): Promise<TesseractWorker> {
+    if (this.destroyed) throw new OcrServiceDestroyedError();
     if (this.workerPromise) return this.workerPromise;
     const initStart = Date.now();
     this.workerPromise = createWorker('spa')
@@ -105,7 +142,18 @@ export class OcrService implements OnModuleDestroy {
   }
 
   async onModuleDestroy(): Promise<void> {
-    if (!this.workerPromise) return;
+    // Sprint 243: setar o flag ANTES de qualquer await bloqueia novas
+    // chamadas a extractTextFromImage / getOrCreateWorker. Ordem de
+    // Nest lifecycle: ReceiptsProcessor.onModuleDestroy (WorkerHost
+    // close) corre antes por depender de OcrService, mas BullMQ pode
+    // ter despachado um job sync que já está em extractTextFromImage
+    // — ele agora falha com OcrServiceDestroyedError nas checagens
+    // intermediárias.
+    this.destroyed = true;
+    if (!this.workerPromise) {
+      this.logger.log('OcrService destroy: no worker to terminate');
+      return;
+    }
     try {
       const worker = await this.workerPromise;
       await worker.terminate();

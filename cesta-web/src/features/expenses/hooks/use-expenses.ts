@@ -9,6 +9,8 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
+import { ApiError, setAccessToken } from "@/lib/api";
+import { useAuthStore } from "@/stores/auth.store";
 import { expensesService } from "../services/expenses.service";
 import type { Period, Receipt } from "../types/expense.types";
 
@@ -47,6 +49,8 @@ export function useUploadReceipt() {
   const qc = useQueryClient();
   const router = useRouter();
   const t = useTranslations("expenses.ocr");
+  const tCommon = useTranslations("common");
+  const clearAuth = useAuthStore((s) => s.clear);
   const [progress, setProgress] = useState(0);
 
   const mutation = useMutation({
@@ -62,6 +66,21 @@ export function useUploadReceipt() {
     },
     onError: (err: Error) => {
       setProgress(0);
+      // Sprint 243 (#2 regressão parcial S228 #15): upload passa pelo
+      // mesmo axios + refresh interceptor que os outros endpoints;
+      // quando o refresh falha o interceptor rejeita com ApiError
+      // status 401 (sessão realmente expirou). Antes esse erro
+      // vinha com message cru do backend ("Unauthorized", "Token
+      // ausente") e aparecia no toast. Agora: limpa auth local,
+      // mostra toast i18n sessionExpired, redireciona pra /login
+      // preservando o returnUrl de /gastos.
+      if (err instanceof ApiError && err.statusCode === 401) {
+        setAccessToken(null);
+        clearAuth();
+        toast.error(tCommon("sessionExpired"));
+        router.push("/login?returnUrl=%2Fgastos");
+        return;
+      }
       const msg = err.message?.includes("Too Many Requests")
         ? t("rateLimited")
         : err.message;

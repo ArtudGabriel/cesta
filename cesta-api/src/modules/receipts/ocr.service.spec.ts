@@ -27,7 +27,7 @@ jest.mock('sharp', () => ({
   default: jest.fn(() => sharpInstance),
 }));
 
-import { OcrService } from './ocr.service';
+import { OcrService, OcrServiceDestroyedError } from './ocr.service';
 
 describe('OcrService (Sprint 240 #14)', () => {
   let service: OcrService;
@@ -113,6 +113,63 @@ describe('OcrService (Sprint 240 #14)', () => {
   it('onModuleDestroy sem worker inicializado é no-op', async () => {
     await service.onModuleDestroy();
     expect(mockTerminate).not.toHaveBeenCalled();
+  });
+
+  describe('Sprint 243 graceful shutdown', () => {
+    it('extract pós-destroy lança OcrServiceDestroyedError sem chamar createWorker', async () => {
+      await service.onModuleDestroy();
+      mockCreateWorker.mockClear();
+      await expect(
+        service.extractTextFromImage('/tmp/post-destroy.jpg'),
+      ).rejects.toBeInstanceOf(OcrServiceDestroyedError);
+      expect(mockCreateWorker).not.toHaveBeenCalled();
+    });
+
+    it('destroy durante preprocess aborta antes do boot do Tesseract', async () => {
+      let resolveMeta: (v: { width: number }) => void = () => undefined;
+      sharpInstance.metadata.mockReturnValueOnce(
+        new Promise<{ width: number }>((r) => {
+          resolveMeta = r;
+        }),
+      );
+      const inflight = service.extractTextFromImage('/tmp/mid.jpg');
+      // Dispara destroy enquanto o metadata ainda não resolveu.
+      await service.onModuleDestroy();
+      // Libera o metadata pra o fluxo continuar; destroy flag deve cortar.
+      resolveMeta({ width: 1500 });
+      await expect(inflight).rejects.toBeInstanceOf(OcrServiceDestroyedError);
+      // Worker nunca foi criado neste caso (destroy antes do getOrCreate).
+      expect(mockCreateWorker).not.toHaveBeenCalled();
+    });
+
+    it('destroy entre getOrCreate e recognize dispara erro antes de recognize', async () => {
+      // Mantém flag=false; primeira extração completa normal pra incubar o worker.
+      await service.extractTextFromImage('/tmp/warm.jpg');
+      mockRecognize.mockClear();
+      // Agora: durante o próximo extract, simula destroy entre worker ready
+      // e recognize. Fazemos isso interceptando metadata.
+      let resolveMeta: (v: { width: number }) => void = () => undefined;
+      sharpInstance.metadata.mockReturnValueOnce(
+        new Promise<{ width: number }>((r) => {
+          resolveMeta = r;
+        }),
+      );
+      const inflight = service.extractTextFromImage('/tmp/race.jpg');
+      await service.onModuleDestroy();
+      resolveMeta({ width: 1800 });
+      await expect(inflight).rejects.toBeInstanceOf(OcrServiceDestroyedError);
+      expect(mockRecognize).not.toHaveBeenCalled();
+    });
+
+    it('OcrServiceDestroyedError.name é "OcrServiceDestroyedError" (BullMQ error logging)', async () => {
+      await service.onModuleDestroy();
+      try {
+        await service.extractTextFromImage('/tmp/x.jpg');
+        throw new Error('should have thrown');
+      } catch (err) {
+        expect((err as Error).name).toBe('OcrServiceDestroyedError');
+      }
+    });
   });
 
   it("text vazio é preservado (recognize retorna data.text='')", async () => {

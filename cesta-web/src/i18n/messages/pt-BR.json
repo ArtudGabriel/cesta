@@ -9,6 +9,7 @@
     },
     "coldStart": "Estamos acordando o servidor. Isso pode levar até 30 segundos na primeira vez.",
     "installAppCta": "Instalar app",
+    "sessionExpired": "Sessão expirada. Faça login novamente.",
     "loginGate": {
       "title": {
         "default": "Entre para continuar",
