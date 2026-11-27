@@ -6,6 +6,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { validateEnv } from './config/env.validation';
 import { buildRedisConnection } from './config/redis-connection';
+import { THROTTLER_CONFIG } from './config/throttler-config';
 import { PrismaModule } from './database/prisma.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { AlertsModule } from './modules/alerts/alerts.module';
@@ -57,11 +58,11 @@ import { UsersModule } from './modules/users/users.module';
     // {limit:5, ...}}) inline e esse override ganha para a rota especifica.
     // Nao removemos nomes do forRoot porque @Throttle({strict:...}) precisa
     // do nome registrado para ancorar o override.
-    ThrottlerModule.forRoot([
-      { name: 'default', ttl: 60_000, limit: 120 },
-      { name: 'strict', ttl: 60_000, limit: 10_000 },
-      { name: 'write', ttl: 60_000, limit: 10_000 },
-    ]),
+    // Config centralizada em config/throttler-config.ts + spec anti-regression
+    // (throttler-config.spec.ts) trava limites `strict`/`write` em >= 1_000
+    // globais pra evitar quarta reaparicao do bug global-leak (S98 +
+    // S227 bundle 1). Rotas sensiveis declaram @Throttle inline override.
+    ThrottlerModule.forRoot(THROTTLER_CONFIG),
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
