@@ -45,9 +45,20 @@ export function AddProductModal({ listId, open, onClose }: AddProductModalProps)
         <div className="p-4">
           <Input
             autoFocus
+            type="search"
             placeholder={t("searchPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            // Sprint 227 (#7 bundle 2): iOS Safari autocapitaliza primeira
+            // letra por default — quebra busca case-sensitive do user. Força
+            // lowercase + desliga autocorrect/spellcheck pra evitar sugestão
+            // de dicionário iOS atropelar termos tipo "lecge" (typo
+            // intencional pra teste fuzzy).
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="search"
+            inputMode="search"
           />
         </div>
 
