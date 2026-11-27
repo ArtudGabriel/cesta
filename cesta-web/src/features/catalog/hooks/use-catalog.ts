@@ -2,7 +2,7 @@
 
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { catalogService } from "../services/catalog.service";
-import type { ProductFilters } from "../types/catalog.types";
+import type { Category, ProductFilters } from "../types/catalog.types";
 
 export const CATALOG_KEYS = {
   supermarkets: ["catalog", "supermarkets"] as const,
@@ -28,11 +28,15 @@ export function useSupermarkets() {
   });
 }
 
-export function useCategories() {
+// Sprint 227 (#2 perf): initialData opcional pra hidratar com payload SSR
+// (page.tsx fetch com next:{revalidate}). Evita flash skeleton de chips na
+// home no cold load.
+export function useCategories(options?: { initialData?: Category[] }) {
   return useQuery({
     queryKey: CATALOG_KEYS.categories,
     queryFn: catalogService.listCategories,
     staleTime: STALE_REFERENCE,
+    initialData: options?.initialData,
   });
 }
 

@@ -10,7 +10,6 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useProfile } from "@/features/profile/hooks/use-profile";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -53,45 +52,16 @@ const HIDDEN_PREFIXES = ["/login", "/register", "/minha-cesta/configurar"];
 
 export function BottomNav() {
   const pathname = usePathname();
-  const { data: profile } = useProfile();
   const t = useTranslations("nav");
 
   const isAuthRoute = HIDDEN_PREFIXES.some((p) => pathname.startsWith(p));
   if (isAuthRoute) return null;
-  // Sprint 227 (#15 bundle 1): NÃO retornar null em isError. Antes: profile
-  // 429 por throttler strict (bug raiz bundle 1) ou qualquer transient
-  // network error setava isError=true e BottomNav sumia PERMANENTEMENTE
-  // até refetch successful (retry:false no useProfile agrava). User
-  // perdia navegação principal com nav invisivel. Fix: ignorar isError —
-  // nav base é chrome GDPR unmasked, não depende de profile pra renderizar
-  // links; profile só serve pra evitar flash em cold load (skeleton
-  // fallback abaixo cobre tanto loading quanto erro).
-  // Sprint 66 nit: durante loading inicial do profile, render skeleton
-  // em vez de return null — evita content jump quando nav aparece.
-  if (!profile) {
-    return (
-      <nav
-        aria-hidden
-        className={cn(
-          "fixed inset-x-0 bottom-0 z-40",
-          "border-t border-neutral-200 bg-white/95 backdrop-blur",
-        )}
-        style={{ paddingBottom: "env(safe-area-inset-bottom, 0)" }}
-      >
-        <ul className="mx-auto flex max-w-lg">
-          {NAV_ITEMS.map(({ href }) => (
-            <li key={href} className="flex-1">
-              <div className="flex min-h-14 flex-col items-center justify-center gap-1 py-1.5">
-                <div className="h-5 w-5 animate-pulse rounded bg-neutral-200" />
-                <div className="h-2 w-10 animate-pulse rounded bg-neutral-200" />
-              </div>
-            </li>
-          ))}
-        </ul>
-      </nav>
-    );
-  }
 
+  // Sprint 227 (#1 perf): nav não depende de profile/auth. Links são chrome
+  // público; renderiza instant sem network. Removido skeleton + useProfile —
+  // elimina 1 fetch, 1 loading state, e o flash content quando 429/transient
+  // error reaparece pré-S227 #15. Auth-gated actions ficam dentro das rotas
+  // (favoritos, perfil) via LoginGate, não no shell.
   return (
     <nav
       aria-label={t("ariaLabel")}
