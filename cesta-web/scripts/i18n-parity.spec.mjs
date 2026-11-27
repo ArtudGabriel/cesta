@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { flatten, collectTodos, diffLocales } from "./i18n-parity.mjs";
+import {
+  flatten,
+  collectTodos,
+  diffLocales,
+  extractPlaceholders,
+  diffPlaceholders,
+} from "./i18n-parity.mjs";
 
 describe("i18n-parity helpers (Sprint 196 G1)", () => {
   describe("flatten", () => {
@@ -87,6 +93,51 @@ describe("i18n-parity helpers (Sprint 196 G1)", () => {
       const r = diffLocales(es, pt);
       expect(r.onlyEs).toContain("a.c");
       expect(r.onlyPt).toEqual([]);
+    });
+  });
+
+  describe("extractPlaceholders", () => {
+    it("string sem placeholder → []", () => {
+      expect(extractPlaceholders("hello world")).toEqual([]);
+    });
+
+    it("simple placeholder", () => {
+      expect(extractPlaceholders("Hello {name}")).toEqual(["name"]);
+    });
+
+    it("multiple placeholders ordenados", () => {
+      expect(extractPlaceholders("{b} and {a}")).toEqual(["a", "b"]);
+    });
+
+    it("ICU plural: só captura var top-level, ignora literal nested", () => {
+      const s = "{count, plural, =0 {Sin productos} other {# productos}}";
+      expect(extractPlaceholders(s)).toEqual(["count"]);
+    });
+
+    it("ICU select: ignora branch literal text", () => {
+      const s = "{gender, select, male {Él} female {Ella} other {Elle}}";
+      expect(extractPlaceholders(s)).toEqual(["gender"]);
+    });
+  });
+
+  describe("diffPlaceholders", () => {
+    it("paridade full → []", () => {
+      const es = { a: "Hello {name}" };
+      const pt = { a: "Olá {name}" };
+      expect(diffPlaceholders(es, pt)).toEqual([]);
+    });
+
+    it("placeholder renomeado em ES mas não em PT → diff", () => {
+      const es = { a: "Desde {date}" };
+      const pt = { a: "Desde {since}" };
+      const r = diffPlaceholders(es, pt);
+      expect(r).toEqual([{ path: "a", es: ["date"], pt: ["since"] }]);
+    });
+
+    it("key sem par em PT → skip (coberto por diffLocales)", () => {
+      const es = { a: "{x}" };
+      const pt = {};
+      expect(diffPlaceholders(es, pt)).toEqual([]);
     });
   });
 });

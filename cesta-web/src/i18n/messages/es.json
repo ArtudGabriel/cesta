@@ -42,6 +42,9 @@
       "cancel": "Cancelar",
       "confirm": "Confirmar",
       "delete": "Eliminar"
+    },
+    "actions": {
+      "back": "Volver"
     }
   },
   "auth": {
@@ -212,6 +215,10 @@
     "title": "Comparar",
     "removeFromComparisonAria": "Quitar producto de la comparación",
     "addProductTitle": "Agregar producto",
+    "addSheetSearchPlaceholder": "Buscar producto…",
+    "addSheetNoResults": "Sin resultados.",
+    "addSheetAlreadyAdded": "Ya agregado",
+    "addSheetMaxReached": "Máximo {max} productos. Quita alguno para agregar otro.",
     "viewPrices": "Precios",
     "viewMatrix": "Tabla",
     "viewNutrition": "Nutrición",
@@ -244,6 +251,9 @@
     "searching": "Buscando…",
     "clearSearch": "Limpiar búsqueda",
     "searchPlaceholder": "Buscar producto…",
+    "locationSubtitle": "Madrid · Supermercados",
+    "allCategories": "Todas",
+    "loadError": "Error al cargar productos.",
     "onlyPromotion": "Solo en promoción",
     "featured": {
       "title": "Mejores ofertas",
@@ -398,6 +408,13 @@
     "rateLimited": "Debes esperar 24 horas antes de regenerar la cesta."
   },
   "profile": {
+    "pageTitle": "Mi cuenta",
+    "nameFallback": "Sin nombre",
+    "memberSince": "Desde {date}",
+    "preferencesTitle": "Preferencias",
+    "languageLabel": "Idioma",
+    "saveName": "Guardar",
+    "cancelEditName": "Cancelar",
     "localeHint": "La traducción se aplicará en breve.",
     "dietary": {
       "title": "Mis restricciones dietéticas",

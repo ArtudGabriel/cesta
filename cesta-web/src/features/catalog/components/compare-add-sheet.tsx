@@ -56,7 +56,7 @@ export function CompareAddSheet({
 
         {atMax && (
           <p className="mb-3 rounded-md bg-amber/10 px-3 py-2 text-xs text-amber">
-            Máximo {max} productos. Quita alguno para agregar otro.
+            {t("addSheetMaxReached", { max })}
           </p>
         )}
 
@@ -66,7 +66,7 @@ export function CompareAddSheet({
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar producto…"
+            placeholder={t("addSheetSearchPlaceholder")}
             className="pl-9"
             autoCapitalize="none"
             autoCorrect="off"
@@ -86,7 +86,7 @@ export function CompareAddSheet({
             ))
           ) : (results.data?.items ?? []).length === 0 ? (
             <li className="py-6 text-center text-sm text-muted">
-              Sin resultados.
+              {t("addSheetNoResults")}
             </li>
           ) : (
             (results.data?.items ?? []).map((p) => {
@@ -116,7 +116,7 @@ export function CompareAddSheet({
                     </div>
                     {already && (
                       <span className="text-xs font-medium text-muted">
-                        Ya agregado
+                        {t("addSheetAlreadyAdded")}
                       </span>
                     )}
                   </button>

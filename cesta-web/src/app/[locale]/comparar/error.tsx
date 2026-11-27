@@ -13,6 +13,7 @@ export default function Error({
   reset: () => void;
 }) {
   const t = useTranslations("common.error.boundary");
+  const tActions = useTranslations("common.actions");
 
   useEffect(() => {
     console.error("[comparar] render error", error);
@@ -27,7 +28,7 @@ export default function Error({
           {t("retry")}
         </Button>
         <Button asChild variant="ghost">
-          <Link href="/">Volver</Link>
+          <Link href="/">{tActions("back")}</Link>
         </Button>
       </div>
     </main>
