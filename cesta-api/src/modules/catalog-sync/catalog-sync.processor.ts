@@ -11,6 +11,7 @@ import { withBandwidthOptions } from '../../common/bullmq/worker-options';
 import {
   FULL_SCHEDULE,
   RETIRED_SLUGS,
+  SCHEDULED_CRON_JOB_OPTIONS,
   activeSchedule,
 } from './catalog-sync.schedule';
 
@@ -83,14 +84,16 @@ export class CatalogSyncProcessor
     for (const entry of schedule) {
       const jobId = `cron-${entry.slug}`;
       try {
+        // Sprint 241 (#6): SCHEDULED_CRON_JOB_OPTIONS adiciona attempts=3 +
+        // exponential backoff 5/10/20min. Transiente de 1 ciclo deixa de
+        // guarantir 24h de staleness.
         await this.queue.add(
           'scheduled-sync',
           { supermarketSlug: entry.slug },
           {
             jobId,
             repeat: { pattern: entry.cron, tz: 'Europe/Madrid' },
-            removeOnComplete: 50,
-            removeOnFail: 50,
+            ...SCHEDULED_CRON_JOB_OPTIONS,
           },
         );
         this.logger.log(`Scheduled ${entry.slug} with cron "${entry.cron}"`);
