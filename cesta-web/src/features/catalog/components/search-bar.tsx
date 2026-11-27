@@ -35,6 +35,7 @@ export function SearchBar({
       <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
       <Input
         ref={inputRef}
+        type="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onFocus={onFocus}
@@ -45,6 +46,17 @@ export function SearchBar({
         aria-autocomplete="list"
         aria-controls="search-suggestions-list"
         aria-activedescendant={ariaActivedescendant}
+        // Sprint 227 (#7 bundle 2): iOS Safari auto-capitaliza primeira letra
+        // de inputs textuais por default (autocapitalize="sentences"), e
+        // autocorrect/spellcheck normalizam termos tipo "leche" → "Leche" ou
+        // trocam por sugestão do dicionário. Backend ILIKE do catalog é
+        // case-insensitive mas usuário iOS via caracteres maiúsculos surgindo
+        // inesperados + sugestões penduradas quebrando a busca.
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        enterKeyHint="search"
+        inputMode="search"
       />
       <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
         {isPending && (

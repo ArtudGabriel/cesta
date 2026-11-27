@@ -91,6 +91,12 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  // Sprint 227 (#4 bundle 2): viewport-fit=cover habilita area segura em
+  // iPhone com notch/home-indicator. Sem isso, o safe-area-inset-bottom
+  // retorna 0 no CSS env() e a BottomNav fica cortada ATRAS do home
+  // indicator. BottomNav ja usa paddingBottom: env(safe-area-inset-bottom,
+  // 0) — faltava so cover pra ativar os valores reais.
+  viewportFit: "cover",
 };
 
 // Sprint 83: route group [locale] permite <html lang={locale}> dinamico SSR
