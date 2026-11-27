@@ -92,6 +92,30 @@ type GraceCopy = {
 // GDPR Sprint 59: email é PII. Nunca logar in-clear — Sentry breadcrumb captura
 // NestJS Logger auto e vaza em Replay/Issues. maskEmail mantém a observabilidade
 // (prefixo pra diagnose + domínio pra identificar provider) sem expor o local-part.
+// Sprint 227 #5 follow-up: parser tolerante pra RESEND_FROM_ADDRESS em
+// 3 formatos (ver constructor coment). Exportado pra teste unit.
+export function buildFromString(
+  address: string,
+  domain: string,
+  name: string | undefined | null,
+): string {
+  const addr = (address ?? '').trim();
+  const dom = (domain ?? '').trim();
+  const nm = (name ?? '').trim();
+
+  // Formato (c): string completa 'Nome <local@dominio>' — usa direto.
+  if (addr.includes('<')) {
+    return addr;
+  }
+  // Formato (b): local@dominio completo — reembrulha com nome se presente.
+  if (addr.includes('@')) {
+    return nm ? `${nm} <${addr}>` : addr;
+  }
+  // Formato (a): so local-part — compoe com domain.
+  const mail = `${addr}@${dom}`;
+  return nm ? `${nm} <${mail}>` : mail;
+}
+
 function maskEmail(email: string): string {
   const at = email.indexOf('@');
   if (at < 0) return '***';
@@ -115,12 +139,20 @@ export class EmailService {
     // opcional (nome amigavel na exibicao do remetente). Sem este fix,
     // codigo caia no default 'Cesta <noreply@cesta.app>' com `cesta.app`
     // nao verificado em Resend → envio silencioso recusado.
+    //
+    // Sprint 227 #5 follow-up (QA REPROVA pre-gate 4): Render prod
+    // `RESEND_FROM_ADDRESS` as vezes vem com a string FROM completa
+    // (ex 'Equipe Cesta <onboarding@resend.dev>'). Composicao antiga
+    // malformava: 'Cesta <Equipe Cesta <onboarding@resend.dev>@resend.dev>'
+    // → Resend 422 Invalid from. Parser abaixo detecta '<' ou '@' no
+    // valor e usa como-esta (skip composicao) — tolera 3 formatos:
+    //   a) address puro (ex 'noreply') → compoe `${name} <${address}@${domain}>`
+    //   b) address com '@' (ex 'onboarding@resend.dev') → compoe `${name} <${address}>`
+    //   c) address com '<' (string from completa) → usa direto
     const address = this.config.get<string>('RESEND_FROM_ADDRESS', 'noreply');
     const domain = this.config.get<string>('RESEND_FROM_DOMAIN', 'cesta.app');
     const name = this.config.get<string>('RESEND_FROM_NAME', 'Cesta');
-    this.from = name
-      ? `${name} <${address}@${domain}>`
-      : `${address}@${domain}`;
+    this.from = buildFromString(address, domain, name);
     this.client = apiKey && apiKey !== 'disabled' ? new Resend(apiKey) : null;
     if (!this.client) {
       this.logger.warn(
