@@ -120,16 +120,59 @@ describe("CompareMatrix (Sprint 131)", () => {
     );
   });
 
-  it("onRemove chamado ao clicar botão X", () => {
+  it("onRemove chamado ao clicar botão X (scope: desktop table)", () => {
     const products = [
       makeProduct("p1", "Leche", [{ slug: "merc", name: "Mercadona", price: 1 }]),
     ];
     const onRemove = vi.fn();
-    const { getByLabelText } = renderWithProviders(
+    // Sprint 239 #13: matrix agora renderiza mobile stack + desktop table em
+    // paralelo (visibilidade via media query). Jsdom ignora @media — ambos
+    // ficam no DOM. Scope: pegamos o botão dentro do container desktop-only.
+    const { getByTestId } = renderWithProviders(
       <CompareMatrix products={products} onRemove={onRemove} />,
     );
-    fireEvent.click(getByLabelText(/Eliminar|Remover/));
+    const table = getByTestId("compare-matrix");
+    const removeBtn = table.querySelector(
+      'button[aria-label*="Eliminar"],button[aria-label*="Remover"]',
+    );
+    fireEvent.click(removeBtn as Element);
     expect(onRemove).toHaveBeenCalledWith("p1");
+  });
+
+  it("S239 #13: mobile stack renderiza card por produto + aria-label remove", () => {
+    const products = [
+      makeProduct("p1", "Leche", [
+        { slug: "merc", name: "Mercadona", price: 1 },
+      ]),
+      makeProduct("p2", "Pan", [{ slug: "car", name: "Carrefour", price: 2 }]),
+    ];
+    const onRemove = vi.fn();
+    const { getByTestId } = renderWithProviders(
+      <CompareMatrix products={products} onRemove={onRemove} />,
+    );
+    const mobile = getByTestId("compare-matrix-mobile");
+    expect(mobile.querySelector('[data-testid="compare-matrix-mobile-row-p1"]')).not.toBeNull();
+    expect(mobile.querySelector('[data-testid="compare-matrix-mobile-row-p2"]')).not.toBeNull();
+    const removeBtn = mobile.querySelector(
+      '[data-testid="compare-matrix-mobile-row-p1"] button[aria-label*="Eliminar"],[data-testid="compare-matrix-mobile-row-p1"] button[aria-label*="Remover"]',
+    );
+    fireEvent.click(removeBtn as Element);
+    expect(onRemove).toHaveBeenCalledWith("p1");
+  });
+
+  it("S239 #13: mobile é hidden sm:block desktop é hidden mobile — ambos presentes no DOM", () => {
+    const products = [
+      makeProduct("p1", "X", [{ slug: "m", name: "M", price: 1 }]),
+    ];
+    const { getByTestId } = renderWithProviders(
+      <CompareMatrix products={products} onRemove={() => undefined} />,
+    );
+    const mobile = getByTestId("compare-matrix-mobile");
+    const table = getByTestId("compare-matrix");
+    // Tailwind classes aplicadas direto — asserta semântica, não runtime viewport.
+    expect(mobile.className).toContain("sm:hidden");
+    expect(table.className).toContain("hidden");
+    expect(table.className).toContain("sm:block");
   });
 
   it("renderiza empty state quando produtos sem preços disponíveis", () => {
