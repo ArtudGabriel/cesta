@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { EmailService } from './email.service';
+import { EmailService, buildFromString } from './email.service';
 
 const sendMock = jest.fn();
 
@@ -176,5 +176,53 @@ describe('EmailService', () => {
     const joined = errSpy.mock.calls.map((c) => String(c[0])).join('\n');
     expect(joined).not.toContain('eve@example.com');
     expect(joined).toContain('ev***@example.com');
+  });
+});
+
+describe('buildFromString (S227 #5 follow-up · parser tolerante)', () => {
+  // Formato (a): local-part puro — compoe com domain + name.
+  it('address local-part puro compoe com domain + name', () => {
+    expect(buildFromString('noreply', 'cesta.app', 'Cesta')).toBe(
+      'Cesta <noreply@cesta.app>',
+    );
+  });
+
+  it('address local-part puro sem name devolve mail bare', () => {
+    expect(buildFromString('noreply', 'cesta.app', '')).toBe(
+      'noreply@cesta.app',
+    );
+  });
+
+  // Formato (b): local@dominio ja no address — usa address como-esta.
+  it('address com @ ignora domain + reembrulha com name', () => {
+    expect(
+      buildFromString('onboarding@resend.dev', 'cesta.app', 'Cesta'),
+    ).toBe('Cesta <onboarding@resend.dev>');
+  });
+
+  it('address com @ sem name devolve mail bare', () => {
+    expect(buildFromString('onboarding@resend.dev', 'cesta.app', '')).toBe(
+      'onboarding@resend.dev',
+    );
+  });
+
+  // Formato (c): string from completa — usa direto (ignora domain + name).
+  // Replica prod Render 2026-11-27: RESEND_FROM_ADDRESS vinha com string
+  // completa 'Equipe Cesta <onboarding@resend.dev>' que composicao antiga
+  // malformava em 'Cesta <Equipe Cesta <...@...>@resend.dev>' → 422.
+  it('address com < usa string completa direto (bug prod resolvido)', () => {
+    expect(
+      buildFromString(
+        'Equipe Cesta <onboarding@resend.dev>',
+        'cesta.app',
+        'Cesta',
+      ),
+    ).toBe('Equipe Cesta <onboarding@resend.dev>');
+  });
+
+  it('trim whitespace em todos os campos', () => {
+    expect(buildFromString('  noreply  ', '  cesta.app  ', '  Cesta  ')).toBe(
+      'Cesta <noreply@cesta.app>',
+    );
   });
 });
