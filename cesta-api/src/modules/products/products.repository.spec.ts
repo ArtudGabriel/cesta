@@ -213,13 +213,23 @@ describe('ProductsRepository.findSuggestions (Sprint 180 fuzzy fallback)', () =>
 describe('ProductsRepository multi-token tokenize (Sprint 228 #7)', () => {
   let repo: ProductsRepository;
   let prisma: {
-    product: { findMany: jest.Mock; count: jest.Mock };
+    product: {
+      findMany: jest.Mock;
+      count: jest.Mock;
+      findFirst: jest.Mock;
+    };
+    category: { findFirst: jest.Mock };
     $queryRaw: jest.Mock;
   };
 
   beforeEach(() => {
     prisma = {
-      product: { findMany: jest.fn(), count: jest.fn() },
+      product: {
+        findMany: jest.fn(),
+        count: jest.fn(),
+        findFirst: jest.fn(),
+      },
+      category: { findFirst: jest.fn() },
       $queryRaw: jest.fn(),
     };
     repo = new ProductsRepository(prisma as unknown as PrismaService);
@@ -313,5 +323,95 @@ describe('ProductsRepository multi-token tokenize (Sprint 228 #7)', () => {
     expect(res).toEqual([]);
     const call = prisma.product.findMany.mock.calls[0][0];
     expect(call.where.id).toBe('__none__');
+  });
+
+  describe('Sprint 243b: exclui produto sem price ativo (public endpoints)', () => {
+    it('findForSearch: where carrega prices.some { isAvailable, deletedAt null }', async () => {
+      prisma.product.findMany.mockResolvedValueOnce([]);
+      prisma.product.count.mockResolvedValueOnce(0);
+      await repo.findForSearch('leche', 10);
+      const call = prisma.product.findMany.mock.calls[0][0];
+      expect(call.where.prices).toEqual({
+        some: { isAvailable: true, deletedAt: null },
+      });
+    });
+
+    it('findSuggestions: where carrega prices.some { isAvailable, deletedAt null }', async () => {
+      // ILIKE primeiro path (rows > 0) — evita cair no trgm raw query.
+      prisma.product.findMany.mockResolvedValueOnce([
+        {
+          id: 'p1',
+          name: 'Leche entera 1L',
+          brand: 'Hacendado',
+          imageUrl: null,
+          prices: [],
+        },
+      ]);
+      await repo.findSuggestions('leche', 8);
+      const call = prisma.product.findMany.mock.calls[0][0];
+      expect(call.where.prices).toEqual({
+        some: { isAvailable: true, deletedAt: null },
+      });
+    });
+
+    it('findMany sem filtros adicionais: where.prices.some { isAvailable, deletedAt null }', async () => {
+      prisma.product.findMany.mockResolvedValueOnce([]);
+      prisma.product.count.mockResolvedValueOnce(0);
+      await repo.findMany({
+        skip: 0,
+        limit: 20,
+        page: 1,
+      } as any);
+      const call = prisma.product.findMany.mock.calls[0][0];
+      expect(call.where.prices).toEqual({
+        some: { isAvailable: true, deletedAt: null },
+      });
+    });
+
+    it('findMany com supermarket filter: aperta prices.some (adiciona supermarket.slug sem relaxar isAvailable/deletedAt)', async () => {
+      prisma.product.findMany.mockResolvedValueOnce([]);
+      prisma.product.count.mockResolvedValueOnce(0);
+      await repo.findMany({
+        skip: 0,
+        limit: 20,
+        page: 1,
+        supermarket: 'mercadona',
+      } as any);
+      const call = prisma.product.findMany.mock.calls[0][0];
+      expect(call.where.prices).toEqual({
+        some: {
+          isAvailable: true,
+          deletedAt: null,
+          supermarket: { slug: 'mercadona' },
+        },
+      });
+    });
+
+    it('findMany com onPromotion: aperta prices.some mantendo deletedAt=null', async () => {
+      prisma.product.findMany.mockResolvedValueOnce([]);
+      prisma.product.count.mockResolvedValueOnce(0);
+      await repo.findMany({
+        skip: 0,
+        limit: 20,
+        page: 1,
+        onPromotion: true,
+      } as any);
+      const call = prisma.product.findMany.mock.calls[0][0];
+      expect(call.where.prices.some.isAvailable).toBe(true);
+      expect(call.where.prices.some.deletedAt).toBeNull();
+      expect(call.where.prices.some.onPromotion).toBe(true);
+    });
+
+    it('findById / findManyByIds: NÃO exige price ativo (preserva comportamento debug/admin)', async () => {
+      prisma.product.findFirst.mockResolvedValueOnce(null);
+      await repo.findById('p-admin');
+      const firstCall = prisma.product.findFirst.mock.calls[0][0];
+      expect(firstCall.where.prices).toBeUndefined();
+
+      prisma.product.findMany.mockResolvedValueOnce([]);
+      await repo.findManyByIds(['p-admin']);
+      const manyCall = prisma.product.findMany.mock.calls[0][0];
+      expect(manyCall.where.prices).toBeUndefined();
+    });
   });
 });

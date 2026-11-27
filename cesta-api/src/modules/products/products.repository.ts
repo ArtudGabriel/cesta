@@ -160,10 +160,15 @@ export class ProductsRepository {
     // garantir "top N globais por cheapestUnitPrice", oversample (limit*3,
     // cap 40) e re-ordena+slica em memória (mesmo padrão de findSuggestions
     // L133). `take: limit` puro ordenava só rows arbitrárias do DB.
+    //
+    // Sprint 243b: exige >=1 price ativo (isAvailable=true, deletedAt=null).
+    // Produtos seed limpos (189 rows soft-del em 2026-11-27 23:02:43Z UTC)
+    // sem catálogo real saem da busca.
     const where: Prisma.ProductWhereInput = {
       deletedAt: null,
       // Sprint 228 #7: multi-token tokenize AND-of-OR (vide helper).
       ...buildMultiTokenNameBrandWhere(q),
+      prices: { some: { isAvailable: true, deletedAt: null } },
     };
 
     const sampleSize = Math.min(limit * 3, 40);
@@ -220,12 +225,14 @@ export class ProductsRepository {
   > {
     // startsWith prefere, depois contains. Prisma nao tem relevance score;
     // buscamos (limit*2) e priorizamos startsWith no sort em memoria.
+    // Sprint 243b: exige >=1 price ativo (isAvailable=true, deletedAt=null).
     const take = Math.min(limit * 2, 40);
     const rows = await this.prisma.product.findMany({
       where: {
         deletedAt: null,
         // Sprint 228 #7: multi-token tokenize AND-of-OR (vide helper).
         ...buildMultiTokenNameBrandWhere(q),
+        prices: { some: { isAvailable: true, deletedAt: null } },
       },
       take,
       select: {
@@ -294,10 +301,19 @@ export class ProductsRepository {
       // primeiro, depois alfabético. Garante ordenação estável independente do
       // plano de execução Postgres (seen in prod: Lechuga top1 Leche #2 com
       // scores próximos).
+      // Sprint 243b: trigram fallback também exige >=1 price ativo.
+      // EXISTS correlated subquery (product_prices.product_id = products.id
+      // AND is_available = true AND deleted_at IS NULL).
       const trgmIds = await this.prisma.$queryRaw<Array<{ id: string }>>`
         SELECT "id"
         FROM "products"
         WHERE "deleted_at" IS NULL
+          AND EXISTS (
+            SELECT 1 FROM "product_prices" pp
+            WHERE pp."product_id" = "products"."id"
+              AND pp."is_available" = true
+              AND pp."deleted_at" IS NULL
+          )
           AND (
             word_similarity(${q}, "name") > 0.3
             OR ("brand" IS NOT NULL AND word_similarity(${q}, "brand") > 0.3)
@@ -430,7 +446,17 @@ export class ProductsRepository {
       else where.categoryId = '__none__'; // força zero resultado
     }
 
-    const priceFilters: Prisma.ProductPriceWhereInput = { isAvailable: true };
+    // Sprint 243b (URGENTE): endpoints públicos listagem/busca/suggest
+    // excluem produto sem price ativo (isAvailable=true AND deletedAt=null).
+    // Trigger imediato: Boss rodou cleanup-seed-prices --apply em prod
+    // (2026-11-27 23:02:43Z UTC · PITR) soft-deletando 189 preços seed
+    // (27 prods × 7 mercados). Produtos seed remanescentes apareciam com
+    // prices=[] em GET /products?search + /products/search. Detalhe
+    // (/products/:id) preserva comportamento (debug/admin).
+    const priceFilters: Prisma.ProductPriceWhereInput = {
+      isAvailable: true,
+      deletedAt: null,
+    };
     // Sprint 147: supermarkets[] (multi) tem precedência sobre supermarket single.
     if (filters.supermarkets && filters.supermarkets.length > 0) {
       priceFilters.supermarket = { slug: { in: filters.supermarkets } };
@@ -449,16 +475,9 @@ export class ProductsRepository {
       }
       priceFilters.currentPrice = priceRange;
     }
-    const hasPriceFilter =
-      Object.keys(priceFilters).length > 1 ||
-      filters.supermarket !== undefined ||
-      (filters.supermarkets && filters.supermarkets.length > 0) ||
-      filters.onPromotion !== undefined ||
-      filters.minPrice !== undefined ||
-      filters.maxPrice !== undefined;
-    if (hasPriceFilter) {
-      where.prices = { some: priceFilters };
-    }
+    // Sempre exige >=1 price que satisfaça o filtro (default isAvailable=true +
+    // deletedAt=null). Filtros adicionais do caller apertam, nunca relaxam.
+    where.prices = { some: priceFilters };
 
     if (filters.isVegan) where.isVegan = true;
     if (filters.isVegetarian) where.isVegetarian = true;
