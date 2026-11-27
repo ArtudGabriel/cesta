@@ -63,6 +63,18 @@ interface DataMetrics {
   };
 }
 
+interface EroskiDropouts {
+  sitemapEmpty: number;
+  categoryFetchFail: number;
+  categoryNoTiles: number;
+  tileParseFail: number;
+  tileNoItem: number;
+  tileNoId: number;
+  tileNoName: number;
+  tileBadPrice: number;
+  tileDuplicate: number;
+}
+
 @Injectable()
 export class EroskiAdapter implements SupermarketAdapter {
   readonly slug = 'eroski';
@@ -78,7 +90,7 @@ export class EroskiAdapter implements SupermarketAdapter {
     // Sprint 220: observability por dropout cause (paridade Mercadona S217 /
     // Aldi S219). Expõe por que tiles não viraram produto final — permite
     // debugar yield baixo sem pedir shell prod.
-    const dropouts = {
+    const dropouts: EroskiDropouts = {
       sitemapEmpty: 0,
       categoryFetchFail: 0,
       categoryNoTiles: 0,
@@ -244,14 +256,7 @@ export class EroskiAdapter implements SupermarketAdapter {
   private extractFromCategory(
     html: string,
     categoryUrl: string,
-    dropouts: {
-      tileParseFail: number;
-      tileNoItem: number;
-      tileNoId: number;
-      tileNoName: number;
-      tileBadPrice: number;
-      tileDuplicate: number;
-    },
+    dropouts: EroskiDropouts,
     seen: Set<string>,
   ): { products: RawProduct[]; rawTiles: number } {
     const $ = cheerio.load(html);
