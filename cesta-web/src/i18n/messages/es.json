@@ -316,6 +316,7 @@
     "searchHint": "Escribe para buscar un producto del catálogo.",
     "searchEmpty": "Ningún producto coincide con la búsqueda.",
     "addToList": "Añadir a la lista",
+    "openDetail": "Ver detalle de {name}",
     "decreaseQty": "Disminuir cantidad",
     "increaseQty": "Aumentar cantidad",
     "removeItem": "Eliminar",

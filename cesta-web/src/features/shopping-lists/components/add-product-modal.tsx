@@ -1,10 +1,12 @@
 "use client";
 
 import { Loader2, Plus, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ProductImage } from "@/features/catalog/components/product-image";
 import { useProducts } from "@/features/catalog/hooks/use-catalog";
 import { formatPrice } from "@/lib/utils";
 import { useAddItem } from "../hooks/use-shopping-lists";
@@ -22,6 +24,7 @@ export function AddProductModal({ listId, open, onClose }: AddProductModalProps)
     limit: 15,
   });
   const addItem = useAddItem(listId);
+  const router = useRouter();
   const t = useTranslations("myList");
 
   if (!open) return null;
@@ -81,18 +84,42 @@ export function AddProductModal({ listId, open, onClose }: AddProductModalProps)
                 <li
                   key={product.id}
                   className="flex items-center gap-3 rounded-card border border-border p-2"
+                  data-testid="add-product-result"
                 >
-                  <div className="h-10 w-10 flex-shrink-0 rounded-btn bg-surface" />
-                  <div className="min-w-0 flex-1">
-                    <p className="line-clamp-1 text-sm font-medium text-ink">
-                      {product.name}
-                    </p>
-                    {product.cheapestPrice !== null && (
-                      <p className="text-xs text-muted">
-                        {t("fromPrice")} {formatPrice(product.cheapestPrice)}
+                  {/* Sprint 238 #3+#4: card principal clicável abre detalhe
+                      do produto; thumbnail usa ProductImage com fallback
+                      visual quando imageUrl é null/vazio ou falha runtime.
+                      Botão Add fica como sibling (propagation não aplica —
+                      clique só no main button abre detalhe). */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      router.push(`/produto/${product.id}`);
+                    }}
+                    className="flex min-w-0 flex-1 items-center gap-3 cursor-pointer text-left"
+                    aria-label={t("openDetail", { name: product.name })}
+                  >
+                    <ProductImage
+                      src={product.imageUrl}
+                      alt=""
+                      width={40}
+                      height={40}
+                      sizes="40px"
+                      showLabel={false}
+                      className="h-10 w-10 flex-shrink-0 rounded-btn object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="line-clamp-1 text-sm font-medium text-ink">
+                        {product.name}
                       </p>
-                    )}
-                  </div>
+                      {product.cheapestPrice !== null && (
+                        <p className="text-xs text-muted">
+                          {t("fromPrice")} {formatPrice(product.cheapestPrice)}
+                        </p>
+                      )}
+                    </div>
+                  </button>
                   <Button
                     size="sm"
                     onClick={() => {
@@ -100,6 +127,7 @@ export function AddProductModal({ listId, open, onClose }: AddProductModalProps)
                     }}
                     disabled={addItem.isPending}
                     aria-label={t("addToList")}
+                    data-testid="add-product-add-btn"
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
