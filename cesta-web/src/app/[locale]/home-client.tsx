@@ -25,6 +25,7 @@ import {
   useProductsInfinite,
   useSupermarkets,
 } from "@/features/catalog/hooks/use-catalog";
+import type { Category } from "@/features/catalog/types/catalog.types";
 import { useNutriPreferences } from "@/features/profile/hooks/use-nutri-preferences";
 import { useProfile } from "@/features/profile/hooks/use-profile";
 import { useSortUnitPreference } from "@/features/profile/hooks/use-sort-unit-preference";
@@ -48,7 +49,11 @@ function parseDietFromUrl(raw: string | null): Set<DietaryFlag> {
 }
 
 
-export function HomeClient() {
+interface HomeClientProps {
+  initialCategories?: Category[];
+}
+
+export function HomeClient({ initialCategories }: HomeClientProps = {}) {
   const user = useAuthStore((s) => s.user);
   const isHydrated = useAuthStore((s) => s.isHydrated);
 
@@ -135,7 +140,11 @@ export function HomeClient() {
   );
 
   const supermarkets = useSupermarkets();
-  const categories = useCategories();
+  const categories = useCategories(
+    initialCategories && initialCategories.length > 0
+      ? { initialData: initialCategories }
+      : undefined,
+  );
   const products = useProductsInfinite({
     search: debouncedSearch || undefined,
     category,
@@ -175,6 +184,29 @@ export function HomeClient() {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, [debouncedSearch]);
+
+  // Sprint 227 (#2 perf): prefetch rotas de nav principal depois da hidratação.
+  // Link já pré-busca ao scroll/hover, mas isso garante que as rotas secundárias
+  // estejam prontas no primeiro tap do bottom-nav mesmo sem hover (mobile).
+  // Usa requestIdleCallback quando disponível (não briga com LCP da home).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const prefetch = () => {
+      router.prefetch("/favoritos");
+      router.prefetch("/comparar");
+      router.prefetch("/minha-lista");
+      router.prefetch("/perfil");
+    };
+    const w = window as Window &
+      typeof globalThis & {
+        requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      };
+    if (typeof w.requestIdleCallback === "function") {
+      w.requestIdleCallback(prefetch, { timeout: 2000 });
+    } else {
+      window.setTimeout(prefetch, 1500);
+    }
+  }, [router]);
 
   const sortedItems = useMemo(() => {
     const items = allItems;
