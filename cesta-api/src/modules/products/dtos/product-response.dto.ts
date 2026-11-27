@@ -38,6 +38,58 @@ export function resolveNutriCategory(
   return NUTRI_CATEGORY_MAP[categorySlug] ?? 'general';
 }
 
+// Sprint 226 (ADR 0034): threshold lido no load (zero env read por request).
+// Expor computeIsStale pra specs unit sem acoplar Date.now.
+export function parseStaleThresholdHours(
+  raw: string | number | undefined,
+): number {
+  if (raw === undefined || raw === null || raw === '') return 48;
+  const n = typeof raw === 'number' ? raw : Number(raw);
+  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 48;
+}
+
+const STALE_THRESHOLD_HOURS = parseStaleThresholdHours(
+  process.env.PRICE_STALE_THRESHOLD_HOURS,
+);
+const STALE_THRESHOLD_MS = STALE_THRESHOLD_HOURS * 60 * 60 * 1000;
+
+// Sprint 226 AJUSTE P1 (PR #192 Reviewer): combina os DOIS sinais de
+// staleness em OR.
+//
+//   (a) Coluna `ProductPrice.isStale` escrita por catalog-sync:
+//       `markStaleForSupermarket` flipa true pra rows que o adapter NÃO
+//       tocou no run (produto delistado, miss de scrape). Sinal autoritativo
+//       do adapter.
+//
+//   (b) `computeIsStale(lastSyncedAt)`: fallback baseado em idade do
+//       timestamp (threshold env). Captura casos em que o cron NUNCA
+//       completou (Froiz 12d sem run; adapter down; Render spin-down perdeu
+//       janela). Nessa situação a coluna (a) fica desatualizada (last
+//       successful upsert deixou isStale=false) e só o (b) detecta.
+//
+// Sem o (b), o badge não firava pra adapters que caíram entre dois ciclos
+// (bug reportado 2026-11-27 Froiz 3/3 lastSyncedAt 12d, coluna false).
+export function computeIsStale(
+  lastSyncedAt: Date | string | null | undefined,
+  nowMs: number = Date.now(),
+  thresholdMs: number = STALE_THRESHOLD_MS,
+): boolean {
+  if (!lastSyncedAt) return true;
+  const ts =
+    lastSyncedAt instanceof Date
+      ? lastSyncedAt.getTime()
+      : new Date(lastSyncedAt).getTime();
+  if (!Number.isFinite(ts)) return true;
+  return nowMs - ts > thresholdMs;
+}
+
+export function resolveIsStale(
+  dbIsStale: boolean,
+  lastSyncedAt: Date | string | null | undefined,
+): boolean {
+  return dbIsStale || computeIsStale(lastSyncedAt);
+}
+
 export class NutriScoreDto {
   @ApiProperty({ example: -2 }) score: number;
   @ApiProperty({ example: 'A', enum: ['A', 'B', 'C', 'D', 'E'] })
@@ -110,6 +162,11 @@ export class ProductResponseDto {
   @ApiProperty({ type: () => UnitPriceDto, nullable: true })
   cheapestUnitPrice: UnitPrice | null;
 
+  // Sprint 226 (ADR 0034): preço cheapest desatualizado (horas desde
+  // lastSyncedAt > PRICE_STALE_THRESHOLD_HOURS). Base pra badge home/lista/
+  // favoritos. Badge por mercado usa `PriceByMarketDto.isStale`.
+  @ApiProperty() isStale: boolean;
+
   static fromEntity(
     product: Product & {
       prices?: (ProductPrice & { supermarket: Supermarket })[];
@@ -169,10 +226,12 @@ export class ProductResponseDto {
       dto.cheapestSupermarketSlug = cheapest.supermarketSlug;
       dto.cheapestPrice = cheapest.price;
       dto.cheapestUnitPrice = cheapest.unitPrice;
+      dto.isStale = cheapest.isStale;
     } else {
       dto.cheapestSupermarketSlug = null;
       dto.cheapestPrice = null;
       dto.cheapestUnitPrice = null;
+      dto.isStale = false;
     }
 
     return dto;
@@ -207,7 +266,7 @@ function mapPrice(
     onPromotion: p.onPromotion,
     previousPrice: p.previousPrice ? Number(p.previousPrice) : null,
     isAvailable: p.isAvailable,
-    isStale: p.isStale,
+    isStale: resolveIsStale(p.isStale, p.lastSyncedAt),
     lastSyncedAt: p.lastSyncedAt,
     confidenceScore: Number(p.confidenceScore),
   };

@@ -58,6 +58,7 @@ function makeItem(
       cheapestSupermarketSlug: "mercadona",
       cheapestPrice: 5.5,
       cheapestUnitPrice: { value: 5.5, unit: "L" },
+      isStale: false,
       ...overrides,
     },
   };

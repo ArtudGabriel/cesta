@@ -132,6 +132,16 @@ export class EnvironmentVariables {
   @IsOptional()
   @IsString()
   BACKFILL_IMAGES_ENABLED?: string;
+
+  // Sprint 226 (ADR 0034 — price stale indicator):
+  // Horas após `lastSyncedAt` para marcar um preço como `isStale=true`.
+  // Default 48h cobre ciclo cron diário (~24h) + 1 falha tolerável antes
+  // de sinalizar ao usuário. Reduzir para endurecer SLA UX; aumentar
+  // durante backfill. Valor positivo.
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  PRICE_STALE_THRESHOLD_HOURS?: number = 48;
 }
 
 export function validateEnv(raw: Record<string, unknown>) {
