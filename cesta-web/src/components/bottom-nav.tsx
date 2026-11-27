@@ -53,12 +53,19 @@ const HIDDEN_PREFIXES = ["/login", "/register", "/minha-cesta/configurar"];
 
 export function BottomNav() {
   const pathname = usePathname();
-  const { data: profile, isError } = useProfile();
+  const { data: profile } = useProfile();
   const t = useTranslations("nav");
 
   const isAuthRoute = HIDDEN_PREFIXES.some((p) => pathname.startsWith(p));
   if (isAuthRoute) return null;
-  if (isError) return null;
+  // Sprint 227 (#15 bundle 1): NÃO retornar null em isError. Antes: profile
+  // 429 por throttler strict (bug raiz bundle 1) ou qualquer transient
+  // network error setava isError=true e BottomNav sumia PERMANENTEMENTE
+  // até refetch successful (retry:false no useProfile agrava). User
+  // perdia navegação principal com nav invisivel. Fix: ignorar isError —
+  // nav base é chrome GDPR unmasked, não depende de profile pra renderizar
+  // links; profile só serve pra evitar flash em cold load (skeleton
+  // fallback abaixo cobre tanto loading quanto erro).
   // Sprint 66 nit: durante loading inicial do profile, render skeleton
   // em vez de return null — evita content jump quando nav aparece.
   if (!profile) {

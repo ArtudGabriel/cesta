@@ -298,6 +298,8 @@
     "totalsHeader": "Total por supermercado",
     "closeModal": "Fechar",
     "searchPlaceholder": "Buscar produto…",
+    "searchHint": "Digite para buscar um produto do catálogo.",
+    "searchEmpty": "Nenhum produto corresponde à busca.",
     "addToList": "Adicionar à lista",
     "decreaseQty": "Diminuir quantidade",
     "increaseQty": "Aumentar quantidade",

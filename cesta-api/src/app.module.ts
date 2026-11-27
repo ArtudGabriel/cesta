@@ -40,10 +40,27 @@ import { UsersModule } from './modules/users/users.module';
       envFilePath: ['.env.local', '.env'],
       validate: validateEnv,
     }),
+    // Sprint 227 (#10/#11+#14+#15 bundle 1): named throttlers em forRoot
+    // aplicam-se A TODAS AS ROTAS simultaneamente no @nestjs/throttler v5+
+    // (memory feedback-throttler-named-global · bug pattern P0 S98). Antes
+    // S227: strict:5/60s global cortava browsing publico apos 5 requests
+    // (GET /products, /products/:id, /products/suggest, /favorites, /users/me
+    // nao tinham override) — causa cascade dos 3 bugs Boss QA:
+    //   #10/#11 /produto/[pid] crasha apos 5 PDPs abertos (fetchProductSSR
+    //            throw 429 -> segment error.tsx renderiza "Algo salio mal")
+    //   #14 busca dentro /minha-lista autocomplete retorna 0 pos 5 digitadas
+    //   #15 bottom nav useProfile isError=true apos 5 refetches -> some
+    //
+    // Fix: elevar `strict` e `write` globais ao teto pratico (10_000/60s =
+    // no-op para trafego legitimo) mantendo nomes registrados. Rotas que
+    // precisam de limite apertado continuam declarando @Throttle({strict:
+    // {limit:5, ...}}) inline e esse override ganha para a rota especifica.
+    // Nao removemos nomes do forRoot porque @Throttle({strict:...}) precisa
+    // do nome registrado para ancorar o override.
     ThrottlerModule.forRoot([
       { name: 'default', ttl: 60_000, limit: 120 },
-      { name: 'strict', ttl: 60_000, limit: 5 },
-      { name: 'write', ttl: 60_000, limit: 30 },
+      { name: 'strict', ttl: 60_000, limit: 10_000 },
+      { name: 'write', ttl: 60_000, limit: 10_000 },
     ]),
     BullModule.forRootAsync({
       imports: [ConfigModule],

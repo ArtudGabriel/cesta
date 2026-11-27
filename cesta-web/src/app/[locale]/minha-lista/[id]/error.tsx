@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -16,6 +17,13 @@ export default function Error({
   const tList = useTranslations("myList");
 
   useEffect(() => {
+    // Sprint 227 (#15 bundle 1): segment error boundary captura ANTES do
+    // SentryBoundary root; sem capture explicito crash no detalhe de lista
+    // (ex: 429 throttler cascata, SSR fail) ficava sem telemetria. Idempotente.
+    Sentry.captureException(error, {
+      tags: { route: "minha-lista/[id]", boundary: "segment" },
+      extra: { digest: error.digest },
+    });
     console.error("[minha-lista/[id]] render error", error);
   }, [error]);
 
