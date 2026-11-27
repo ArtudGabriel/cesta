@@ -211,4 +211,43 @@ describe('FroizAdapter', () => {
     const products = await adapter.fetchProducts();
     expect(products.find((p) => p.name.includes('Pan integral'))).toBeDefined();
   });
+
+  it('S221: logga dropouts por categoria/tile pra observabilidade', async () => {
+    // Sitemap: 2 leaves. Primeira falha fetch (503), segunda retorna HTML
+    // com 2 tiles — 1 ok + 1 sem preço (dropout tileNoPrice).
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue(mockBareResponse(SITEMAP_XML));
+    global.fetch = fetchMock as unknown as typeof fetch;
+    const htmlWithDrops = `<html><body>
+      <div class="product-grid">
+        <div class="product">
+          <div class="name">Pan integral Froiz 500 g</div>
+          <div class="price"><span>1,80 €</span></div>
+        </div>
+        <div class="product">
+          <div class="name">Produto sem preço</div>
+        </div>
+      </div>
+    </body></html>`;
+    mockedPoliteFetchRaw.mockImplementation((url: string) => {
+      if (url.includes('sin-azucar')) {
+        return Promise.resolve({ body: '', status: 503, setCookie: [] }) as any;
+      }
+      return Promise.resolve({
+        body: htmlWithDrops,
+        status: 200,
+        setCookie: [],
+      }) as any;
+    });
+    const logSpy = jest.spyOn((adapter as any).logger, 'log');
+    await adapter.fetchProducts();
+    const finalLog = logSpy.mock.calls
+      .map((c) => c[0] as string)
+      .find((m) => m.startsWith('Froiz:'));
+    expect(finalLog).toBeDefined();
+    expect(finalLog).toContain('fetch=1');
+    expect(finalLog).toContain('noprice=1');
+    expect(finalLog).toContain('dup=0');
+  });
 });
