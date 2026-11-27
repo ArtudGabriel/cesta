@@ -21,6 +21,7 @@ import { cn, formatPrice } from "@/lib/utils";
 import { formatUnitPrice } from "@/features/catalog/utils/format-unit-price";
 import { useLocale } from "@/hooks/use-locale";
 import { DietaryFilters, type DietaryFlag } from "@/features/catalog/components/dietary-filters";
+import { StaleBadge } from "@/features/catalog/components/stale-badge";
 import {
   NutriFilters,
   isHealthyGrade,
@@ -365,6 +366,11 @@ export default function FavoritosPage() {
                         <p className="mt-1 text-xs text-muted">
                           {t("noPriceAvailable")}
                         </p>
+                      )}
+                      {fav.cheapestPrice?.isStale && (
+                        <div className="mt-1">
+                          <StaleBadge size="sm" />
+                        </div>
                       )}
                     </div>
                   </Link>

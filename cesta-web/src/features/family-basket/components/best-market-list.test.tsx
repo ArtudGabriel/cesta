@@ -61,6 +61,7 @@ function makeItem(
       cheapestSupermarketSlug: prices[0]?.slug ?? null,
       cheapestPrice: prices[0]?.price ?? null,
       cheapestUnitPrice: null,
+      isStale: false,
     },
   };
 }

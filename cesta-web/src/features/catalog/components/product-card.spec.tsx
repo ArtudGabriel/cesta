@@ -51,6 +51,7 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
     cheapestSupermarketSlug: "mercadona",
     cheapestPrice: 1.2,
     cheapestUnitPrice: { value: 1.2, unit: "L" },
+    isStale: false,
     ...overrides,
   };
 }

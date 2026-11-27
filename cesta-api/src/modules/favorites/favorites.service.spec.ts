@@ -95,10 +95,12 @@ describe('FavoritesService', () => {
             prices: [
               {
                 currentPrice: 0.95,
+                lastSyncedAt: new Date(),
                 supermarket: { slug: 'merc', name: 'Mercadona' },
               },
               {
                 currentPrice: 0.93,
+                lastSyncedAt: new Date(),
                 supermarket: { slug: 'lidl', name: 'LIDL' },
               },
             ],
@@ -116,6 +118,7 @@ describe('FavoritesService', () => {
         supermarketSlug: 'lidl',
         supermarketName: 'LIDL',
         unitPrice: { value: 0.93, unit: 'L' },
+        isStale: false,
       });
     });
 

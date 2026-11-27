@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { ProductImage } from "@/features/catalog/components/product-image";
+import { StaleBadge } from "@/features/catalog/components/stale-badge";
 import { formatUnitPrice } from "@/features/catalog/utils/format-unit-price";
 import { useLocale } from "@/hooks/use-locale";
 import { cn, formatPrice } from "@/lib/utils";
@@ -71,6 +72,11 @@ export function ListItemRow({ listId, item }: ListItemRowProps) {
               >
                 {unitPriceStr}
               </p>
+            )}
+            {cheapest.isStale && (
+              <div className="mt-1">
+                <StaleBadge size="sm" />
+              </div>
             )}
           </>
         )}

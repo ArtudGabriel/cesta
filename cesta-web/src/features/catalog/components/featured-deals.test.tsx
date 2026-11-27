@@ -69,6 +69,7 @@ function makeProduct(
     cheapestSupermarketSlug: prices[0]?.slug ?? null,
     cheapestPrice: prices.length > 0 ? Math.min(...prices.map((p) => p.price)) : null,
     cheapestUnitPrice: null,
+    isStale: false,
   };
 }
 

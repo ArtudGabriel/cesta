@@ -1851,6 +1851,7 @@ export interface components {
             cheapestSupermarketSlug: string | null;
             cheapestPrice: number | null;
             cheapestUnitPrice: components["schemas"]["UnitPriceDto"] | null;
+            isStale: boolean;
         };
         ListItemDto: {
             id: string;
@@ -2159,6 +2160,7 @@ export interface components {
             supermarketSlug: string;
             supermarketName: string;
             unitPrice: components["schemas"]["UnitPriceDto"] | null;
+            isStale: boolean;
         };
         FavoriteResponseDto: {
             id: string;

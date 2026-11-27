@@ -12,6 +12,7 @@ import { PackageInfoStrip } from "@/features/catalog/components/package-info-str
 import { PriceComparisonGrid } from "@/features/catalog/components/price-comparison-grid";
 import { PriceHistoryChart } from "@/features/catalog/components/price-history-chart";
 import { ProductImage } from "@/features/catalog/components/product-image";
+import { StaleBadge } from "@/features/catalog/components/stale-badge";
 import { useSupermarkets } from "@/features/catalog/hooks/use-catalog";
 import { useLocale } from "@/hooks/use-locale";
 import { formatUnitPrice } from "@/features/catalog/utils/format-unit-price";
@@ -102,6 +103,11 @@ export function ProductDetailBody({ product }: { product: Product }) {
                 <p className="mt-1 text-sm text-muted">
                   {formatUnitPrice(product.cheapestUnitPrice, locale)}
                 </p>
+              )}
+              {product.isStale && (
+                <div className="mt-2">
+                  <StaleBadge size="md" />
+                </div>
               )}
             </div>
           )}

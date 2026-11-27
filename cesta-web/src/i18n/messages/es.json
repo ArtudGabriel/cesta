@@ -238,6 +238,10 @@
   },
   "catalog": {
     "noImage": "Sin foto",
+    "stale": {
+      "label": "Desactualizado",
+      "tooltip": "Este precio no se actualiza hace más de 48 horas."
+    },
     "nutriFilters": {
       "sortByNutri": "Ordenar por Nutri-Score",
       "onlyHealthy": "Solo A+B",

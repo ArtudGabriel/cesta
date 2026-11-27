@@ -77,6 +77,7 @@ function product(
     cheapestSupermarketSlug: cheapest?.supermarketSlug ?? null,
     cheapestPrice: cheapest?.price ?? null,
     cheapestUnitPrice: cheapest?.unitPrice ?? null,
+    isStale: cheapest?.isStale ?? false,
   };
 }
 

@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { MeasureUnit } from '@prisma/client';
 import { calculateUnitPrice } from '../../common/utils/price-normalization';
 import { calculateNutriScore } from '../../common/utils/nutri-score';
-import { resolveNutriCategory } from '../products/dtos/product-response.dto';
+import {
+  computeIsStale,
+  resolveNutriCategory,
+} from '../products/dtos/product-response.dto';
 import {
   CheapestPriceDto,
   FavoriteResponseDto,
@@ -13,6 +16,7 @@ interface RawCheapest {
   price: number;
   supermarketSlug: string;
   supermarketName: string;
+  lastSyncedAt: Date;
 }
 
 @Injectable()
@@ -44,17 +48,22 @@ export class FavoritesService {
           price: Number(p.currentPrice),
           supermarketSlug: p.supermarket.slug,
           supermarketName: p.supermarket.name,
+          lastSyncedAt: p.lastSyncedAt,
         })),
       );
       const cheapest: CheapestPriceDto | null = cheapestRaw
         ? {
-            ...cheapestRaw,
+            price: cheapestRaw.price,
+            supermarketSlug: cheapestRaw.supermarketSlug,
+            supermarketName: cheapestRaw.supermarketName,
             unitPrice: this.safeUnitPrice(
               cheapestRaw.price,
               Number(f.product.packageSize),
               f.product.packageUnit,
               f.product.comparisonUnit,
             ),
+            // Sprint 226 (ADR 0034): badge /favoritos.
+            isStale: computeIsStale(cheapestRaw.lastSyncedAt),
           }
         : null;
       return {

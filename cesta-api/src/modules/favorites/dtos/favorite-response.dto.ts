@@ -26,6 +26,11 @@ export class CheapestPriceDto {
 
   @ApiProperty({ type: () => UnitPriceDto, nullable: true })
   unitPrice: UnitPrice | null;
+
+  // Sprint 226 (ADR 0034): preço cheapest desatualizado (>
+  // PRICE_STALE_THRESHOLD_HOURS). Base pra badge na list /favoritos.
+  @ApiProperty()
+  isStale: boolean;
 }
 
 export class FavoriteProductDto {

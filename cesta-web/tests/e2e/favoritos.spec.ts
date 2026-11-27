@@ -45,6 +45,7 @@ function fav(id: string, productId: string, name: string): Favorite {
       supermarketSlug: "mercadona",
       supermarketName: "Mercadona",
       unitPrice: { value: 1.25, unit: "L" },
+      isStale: false,
     },
   };
 }

@@ -51,6 +51,7 @@ function makeProduct(id: string, name: string, prices: Array<{ slug: string; nam
         ? Math.min(...prices.filter((p) => p.available !== false).map((p) => p.price))
         : null,
     cheapestUnitPrice: null,
+    isStale: false,
   };
 }
 
