@@ -4,6 +4,7 @@ import { Sparkles, TrendingDown } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { formatPrice } from "@/lib/utils";
+import { SupermarketBadge } from "@/features/catalog/components/supermarket-badge";
 import type { ListTotals } from "../types/shopping-list.types";
 
 interface HybridBasketCardProps {
@@ -45,16 +46,12 @@ export function HybridBasketCard({ totals }: HybridBasketCardProps) {
               href={`/produto/${item.productId}`}
               className="flex items-center gap-3"
             >
-              <span
-                className="h-8 w-8 flex-shrink-0 rounded-btn flex items-center justify-center text-[10px] font-bold text-white"
-                style={{
-                  backgroundColor:
-                    item.supermarketColor ?? "var(--color-cesta-green)",
-                }}
-                aria-hidden="true"
-              >
-                {item.supermarketName.slice(0, 2).toUpperCase()}
-              </span>
+              <SupermarketBadge
+                slug={item.supermarketSlug}
+                name={item.supermarketName}
+                color={item.supermarketColor}
+                size={32}
+              />
               <div className="min-w-0 flex-1">
                 <p className="line-clamp-1 text-sm font-medium text-ink">
                   {item.productName}
