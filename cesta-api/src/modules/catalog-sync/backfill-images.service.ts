@@ -88,12 +88,12 @@ export class BackfillImagesService {
     };
 
     for (const p of products) {
-      if (!p.ean) {
-        stats.fallback += 1;
-        continue;
-      }
+      // Sprint 224: resolve prioritário via sourceImageUrl (adapter URL
+      // persistida em S224+). Fallback OpenFoodFacts via EAN pra legacy.
+      const sourceUrl =
+        p.sourceImageUrl ??
+        (p.ean ? await this.resolveOpenFoodFacts(p.ean) : null);
 
-      const sourceUrl = await this.resolveOpenFoodFacts(p.ean);
       if (!sourceUrl) {
         stats.fallback += 1;
         continue;

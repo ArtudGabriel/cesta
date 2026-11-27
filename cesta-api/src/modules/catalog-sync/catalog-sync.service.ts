@@ -159,6 +159,18 @@ export class CatalogSyncService {
             product = { ...product, categoryId: resolvedCategoryId };
           }
 
+          // Sprint 224 (MVP Bloco 2): mantém sourceImageUrl atualizado pra
+          // produtos existentes. Re-sync nightly rebuilda a pista pra legacy
+          // (coluna adicionada S224 — produtos criados antes têm NULL).
+          // Backfill scan usa sourceImageUrl direto (sem depender de EAN+OFF).
+          if (
+            raw.imageUrl &&
+            product.sourceImageUrl !== raw.imageUrl
+          ) {
+            await this.repo.updateSourceImageUrl(product.id, raw.imageUrl);
+            product = { ...product, sourceImageUrl: raw.imageUrl };
+          }
+
           const { created } = await this.repo.upsertPrice({
             productId: product.id,
             supermarketId: supermarket.id,

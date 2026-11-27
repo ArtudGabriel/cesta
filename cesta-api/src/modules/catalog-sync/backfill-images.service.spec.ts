@@ -160,8 +160,8 @@ describe('BackfillImagesService', () => {
     const repo = buildRepoMock();
     const storage = buildStorageMock();
     repo.findCandidates.mockResolvedValue([
-      { id: 'p1', name: 'Leche entera', ean: '8480000181732' },
-      { id: 'p2', name: 'Sem EAN', ean: null },
+      { id: 'p1', name: 'Leche entera', ean: '8480000181732', sourceImageUrl: null },
+      { id: 'p2', name: 'Sem EAN', ean: null, sourceImageUrl: null },
     ]);
     repo.updateImageUrl.mockResolvedValue();
     storage.isManagedUrl.mockReturnValue(false);
@@ -197,6 +197,44 @@ describe('BackfillImagesService', () => {
     expect(repo.updateImageUrl).toHaveBeenCalledWith(
       'p1',
       'https://pub.r2.dev/products/p1.jpg',
+    );
+  });
+
+  // Sprint 224 (MVP Bloco 2): scan prioriza sourceImageUrl sobre EAN+OFF.
+  it('scanAndBackfill: usa sourceImageUrl direto sem fetchar OpenFoodFacts', async () => {
+    const repo = buildRepoMock();
+    const storage = buildStorageMock();
+    repo.findCandidates.mockResolvedValue([
+      {
+        id: 'p-src',
+        name: 'Eroski produto',
+        ean: null,
+        sourceImageUrl: 'https://supermercado.eroski.es/images/42.jpg',
+      },
+    ]);
+    repo.updateImageUrl.mockResolvedValue();
+    storage.uploadImage.mockResolvedValue({
+      url: 'https://pub.r2.dev/products/p-src.jpg',
+      key: 'products/p-src.jpg',
+    });
+
+    const fetchMock = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      arrayBuffer: async () => new Uint8Array([7, 7, 7]).buffer,
+    } as Partial<Response>);
+    globalThis.fetch = fetchMock as unknown as Fetch;
+
+    const svc = buildService(repo, storage);
+    const stats = await svc.scanAndBackfill(5);
+
+    expect(stats).toEqual({ scanned: 1, uploaded: 1, fallback: 0, errored: 0 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'https://supermercado.eroski.es/images/42.jpg',
+    );
+    expect(repo.updateImageUrl).toHaveBeenCalledWith(
+      'p-src',
+      'https://pub.r2.dev/products/p-src.jpg',
     );
   });
 

@@ -41,6 +41,10 @@ export class CatalogSyncRepository {
   // Sprint 142: categoryId resolvido via CategoryResolver no service.
   // Audit revelou 99.7% produtos com category_id=NULL — adapters
   // coletavam categoryHint mas o persist path ignorava.
+  //
+  // Sprint 224 (MVP Bloco 2): persiste raw.imageUrl em sourceImageUrl.
+  // Preserva invariante ADR 0008 (imageUrl segue Blob/R2 only) +
+  // elimina dependência de EAN no scan-and-backfill.
   createProductFromRaw(
     raw: RawProduct,
     normalizedName: string,
@@ -53,11 +57,25 @@ export class CatalogSyncRepository {
         brand: raw.brand ?? null,
         ean: raw.ean ?? null,
         imageUrl: null,
+        sourceImageUrl: raw.imageUrl ?? null,
         categoryId: categoryId ?? null,
         packageSize: new Prisma.Decimal(raw.packageSize),
         packageUnit: raw.packageUnit as unknown as MeasureUnit,
         comparisonUnit: raw.comparisonUnit as unknown as MeasureUnit,
       },
+    });
+  }
+
+  /** Sprint 224: atualiza sourceImageUrl pra produto existente quando
+   *  adapter traz raw.imageUrl novo (re-sync nightly rebuilda a pista
+   *  pra produtos legacy sem a coluna populada). */
+  async updateSourceImageUrl(
+    productId: string,
+    sourceImageUrl: string,
+  ): Promise<void> {
+    await this.prisma.product.update({
+      where: { id: productId },
+      data: { sourceImageUrl },
     });
   }
 
