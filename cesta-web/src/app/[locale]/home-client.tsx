@@ -30,7 +30,9 @@ import { useProfile } from "@/features/profile/hooks/use-profile";
 import { useSortUnitPreference } from "@/features/profile/hooks/use-sort-unit-preference";
 import { useAuthStore } from "@/stores/auth.store";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useLocale } from "@/hooks/use-locale";
 import { useOnClickOutside } from "@/hooks/use-on-click-outside";
+import { categoryLabel } from "@/features/catalog/utils/category-label";
 import { cn } from "@/lib/utils";
 
 const DIETARY_FLAGS: DietaryFlag[] = ["vegan", "vegetarian", "glutenFree", "lactoseFree"];
@@ -76,6 +78,7 @@ export function HomeClient() {
   const t = useTranslations("home");
   const tAria = useTranslations("common.aria");
   const tNav = useTranslations("nav");
+  const locale = useLocale();
 
   useOnClickOutside(searchWrapperRef, () => setSuggestOpen(false), suggestOpen);
   // Nota: click-outside NÃO restaura focus (user já clicou noutro lugar).
@@ -204,7 +207,7 @@ export function HomeClient() {
           <h1 className="font-display text-2xl font-extrabold text-cesta-green">
             Cesta
           </h1>
-          <p className="text-xs text-muted">Madrid · Supermercados</p>
+          <p className="text-xs text-muted">{t("locationSubtitle")}</p>
         </div>
         <div className="flex items-center gap-2">
           {/* Features primárias (Favoritos/Comparar/Mi lista/Mi cuenta/Inicio) migradas
@@ -311,7 +314,7 @@ export function HomeClient() {
                     : "bg-surface text-muted hover:text-ink"
                 }`}
               >
-                Todas
+                {t("allCategories")}
               </button>
               {(categories.data ?? []).map((c) => (
                 <button
@@ -323,7 +326,7 @@ export function HomeClient() {
                       : "bg-surface text-muted hover:text-ink"
                   }`}
                 >
-                  {c.nameEs}
+                  {categoryLabel(c, locale)}
                 </button>
               ))}
             </>
@@ -396,7 +399,7 @@ export function HomeClient() {
         </div>
       ) : products.isError ? (
         <p className="py-6 text-center text-sm text-coral">
-          Error al cargar productos.
+          {t("loadError")}
         </p>
       ) : sortedItems.length > 0 ? (
         <>
@@ -426,7 +429,10 @@ export function HomeClient() {
           query={debouncedSearch || undefined}
           categoryLabel={
             category
-              ? categories.data?.find((c) => c.slug === category)?.nameEs
+              ? (() => {
+                  const match = categories.data?.find((c) => c.slug === category);
+                  return match ? categoryLabel(match, locale) : undefined;
+                })()
               : undefined
           }
           onReset={() => {

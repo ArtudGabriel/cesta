@@ -33,6 +33,7 @@ import {
 } from "@/features/profile/hooks/use-profile";
 import { useSyncDietary } from "@/features/profile/hooks/use-sync-dietary";
 import { useAuthStore } from "@/stores/auth.store";
+import { useLocale } from "@/hooks/use-locale";
 import { cn } from "@/lib/utils";
 
 const LOCALE_OPTIONS: Array<{ value: "es" | "pt-BR"; label: string }> = [
@@ -65,6 +66,7 @@ export default function PerfilPage() {
   const logout = useLogout();
   const t = useTranslations("profile");
   const tAria = useTranslations("common.aria");
+  const locale = useLocale();
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
 
@@ -92,10 +94,13 @@ export default function PerfilPage() {
 
   const initials = getInitials(profile.name, profile.email ?? profile.phone);
   const contact = profile.email ?? profile.phone ?? "—";
-  const since = new Date(profile.createdAt).toLocaleDateString("es-ES", {
-    month: "long",
-    year: "numeric",
-  });
+  const since = new Date(profile.createdAt).toLocaleDateString(
+    locale === "pt-BR" ? "pt-BR" : "es-ES",
+    {
+      month: "long",
+      year: "numeric",
+    },
+  );
 
   function startEditName() {
     setNameDraft(profile?.name ?? "");
@@ -138,7 +143,7 @@ export default function PerfilPage() {
     <main className="pb-16">
       <header className="sticky top-0 z-10 flex items-center gap-3 bg-cream px-4 py-3">
         <h1 className="flex-1 font-display text-lg font-bold text-ink">
-          Mi cuenta
+          {t("pageTitle")}
         </h1>
         {/* Sprint 170: Cerrar sesión above-the-fold. S168 P3 identificou
             discoverability — user precisava scroll ~1000px pra achar logout
@@ -180,20 +185,20 @@ export default function PerfilPage() {
                   onClick={saveName}
                   disabled={update.isPending}
                 >
-                  Guardar
+                  {t("saveName")}
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
                   onClick={() => setEditingName(false)}
                 >
-                  Cancelar
+                  {t("cancelEditName")}
                 </Button>
               </div>
             ) : (
               <div className="flex items-center gap-2">
                 <p className="truncate font-display text-base font-bold text-ink">
-                  {profile.name ?? "Sin nombre"}
+                  {profile.name ?? t("nameFallback")}
                 </p>
                 <button
                   type="button"
@@ -206,7 +211,7 @@ export default function PerfilPage() {
               </div>
             )}
             <p className="truncate text-sm text-neutral-500">{contact}</p>
-            <p className="mt-1 text-xs text-muted">Desde {since}</p>
+            <p className="mt-1 text-xs text-muted">{t("memberSince", { date: since })}</p>
           </div>
         </div>
       </section>
@@ -214,10 +219,10 @@ export default function PerfilPage() {
       {/* Preferencias */}
       <section className="px-4 pt-4">
         <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-muted">
-          Preferencias
+          {t("preferencesTitle")}
         </h2>
         <div className="rounded-card bg-white p-4 shadow-sm">
-          <p className="text-sm font-medium text-ink">Idioma</p>
+          <p className="text-sm font-medium text-ink">{t("languageLabel")}</p>
           <div className="mt-3 flex gap-2">
             {LOCALE_OPTIONS.map((opt) => {
               const active = profile.locale === opt.value;

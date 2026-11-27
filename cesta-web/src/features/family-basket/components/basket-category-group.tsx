@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { useCategories } from "@/features/catalog/hooks/use-catalog";
 import { useLocale } from "@/hooks/use-locale";
+import { categoryLabel } from "@/features/catalog/utils/category-label";
 import { formatPrice } from "@/lib/utils";
 import type { BasketItem } from "@/features/family-basket/types/family-basket.types";
 
@@ -35,11 +36,7 @@ export function BasketCategoryGroups({ items, renderItem }: Props) {
     for (const item of items) {
       const catId = item.product.categoryId ?? "__other__";
       const cat = categories?.find((c) => c.id === catId);
-      const label = cat
-        ? locale === "pt-BR"
-          ? cat.namePt
-          : cat.nameEs
-        : t("categoryFallback");
+      const label = cat ? categoryLabel(cat, locale) : t("categoryFallback");
       const entry = byId.get(catId) ?? {
         id: catId,
         label,
