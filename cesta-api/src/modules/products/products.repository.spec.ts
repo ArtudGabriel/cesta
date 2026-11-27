@@ -202,3 +202,116 @@ describe('ProductsRepository.findSuggestions (Sprint 180 fuzzy fallback)', () =>
     expect(res.map((r) => r.id)).toEqual(['p-leche', 'p-lechon', 'p-lechuga']);
   });
 });
+
+// ────────────────────────────────────────────────────────────────────
+// Sprint 228 #7 — multi-token tokenize AND-of-OR em findSuggestions +
+// findForSearch. Bug user: busca "coca zero" retornava vazio porque
+// single ILIKE '%coca zero%' não achava "Coca-Cola Zero Azucar 2L"
+// (hyphen + "Cola " entre). Tokenize + AND resolve sem pg_trgm.
+// ────────────────────────────────────────────────────────────────────
+
+describe('ProductsRepository multi-token tokenize (Sprint 228 #7)', () => {
+  let repo: ProductsRepository;
+  let prisma: {
+    product: { findMany: jest.Mock; count: jest.Mock };
+    $queryRaw: jest.Mock;
+  };
+
+  beforeEach(() => {
+    prisma = {
+      product: { findMany: jest.fn(), count: jest.fn() },
+      $queryRaw: jest.fn(),
+    };
+    repo = new ProductsRepository(prisma as unknown as PrismaService);
+  });
+
+  it('findSuggestions "coca zero": tokenize → AND com 2 tokens; cada token OR(name,brand)', async () => {
+    prisma.product.findMany.mockResolvedValueOnce([
+      {
+        id: 'p-coca',
+        name: 'Coca-Cola Zero Azucar 2L',
+        brand: 'Coca-Cola',
+        imageUrl: null,
+        prices: [],
+      },
+    ]);
+    const res = await repo.findSuggestions('coca zero', 8);
+    expect(res).toHaveLength(1);
+    expect(res[0].id).toBe('p-coca');
+    // Verifica shape do where passado pro Prisma:
+    const call = prisma.product.findMany.mock.calls[0][0];
+    expect(call.where.AND).toHaveLength(2);
+    expect(call.where.AND[0].OR).toEqual([
+      { name: { contains: 'coca', mode: 'insensitive' } },
+      { brand: { contains: 'coca', mode: 'insensitive' } },
+    ]);
+    expect(call.where.AND[1].OR).toEqual([
+      { name: { contains: 'zero', mode: 'insensitive' } },
+      { brand: { contains: 'zero', mode: 'insensitive' } },
+    ]);
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it('findSuggestions "coca": single-token → legado OR(name,brand) preservado', async () => {
+    prisma.product.findMany.mockResolvedValueOnce([
+      {
+        id: 'p-coca',
+        name: 'Coca-Cola 2L',
+        brand: 'Coca-Cola',
+        imageUrl: null,
+        prices: [],
+      },
+    ]);
+    await repo.findSuggestions('coca', 8);
+    const call = prisma.product.findMany.mock.calls[0][0];
+    expect(call.where.OR).toEqual([
+      { name: { contains: 'coca', mode: 'insensitive' } },
+      { brand: { contains: 'coca', mode: 'insensitive' } },
+    ]);
+    expect(call.where.AND).toBeUndefined();
+  });
+
+  it('findSuggestions "  coca   zero  milka  ": trim + split por whitespace múltiplos tokens', async () => {
+    prisma.product.findMany.mockResolvedValueOnce([]);
+    prisma.$queryRaw.mockResolvedValueOnce([]);
+    await repo.findSuggestions('  coca   zero  milka  ', 8);
+    const call = prisma.product.findMany.mock.calls[0][0];
+    expect(call.where.AND).toHaveLength(3);
+    expect(call.where.AND[0].OR[0]).toEqual({
+      name: { contains: 'coca', mode: 'insensitive' },
+    });
+    expect(call.where.AND[1].OR[0]).toEqual({
+      name: { contains: 'zero', mode: 'insensitive' },
+    });
+    expect(call.where.AND[2].OR[0]).toEqual({
+      name: { contains: 'milka', mode: 'insensitive' },
+    });
+  });
+
+  it('findForSearch "coca zero": mesma tokenização aplicada', async () => {
+    prisma.product.findMany.mockResolvedValueOnce([
+      {
+        id: 'p-coca',
+        name: 'Coca-Cola Zero Azucar 2L',
+        imageUrl: null,
+        prices: [{ currentPrice: 1.89 }],
+      },
+    ]);
+    prisma.product.count.mockResolvedValueOnce(1);
+    const res = await repo.findForSearch('coca zero', 10);
+    expect(res.items).toHaveLength(1);
+    expect(res.items[0].id).toBe('p-coca');
+    expect(res.total).toBe(1);
+    const call = prisma.product.findMany.mock.calls[0][0];
+    expect(call.where.AND).toHaveLength(2);
+    expect(call.where.deletedAt).toBeNull();
+  });
+
+  it('findSuggestions "": query vazia → match-nothing guard (sem explodir)', async () => {
+    prisma.product.findMany.mockResolvedValueOnce([]);
+    const res = await repo.findSuggestions('', 8);
+    expect(res).toEqual([]);
+    const call = prisma.product.findMany.mock.calls[0][0];
+    expect(call.where.id).toBe('__none__');
+  });
+});

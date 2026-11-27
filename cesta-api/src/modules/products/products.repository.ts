@@ -24,6 +24,41 @@ const PRICE_INCLUDE = {
   category: true,
 } as const;
 
+/**
+ * Sprint 228 #7: tokeniza query multi-palavra e exige AND de ILIKE em
+ * name/brand por token. Query "coca zero" com single `contains` ILIKE
+ * '%coca zero%' NÃO achava "Coca-Cola Zero Azucar 2L" porque não existe
+ * substring literal "coca zero" (hyphen + "Cola " entre). Tokenize
+ * resolve o caso comum multi-palavra sem depender de pg_trgm fuzzy
+ * fallback (que é pra typo, não pra ordem/separadores).
+ *
+ * - 0 tokens: guard match-nothing (query vazia não deve chegar aqui).
+ * - 1 token: preserva comportamento legado (single OR name/brand).
+ * - 2+ tokens: AND-of-OR — cada token deve aparecer em name OU brand.
+ */
+function buildMultiTokenNameBrandWhere(q: string): Prisma.ProductWhereInput {
+  const tokens = q.trim().split(/\s+/).filter((t) => t.length > 0);
+  if (tokens.length === 0) {
+    return { id: '__none__' };
+  }
+  if (tokens.length === 1) {
+    return {
+      OR: [
+        { name: { contains: tokens[0], mode: 'insensitive' } },
+        { brand: { contains: tokens[0], mode: 'insensitive' } },
+      ],
+    };
+  }
+  return {
+    AND: tokens.map((t) => ({
+      OR: [
+        { name: { contains: t, mode: 'insensitive' } },
+        { brand: { contains: t, mode: 'insensitive' } },
+      ],
+    })),
+  };
+}
+
 @Injectable()
 export class ProductsRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -124,10 +159,8 @@ export class ProductsRepository {
     // L133). `take: limit` puro ordenava só rows arbitrárias do DB.
     const where: Prisma.ProductWhereInput = {
       deletedAt: null,
-      OR: [
-        { name: { contains: q, mode: 'insensitive' } },
-        { brand: { contains: q, mode: 'insensitive' } },
-      ],
+      // Sprint 228 #7: multi-token tokenize AND-of-OR (vide helper).
+      ...buildMultiTokenNameBrandWhere(q),
     };
 
     const sampleSize = Math.min(limit * 3, 40);
@@ -184,10 +217,8 @@ export class ProductsRepository {
     const rows = await this.prisma.product.findMany({
       where: {
         deletedAt: null,
-        OR: [
-          { name: { contains: q, mode: 'insensitive' } },
-          { brand: { contains: q, mode: 'insensitive' } },
-        ],
+        // Sprint 228 #7: multi-token tokenize AND-of-OR (vide helper).
+        ...buildMultiTokenNameBrandWhere(q),
       },
       take,
       select: {
@@ -334,11 +365,29 @@ export class ProductsRepository {
     const where: Prisma.ProductWhereInput = { deletedAt: null };
 
     if (filters.search) {
-      where.OR = [
-        { name: { contains: filters.search, mode: 'insensitive' } },
-        { brand: { contains: filters.search, mode: 'insensitive' } },
-        { normalizedName: { contains: filters.search.toLowerCase() } },
-      ];
+      // Sprint 228 #7: multi-token search com normalizedName fallback.
+      // Mesmo pattern do helper mas inclui normalizedName no OR (campo
+      // lowercased pré-stemmer do catalog-sync). normalizedName não
+      // precisa `mode: 'insensitive'` porque já é lowercase.
+      const tokens = filters.search
+        .trim()
+        .split(/\s+/)
+        .filter((t) => t.length > 0);
+      if (tokens.length === 1) {
+        where.OR = [
+          { name: { contains: tokens[0], mode: 'insensitive' } },
+          { brand: { contains: tokens[0], mode: 'insensitive' } },
+          { normalizedName: { contains: tokens[0].toLowerCase() } },
+        ];
+      } else if (tokens.length >= 2) {
+        where.AND = tokens.map((t) => ({
+          OR: [
+            { name: { contains: t, mode: 'insensitive' } },
+            { brand: { contains: t, mode: 'insensitive' } },
+            { normalizedName: { contains: t.toLowerCase() } },
+          ],
+        }));
+      }
     }
 
     if (filters.brand) {
