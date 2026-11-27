@@ -17,7 +17,12 @@ function makeSugg(overrides: Partial<{ id: string; name: string; brand: string |
   };
 }
 
-describe("useFuzzySuggestions (Sprint 179)", () => {
+// Sprint 237 — hook virou pass-through pro useSuggestions depois que o
+// Fuse.js re-rank foi removido. Backend `findSuggestions` agora aplica
+// tiers determinísticos (match-score.util.ts). Testes aqui garantem
+// (a) delegação transparente ao useSuggestions e (b) que a ordem do
+// backend é preservada sem reordenação client-side.
+describe("useFuzzySuggestions (Sprint 237 pass-through)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -35,23 +40,8 @@ describe("useFuzzySuggestions (Sprint 179)", () => {
     expect(result.current.isPending).toBe(true);
   });
 
-  it("query < 2 chars não aplica Fuse (passa data direto)", () => {
-    const data = [makeSugg({ id: "a", name: "Leche" })];
-    suggestMock.mockReturnValue({
-      data,
-      isPending: false,
-      isFetching: false,
-    });
-    const { result } = renderHookWithProviders(() =>
-      useFuzzySuggestions("a", 8),
-    );
-    expect(result.current.data).toEqual(data);
-  });
-
-  it("Fuse re-ranks por score ASC (best match primeiro)", () => {
-    // Backend retornou 3 matches; query 'leche' deve privilegiar nome=leche
+  it("preserva ordem do backend sem reordenar (ex: tier do /suggest)", () => {
     const data = [
-      makeSugg({ id: "pan", name: "Pan integral", brand: "Marca" }),
       makeSugg({ id: "leche-a", name: "Leche entera 1L", brand: null }),
       makeSugg({ id: "yogur", name: "Yogur de leche", brand: null }),
     ];
@@ -63,42 +53,32 @@ describe("useFuzzySuggestions (Sprint 179)", () => {
     const { result } = renderHookWithProviders(() =>
       useFuzzySuggestions("leche", 8),
     );
-    const ids = result.current.data?.map((d) => d.id) ?? [];
-    // Leche entera primeiro (match direto); "Pan integral" cortado pelo
-    // threshold Fuse (zero relação com "leche"). "Yogur de leche" pode
-    // ou não entrar — threshold 0.4 é apertado.
-    expect(ids[0]).toBe("leche-a");
-    expect(ids).not.toContain("pan");
+    expect(result.current.data?.map((d) => d.id)).toEqual([
+      "leche-a",
+      "yogur",
+    ]);
   });
 
-  it("typo severo além do threshold → fallback mantém data backend original", () => {
-    const data = [makeSugg({ id: "leche", name: "Leche entera" })];
+  it("repassa limit pro useSuggestions", () => {
     suggestMock.mockReturnValue({
-      data,
+      data: [],
+      isPending: false,
+      isFetching: false,
+    });
+    renderHookWithProviders(() => useFuzzySuggestions("leche", 5));
+    expect(suggestMock).toHaveBeenCalledWith("leche", 5);
+  });
+
+  it("query vazia continua delegando (filtro `enabled` fica a cargo do useSuggestions)", () => {
+    suggestMock.mockReturnValue({
+      data: undefined,
       isPending: false,
       isFetching: false,
     });
     const { result } = renderHookWithProviders(() =>
-      useFuzzySuggestions("xyz987", 8),
+      useFuzzySuggestions("", 8),
     );
-    // Fuse descarta tudo (score > 0.4), hook retorna data original (não vazio)
-    expect(result.current.data).toEqual(data);
-  });
-
-  it("typo leve dentro do threshold: 'lecge' ainda encontra 'Leche entera'", () => {
-    const data = [
-      makeSugg({ id: "leche", name: "Leche entera 1L" }),
-      makeSugg({ id: "pan", name: "Pan" }),
-    ];
-    suggestMock.mockReturnValue({
-      data,
-      isPending: false,
-      isFetching: false,
-    });
-    const { result } = renderHookWithProviders(() =>
-      useFuzzySuggestions("lecge", 8),
-    );
-    const ids = result.current.data?.map((d) => d.id) ?? [];
-    expect(ids).toContain("leche");
+    expect(result.current.data).toBeUndefined();
+    expect(suggestMock).toHaveBeenCalledWith("", 8);
   });
 });

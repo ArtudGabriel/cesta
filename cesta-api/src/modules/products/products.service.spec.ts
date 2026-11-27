@@ -655,3 +655,218 @@ describe('ProductsService.findMany — nutriScore filter + sort', () => {
     expect(grades).toEqual(sorted);
   });
 });
+
+// Sprint 237: findMany search ranking phrase > tokens > price
+describe('ProductsService.findMany — S237 search ranking', () => {
+  let service: ProductsService;
+  let repoMock: { findMany: jest.Mock };
+
+  const makeProduct = (id: string, name: string, cents: number, brand: string | null = null) => ({
+    id,
+    name,
+    brand,
+    normalizedName: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    ean: null,
+    imageUrl: null,
+    categoryId: null,
+    category: null,
+    packageSize: 1,
+    packageUnit: 'LITER',
+    comparisonUnit: 'LITER',
+    calories: null,
+    protein: null,
+    fat: null,
+    saturatedFat: null,
+    carbs: null,
+    sugar: null,
+    salt: null,
+    fiber: null,
+    nutritionPer: null,
+    nutriScore: null,
+    isVegan: false,
+    isVegetarian: false,
+    isGlutenFree: false,
+    isLactoseFree: false,
+    deletedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    prices: [
+      {
+        id: `price-${id}`,
+        productId: id,
+        supermarketId: 'm',
+        currentPrice: { toString: () => (cents / 100).toFixed(2) } as any,
+        previousPrice: null,
+        onPromotion: false,
+        isAvailable: true,
+        isStale: false,
+        lastSyncedAt: new Date(),
+        confidenceScore: 1,
+        source: 'official_api',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        supermarket: {
+          id: 'm',
+          slug: 'mercadona',
+          name: 'Mercadona',
+          color: null,
+          logoUrl: null,
+          website: null,
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      },
+    ],
+  });
+
+  beforeEach(async () => {
+    repoMock = { findMany: jest.fn() };
+    const module = await Test.createTestingModule({
+      providers: [
+        ProductsService,
+        { provide: ProductsRepository, useValue: repoMock as any },
+      ],
+    }).compile();
+    service = module.get(ProductsService);
+  });
+
+  it("'leche entera' → Leche entera brik 1L ranked antes de Chocolate con leche almendras enteras (mais barato)", async () => {
+    repoMock.findMany.mockResolvedValue({
+      items: [
+        // Mais barato, mas phrase match só tier 4 (tokens AND via WHERE).
+        makeProduct('chocolate', 'Chocolate con leche almendras enteras', 150),
+        // Mais caro, mas phrase match tier 0 (name starts).
+        makeProduct('leche', 'Leche entera brik 1L Hacendado', 125),
+      ],
+      total: 2,
+    });
+
+    const res = await service.findMany({
+      search: 'leche entera',
+      page: 1,
+      limit: 10,
+      skip: 0,
+    } as any);
+
+    expect(res.items[0].name).toBe('Leche entera brik 1L Hacendado');
+    expect(res.items[1].name).toBe('Chocolate con leche almendras enteras');
+  });
+
+  it("'coca cola zero' → Coca-Cola Zero 2L (hyphen normalizado) top", async () => {
+    repoMock.findMany.mockResolvedValue({
+      items: [
+        makeProduct('other', 'Refresco cola zero sabor original', 110),
+        makeProduct('coca', 'Coca-Cola Zero 2L', 199),
+      ],
+      total: 2,
+    });
+
+    const res = await service.findMany({
+      search: 'coca cola zero',
+      page: 1,
+      limit: 10,
+      skip: 0,
+    } as any);
+
+    expect(res.items[0].name).toBe('Coca-Cola Zero 2L');
+  });
+
+  it("'oreo' → Oreo Original (phrase start) antes de produto mais barato com 'oreo' no meio", async () => {
+    repoMock.findMany.mockResolvedValue({
+      items: [
+        makeProduct('variant', 'Galletas estilo oreo mini', 80),
+        makeProduct('oreo', 'Oreo Original 154g', 180),
+      ],
+      total: 2,
+    });
+
+    const res = await service.findMany({
+      search: 'oreo',
+      page: 1,
+      limit: 10,
+      skip: 0,
+    } as any);
+
+    expect(res.items[0].name).toBe('Oreo Original 154g');
+  });
+
+  it('empates mesmo tier → preço ASC tiebreak', async () => {
+    repoMock.findMany.mockResolvedValue({
+      items: [
+        makeProduct('a', 'Leche entera brik 1L A', 150),
+        makeProduct('b', 'Leche entera brik 1L B', 100),
+        makeProduct('c', 'Leche entera brik 1L C', 200),
+      ],
+      total: 3,
+    });
+
+    const res = await service.findMany({
+      search: 'leche entera',
+      page: 1,
+      limit: 10,
+      skip: 0,
+    } as any);
+
+    const names = res.items.map((p) => p.name);
+    // Todos tier 0 (name start) — tiebreak preço asc
+    expect(names).toEqual([
+      'Leche entera brik 1L B',
+      'Leche entera brik 1L A',
+      'Leche entera brik 1L C',
+    ]);
+  });
+
+  it('sem search mantém comportamento legacy (price asc via applySort)', async () => {
+    repoMock.findMany.mockResolvedValue({
+      items: [
+        makeProduct('a', 'Produto A', 300),
+        makeProduct('b', 'Produto B', 100),
+      ],
+      total: 2,
+    });
+
+    const res = await service.findMany({
+      page: 1,
+      limit: 10,
+      skip: 0,
+    } as any);
+
+    expect(res.items[0].name).toBe('Produto B');
+    expect(res.items[1].name).toBe('Produto A');
+  });
+
+  it('search vazia/whitespace não ativa post-process (total original preservado)', async () => {
+    repoMock.findMany.mockResolvedValue({
+      items: [makeProduct('a', 'X', 100)],
+      total: 5000,
+    });
+
+    const res = await service.findMany({
+      search: '   ',
+      page: 1,
+      limit: 10,
+      skip: 0,
+    } as any);
+
+    // Fast path: total original do repo (não filteredTotal).
+    expect(res.total).toBe(5000);
+  });
+
+  it('pagination respeita skip quando search ativo', async () => {
+    const items = Array.from({ length: 5 }).map((_, i) =>
+      makeProduct(`p${i}`, `Leche entera variant ${i}`, 100 + i * 10),
+    );
+    repoMock.findMany.mockResolvedValue({ items, total: 5 });
+
+    const res = await service.findMany({
+      search: 'leche entera',
+      page: 2,
+      limit: 2,
+      skip: 2,
+    } as any);
+
+    expect(res.items).toHaveLength(2);
+    expect(res.total).toBe(5);
+  });
+});

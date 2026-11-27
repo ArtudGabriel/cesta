@@ -73,18 +73,22 @@ export function SearchSuggestions({
         e.preventDefault();
         setActiveIndex((i) => (i - 1 + items.length) % items.length);
       } else if (e.key === "Enter") {
-        // activeIndex=-1 (user não navegou setas): usa primeira sugestão disponível.
+        e.preventDefault();
+        // Sprint 237: Enter (com ou sem seta) vai pra tela de resultados
+        // (home com ?q=<frase>), nunca pro detalhe do primeiro produto.
+        // User esperava ver lista ordenada por relevância antes de escolher.
+        // Clique/tap na sugestão continua abrindo o produto (Link no item).
         const idx = activeIndex < 0 ? 0 : activeIndex;
         const item = items[idx];
-        if (!item) return;
-        e.preventDefault();
-        if (item.kind === "recent") {
+        if (item?.kind === "recent") {
           onSelectRecent(item.value);
-        } else {
-          add(query);
-          onSelect?.();
-          router.push(`/produto/${item.id}`);
+          return;
         }
+        const trimmed = query.trim();
+        if (trimmed.length < 2) return;
+        add(trimmed);
+        onSelect?.();
+        router.push(`/?q=${encodeURIComponent(trimmed)}`);
       } else if (e.key === "Escape") {
         e.preventDefault();
         onClose();
