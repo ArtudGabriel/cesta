@@ -37,6 +37,10 @@ function detailHtml(opts: {
   omitProductBlock?: boolean;
   omitJsonLd?: boolean;
   invalidJsonLd?: boolean;
+  gtin13?: string | number;
+  gtin12?: string | number;
+  gtin?: string | number;
+  gtin8?: string | number;
 }): string {
   if (opts.omitJsonLd) {
     return `<html><body><h1>${opts.name}</h1></body></html>`;
@@ -44,25 +48,30 @@ function detailHtml(opts: {
   if (opts.invalidJsonLd) {
     return `<html><body><script type="application/ld+json">{not json</script></body></html>`;
   }
+  const productPayload: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: opts.name,
+    image: opts.image
+      ? [opts.image]
+      : [`https://s7g10.scene7.com/is/image/aldinord/${opts.id}_pack`],
+    description: opts.description ?? '',
+    sku: opts.id,
+    brand: opts.brand ? { '@type': 'Brand', name: opts.brand } : undefined,
+    offers: {
+      '@type': 'Offer',
+      priceCurrency: 'EUR',
+      price: opts.price,
+      availability: 'https://schema.org/InStock',
+    },
+  };
+  if (opts.gtin13 !== undefined) productPayload.gtin13 = opts.gtin13;
+  if (opts.gtin12 !== undefined) productPayload.gtin12 = opts.gtin12;
+  if (opts.gtin !== undefined) productPayload.gtin = opts.gtin;
+  if (opts.gtin8 !== undefined) productPayload.gtin8 = opts.gtin8;
   const productBlock = opts.omitProductBlock
     ? `<script type="application/ld+json">${JSON.stringify({ '@type': 'BreadcrumbList', itemListElement: [] })}</script>`
-    : `<script type="application/ld+json">${JSON.stringify({
-        '@context': 'https://schema.org',
-        '@type': 'Product',
-        name: opts.name,
-        image: opts.image
-          ? [opts.image]
-          : [`https://s7g10.scene7.com/is/image/aldinord/${opts.id}_pack`],
-        description: opts.description ?? '',
-        sku: opts.id,
-        brand: opts.brand ? { '@type': 'Brand', name: opts.brand } : undefined,
-        offers: {
-          '@type': 'Offer',
-          priceCurrency: 'EUR',
-          price: opts.price,
-          availability: 'https://schema.org/InStock',
-        },
-      })}</script>`;
+    : `<script type="application/ld+json">${JSON.stringify(productPayload)}</script>`;
   return `<html><body>${productBlock}</body></html>`;
 }
 
@@ -307,6 +316,115 @@ describe('AldiAdapter S219 sitemap+JSON-LD', () => {
     } as any);
     const products = await adapter.fetchProducts();
     expect(products).toEqual([]);
+  });
+
+  // ────────────────────────────────────────────────────────────
+  // Sprint 228 G1 (ADR 0036) — EAN/GTIN extraction do JSON-LD
+  // ────────────────────────────────────────────────────────────
+
+  it('S228 G1: extrai gtin13 do JSON-LD → ean populado (EAN-13 europeu padrão Aldi)', async () => {
+    const sitemap = sitemapXml([{ slug: 'cerveza-clasica', id: '50600' }]);
+    restoreFetch = installGlobalFetch(sitemap);
+    wireDetailAndOfertas(
+      {
+        'https://www.aldi.es/producto/cerveza-clasica-50600.html': detailHtml({
+          id: '50600',
+          name: 'Cerveza clásica',
+          brand: 'KARLSQUELL',
+          price: 0.29,
+          description: '500 ml lata',
+          gtin13: '4061458000013',
+        }),
+      },
+      ofertasHtml([]),
+    );
+    const products = await adapter.fetchProducts();
+    expect(products).toHaveLength(1);
+    expect(products[0].ean).toBe('4061458000013');
+  });
+
+  it('S228 G1: fallback cadeia gtin13 → gtin12 → gtin → gtin8 (não nulos)', async () => {
+    const sitemap = sitemapXml([
+      { slug: 'a', id: '1' },
+      { slug: 'b', id: '2' },
+      { slug: 'c', id: '3' },
+      { slug: 'd', id: '4' },
+    ]);
+    restoreFetch = installGlobalFetch(sitemap);
+    wireDetailAndOfertas(
+      {
+        'https://www.aldi.es/producto/a-1.html': detailHtml({
+          id: '1',
+          name: 'A',
+          price: 1.0,
+          gtin12: '123456789012',
+        }),
+        'https://www.aldi.es/producto/b-2.html': detailHtml({
+          id: '2',
+          name: 'B',
+          price: 1.0,
+          gtin: '7891234567',
+        }),
+        'https://www.aldi.es/producto/c-3.html': detailHtml({
+          id: '3',
+          name: 'C',
+          price: 1.0,
+          gtin8: '12345670',
+        }),
+        'https://www.aldi.es/producto/d-4.html': detailHtml({
+          id: '4',
+          name: 'D',
+          price: 1.0,
+          // sem GTIN → ean null
+        }),
+      },
+      ofertasHtml([]),
+    );
+    const products = await adapter.fetchProducts();
+    const byId = new Map(products.map((p) => [p.externalId, p]));
+    expect(byId.get('1')?.ean).toBe('123456789012');
+    expect(byId.get('2')?.ean).toBe('7891234567');
+    expect(byId.get('3')?.ean).toBe('12345670');
+    expect(byId.get('4')?.ean).toBeNull();
+  });
+
+  it('S228 G1: gtin13 prioridade sobre gtin12/gtin/gtin8 quando múltiplos presentes', async () => {
+    const sitemap = sitemapXml([{ slug: 'all', id: '99' }]);
+    restoreFetch = installGlobalFetch(sitemap);
+    wireDetailAndOfertas(
+      {
+        'https://www.aldi.es/producto/all-99.html': detailHtml({
+          id: '99',
+          name: 'All GTIN',
+          price: 1.0,
+          gtin13: '4061458000013',
+          gtin12: '123456789012',
+          gtin: '7891234567',
+          gtin8: '12345670',
+        }),
+      },
+      ofertasHtml([]),
+    );
+    const products = await adapter.fetchProducts();
+    expect(products[0].ean).toBe('4061458000013');
+  });
+
+  it('S228 G1: gtin numérico JSON (não string) convertido → ean string', async () => {
+    const sitemap = sitemapXml([{ slug: 'num', id: '42' }]);
+    restoreFetch = installGlobalFetch(sitemap);
+    wireDetailAndOfertas(
+      {
+        'https://www.aldi.es/producto/num-42.html': detailHtml({
+          id: '42',
+          name: 'Numeric',
+          price: 1.0,
+          gtin13: 4061458000013,
+        }),
+      },
+      ofertasHtml([]),
+    );
+    const products = await adapter.fetchProducts();
+    expect(products[0].ean).toBe('4061458000013');
   });
 
   it('ofertas.html indisponível → produtos ainda extraídos sem overlay', async () => {

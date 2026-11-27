@@ -223,7 +223,19 @@ model Product {
   updatedAt  DateTime  @updatedAt @map("updated_at")
   deletedAt  DateTime? @map("deleted_at")
 
+  // Sprint 228 G2 (ADR 0037): matching canônico cross-mercado por EAN.
+  // Produto duplicado criado por adapter antes do EAN estar disponível
+  // (ex: Aldi pré-S228 G1 criava Product ean=null próprio quando o mesmo
+  // item já existia como Product canônico Mercadona ean=X). Quando G1
+  // popular Aldi.ean=X e matchProduct retornar o canônico, `linkSupermarketDuplicate`
+  // seta `canonicalProductId = canonical.id` no duplicate e migra o
+  // ProductPrice daquele supermarket pro canônico. UI filtra
+  // `canonicalProductId IS NULL` em sprint G4.
+  canonicalProductId String? @map("canonical_product_id")
+
   category     Category?          @relation(fields: [categoryId], references: [id])
+  canonical    Product?           @relation("ProductCanonical", fields: [canonicalProductId], references: [id])
+  duplicates   Product[]          @relation("ProductCanonical")
   prices       ProductPrice[]
   snapshots    PriceSnapshot[]
   listItems    ShoppingListItem[]
@@ -236,6 +248,7 @@ model Product {
   @@index([normalizedName])
   @@index([categoryId, deletedAt])
   @@index([brand])
+  @@index([canonicalProductId])
   @@map("products")
 }
 
