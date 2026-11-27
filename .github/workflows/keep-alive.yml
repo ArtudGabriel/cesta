@@ -3,6 +3,11 @@ name: Keep-Alive API
 # Render free tier spin-down após 15min idle. Cron de 10min mantém o dyno
 # quente pra usuários reais não pegarem cold start ~30s. Minutos consumidos:
 # ~360/mês (6/h * 24 * 30 * 5s run) — folga confortável no free 2000/mês.
+#
+# NOTE (S236): GitHub Actions throttla cron em private repos com baixa atividade;
+# runs reais ficam esparsos (gaps de horas) mesmo com '*/10'. Pra eliminar cold
+# start de verdade, usar backup externo (UptimeRobot/cron-job.org/Upstash QStash).
+# Fail soft: 5xx/timeout são logados mas não quebram CI (ruído > sinal nesse cron).
 
 on:
   schedule:
@@ -21,14 +26,22 @@ jobs:
     steps:
       - name: Ping API health endpoint
         run: |
-          set -eu
+          set -u
           URL="https://cesta-gsvc.onrender.com/health"
           echo "Pinging $URL"
           # 60s connect+read para aguentar cold start (~30s) + slack.
-          # --fail falha em 4xx/5xx; --retry re-tenta na primeira falha de rede.
-          curl --fail --show-error --silent \
+          # --retry re-tenta na primeira falha de rede.
+          # Sem --fail: respostas 4xx/5xx são logadas mas não quebram o job
+          # (fail soft · Render suspenso/5xx = sinal pro dashboard, não pro CI).
+          HTTP_CODE=$(curl --show-error --silent \
                --max-time 60 \
                --retry 2 --retry-delay 10 --retry-connrefused \
-               "$URL" > /tmp/health.json
+               --write-out "%{http_code}" \
+               --output /tmp/health.json \
+               "$URL" || echo "000")
+          echo "HTTP $HTTP_CODE"
           echo "Response:"
-          cat /tmp/health.json
+          cat /tmp/health.json || echo "(no body)"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::warning title=Keep-alive non-200::API respondeu $HTTP_CODE (fail soft, job continua)"
+          fi
