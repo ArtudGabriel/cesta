@@ -6,7 +6,10 @@ import { HomeClient } from "./home-client";
 // 1h (next fetch cache). HomeClient recebe initialCategories e hidrata
 // o useQuery sem flash dos skeleton chips. Produtos continuam client-side
 // por conta dos filtros dependerem de URL/preferências locais.
-export const revalidate = 300;
+//
+// Sem `export const revalidate`: Next 16 + cacheComponents (Turbopack)
+// recusa segment config revalidate. O fetch interno abaixo já define
+// `next: { revalidate }` — cache de fetch opera independente da rota.
 
 async function fetchCategoriesSSR(): Promise<Category[]> {
   const baseUrl =
