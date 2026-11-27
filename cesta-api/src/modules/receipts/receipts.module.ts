@@ -1,6 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { PRICE_ALERTS_QUEUE } from '../alerts/alerts.processor';
+import { OcrService } from './ocr.service';
 import {
   PRICE_CORRECTION_QUEUE,
   PriceCorrectionProcessor,
@@ -24,6 +25,7 @@ import { ReceiptsService } from './receipts.service';
     ReceiptsRepository,
     ReceiptsProcessor,
     PriceCorrectionProcessor,
+    OcrService,
   ],
   exports: [ReceiptsService],
 })
