@@ -26,6 +26,7 @@ import { EroskiAdapter } from './adapters/eroski.adapter';
 import { FroizAdapter } from './adapters/froiz.adapter';
 import { LidlAdapter } from './adapters/lidl.adapter';
 import { MercadonaAdapter } from './adapters/mercadona.adapter';
+import type { Product } from '@prisma/client';
 import type {
   RawProduct,
   SupermarketAdapter,
@@ -42,6 +43,8 @@ export interface SyncResult {
   itemsUpdated: number;
   itemsCandidate: number;
   itemsFailed: number;
+  // Sprint 228 G2 (ADR 0037): duplicados reconciliados via canonicalProductId.
+  itemsMergedCanonical: number;
 }
 
 @Injectable()
@@ -115,6 +118,7 @@ export class CatalogSyncService {
       itemsUpdated: 0,
       itemsCandidate: 0,
       itemsFailed: 0,
+      itemsMergedCanonical: 0,
     };
     const updatedProductIds = new Set<string>();
 
@@ -135,11 +139,13 @@ export class CatalogSyncService {
       for (const raw of raws) {
         stats.itemsProcessed += 1;
         try {
-          let product = await this.matchProduct(raw);
+          const matched = await this.matchProduct(raw);
+          let product = matched.product;
           const resolvedSlug = resolveCategorySlug(raw.name, raw.categoryHint);
           const resolvedCategoryId = resolvedSlug
             ? categoryIdMap.get(resolvedSlug) ?? null
             : null;
+          const normalizedForRaw = slugifyName(`${raw.brand ?? ''} ${raw.name}`);
           // Sprint 116: adapter oficial é fonte confiável → se o Product
           // não existe no catálogo, criamos em vez de só registrar candidato.
           // S115 revelou que 100% dos 4620 produtos da Mercadona viravam
@@ -147,16 +153,29 @@ export class CatalogSyncService {
           // por slug). Mantemos o pipeline de candidate apenas para
           // adapters crowdsourced (futuro).
           if (!product) {
-            const normalized = slugifyName(`${raw.brand ?? ''} ${raw.name}`);
             product = await this.repo.createProductFromRaw(
               raw,
-              normalized,
+              normalizedForRaw,
               resolvedCategoryId,
             );
           } else if (!product.categoryId && resolvedCategoryId) {
             // Produto legacy sem categoria: atualiza se adapter resolve.
             await this.repo.updateCategoryId(product.id, resolvedCategoryId);
             product = { ...product, categoryId: resolvedCategoryId };
+          }
+
+          // Sprint 228 G2 (ADR 0037 + Boss guards 2026-11-27): matching
+          // canônico cross-mercado por EAN. Match veio via EAN exato →
+          // marca Product duplicado (ean=null · mesmo normalized_name)
+          // como `canonicalProductId = canonical.id`. NÃO deleta duplicate
+          // nem price do duplicate (preserva FKs de favorites/lists/alerts).
+          // UI filtra `canonicalProductId IS NULL` em G4.
+          if (matched.viaEan) {
+            const { linked } = await this.repo.linkSupermarketDuplicate({
+              canonicalId: product.id,
+              normalizedName: normalizedForRaw,
+            });
+            if (linked) stats.itemsMergedCanonical += 1;
           }
 
           // Sprint 224 (MVP Bloco 2): mantém sourceImageUrl atualizado pra
@@ -286,14 +305,18 @@ export class CatalogSyncService {
     return this.repo.listRuns(supermarketSlug);
   }
 
-  private async matchProduct(raw: RawProduct) {
+  // Sprint 228 G2: retorno carrega flag viaEan pra sinalizar quando o
+  // match veio do catálogo canônico (gate pra linkSupermarketDuplicate).
+  private async matchProduct(
+    raw: RawProduct,
+  ): Promise<{ product: Product | null; viaEan: boolean }> {
     if (raw.ean) {
       const byEan = await this.repo.findProductByEan(raw.ean);
-      if (byEan) return byEan;
+      if (byEan) return { product: byEan, viaEan: true };
     }
     const normalized = slugifyName(`${raw.brand ?? ''} ${raw.name}`);
     const byName = await this.repo.findProductByNormalizedName(normalized);
-    if (byName) return byName;
-    return null;
+    if (byName) return { product: byName, viaEan: false };
+    return { product: null, viaEan: false };
   }
 }

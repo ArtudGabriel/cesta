@@ -29,6 +29,48 @@ export class CatalogSyncRepository {
     });
   }
 
+  /**
+   * Sprint 228 G2 (ADR 0037) — matching canônico cross-mercado via EAN.
+   *
+   * Chamado após `findProductByEan` retornar o canônico num sync run.
+   * Procura um Product duplicado (mesmo `normalizedName`, `ean IS NULL`,
+   * `canonicalProductId IS NULL`) e seta `canonicalProductId = canonicalId`.
+   * Esse padrão indica que o adapter criou um Product próprio antes de
+   * conseguir popular o EAN (ex: Aldi pré-S228 G1).
+   *
+   * **Boss guard (2026-11-27)**: MERGE = LIGAR, NÃO APAGAR. Não removemos
+   * o ProductPrice do duplicate (quebraria FKs futuras de
+   * favorites/lists/alerts/reviews/snapshots). O duplicate fica no DB
+   * com `canonicalProductId` apontando pro canônico. UI filtra
+   * `canonicalProductId IS NULL` em G4. Cleanup pós-validação em sprint
+   * futura (decisão separada).
+   *
+   * Idempotente: duplicate já linkado é ignorado (canonicalProductId
+   * IS NULL no filtro). Zero-match devolve `{ linked: 0 }` sem throw.
+   */
+  async linkSupermarketDuplicate(input: {
+    canonicalId: string;
+    normalizedName: string;
+  }): Promise<{ linked: 0 | 1; duplicateId: string | null }> {
+    const duplicate = await this.prisma.product.findFirst({
+      where: {
+        normalizedName: input.normalizedName,
+        id: { not: input.canonicalId },
+        ean: null,
+        canonicalProductId: null,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+    if (!duplicate) return { linked: 0, duplicateId: null };
+
+    await this.prisma.product.update({
+      where: { id: duplicate.id },
+      data: { canonicalProductId: input.canonicalId },
+    });
+    return { linked: 1, duplicateId: duplicate.id };
+  }
+
   // Sprint 116: cria Product a partir de raw de adapter oficial quando o
   // match por EAN/normalizedName falha (catálogo vazio). Mirror do
   // scripts/sync-mercadona.ts (S108). Mantém candidate pipeline pra
