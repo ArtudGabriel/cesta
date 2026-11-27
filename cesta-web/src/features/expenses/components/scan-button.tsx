@@ -29,6 +29,13 @@ export function ScanButton() {
     previewUrl: string;
   } | null>(null);
 
+  // Sprint 228 #15b (double-fire bug): React Query `mutate` é sync e o
+  // disable do botão só vira efetivo APÓS re-render (~16ms). Fast
+  // double-click (ou mobile touch bounce) dispara `submit` 2x antes do
+  // `isPending=true` propagar -> 2 POSTs idênticos. Ref-guard trava o
+  // fluxo síncrono; reseta em onSettled (resolve ou reject).
+  const inflightRef = useRef(false);
+
   // Revoke object URL ao desmontar OR trocar arquivo.
   useEffect(() => {
     return () => {
@@ -57,7 +64,13 @@ export function ScanButton() {
 
   function submit() {
     if (!pending) return;
-    upload.mutate({ file: pending.file });
+    // Sprint 228 #15b: sync ref-guard (vide inflightRef comment).
+    if (inflightRef.current) return;
+    inflightRef.current = true;
+    upload.mutate(
+      { file: pending.file },
+      { onSettled: () => { inflightRef.current = false; } },
+    );
   }
 
   function cancel() {

@@ -33,11 +33,13 @@ describe("expensesService.uploadReceipt (Sprint 228 #15)", () => {
     expect(config?.adapter).toBe("xhr");
   });
 
-  it("NÃO seta Content-Type (browser deriva boundary multipart)", async () => {
+  it("S228 #15b: sobrescreve Content-Type:multipart/form-data per-request (bloqueia transformRequest JSON stringify)", async () => {
     const file = new File(["x"], "ticket.jpg", { type: "image/jpeg" });
     await expensesService.uploadReceipt(file);
     const [, , config] = mockedApi.post.mock.calls[0];
-    expect(config?.headers).toBeUndefined();
+    expect(config?.headers).toEqual({
+      "Content-Type": "multipart/form-data",
+    });
   });
 
   it("propaga onProgress com percentual arredondado", async () => {
