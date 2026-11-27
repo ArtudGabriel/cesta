@@ -42,6 +42,7 @@ interface AldiJsonLdProduct {
   price: number;
   imageUrl: string | null;
   description: string | null;
+  ean: string | null;
 }
 
 @Injectable()
@@ -112,7 +113,10 @@ export class AldiAdapter implements SupermarketAdapter {
         externalId: detail.id,
         name: detail.name,
         brand: detail.brand,
-        ean: null,
+        // Sprint 228 G1 (ADR 0036): JSON-LD Product block carrega gtin13/
+        // gtin12/gtin/gtin8 opcional; mesmo pattern alcampo.adapter S213.
+        // Popular ProductDb.ean destrava merge canônico cross-mercado (G2).
+        ean: detail.ean,
         categoryHint: null,
         imageUrl: detail.imageUrl,
         packageSize: pkg.packageSize,
@@ -255,7 +259,21 @@ export class AldiAdapter implements SupermarketAdapter {
 
     if (!name) return 'no-price';
 
-    return { id, name, brand, price, imageUrl, description };
+    // Sprint 228 G1 (ADR 0036): JSON-LD schema.org/Product define gtin13,
+    // gtin12, gtin, gtin8. Aldi tipicamente usa gtin13 (EAN-13 europeu).
+    // Fallback cadeia prioriza 13→12→gtin genérico→8 (mesmo pattern
+    // alcampo.adapter.ts:177). NULL quando campo ausente.
+    const ean = this.asString(
+      product.gtin13 ?? product.gtin12 ?? product.gtin ?? product.gtin8,
+    );
+
+    return { id, name, brand, price, imageUrl, description, ean };
+  }
+
+  private asString(v: unknown): string | null {
+    if (typeof v === 'string') return v.trim() || null;
+    if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+    return null;
   }
 
   private async fetchHtml(url: string): Promise<string | null> {

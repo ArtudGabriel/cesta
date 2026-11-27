@@ -20,18 +20,31 @@ export const expensesService = {
     const form = new FormData();
     form.append("image", file);
     if (notes) form.append("notes", notes);
-    // Sprint 228 #15: usa adapter XHR per-request pro upload. Combinação
-    // `adapter: "fetch"` (instância) + FormData + onUploadProgress fazia o
-    // body virar ReadableStream (createMultipartBody axios) que requer
-    // HTTP/2 upload streaming — Render free tier termina em HTTP/1.1, o
-    // request abortava antes do backend validar o JWT e o erro aparecia
-    // como "Token ausente" pro user. XHR adapter: progress nativo +
-    // Authorization header preservada + compat universal. Content-Type
-    // omitido pro browser derivar boundary (pattern S102 import.service).
+    // Sprint 228 #15b (AJUSTE P1 QA empírico 2026-11-27): instance default
+    // `Content-Type: application/json` (lib/api.ts:12) força axios default
+    // transformRequest a converter FormData em JSON via `formDataToJSON`
+    // quando `headers.getContentType()` contém 'application/json'
+    // (node_modules/axios/lib/defaults/index.js:57). Body chegava ao
+    // backend como `{"image": "[object File]"}` plano texto, multer não
+    // achava campo multipart -> 400 "Imagem é obrigatória". Fix anterior
+    // S228 #15 removeu Content-Type explícito mas instance default
+    // persistia; QA retest ainda via 400.
+    //
+    // Correção definitiva: override Content-Type pra 'multipart/form-data'
+    // per-request. Axios transformRequest vê content-type sem 'json' ->
+    // preserva FormData intacta. Depois resolveConfig (helpers/resolveConfig.js:86)
+    // vê FormData + hasStandardBrowserEnv -> chama setContentType(undefined)
+    // removendo a declaração sem boundary -> browser nativamente seta
+    // multipart/form-data; boundary=... no xhr.send(FormData).
+    //
+    // adapter XHR per-request preservado (justificativa #15 original:
+    // fetch adapter + onUploadProgress + Render HTTP/1.1 aborta stream
+    // request body antes do JWT guard).
     const { data } = await api.post<
       Envelope<{ jobId: string; receiptId: string; status: string }>
     >("/receipts", form, {
       adapter: "xhr",
+      headers: { "Content-Type": "multipart/form-data" },
       onUploadProgress: (event) => {
         if (!onProgress || !event.total) return;
         onProgress(Math.round((event.loaded / event.total) * 100));
