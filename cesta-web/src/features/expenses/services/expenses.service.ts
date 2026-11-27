@@ -20,10 +20,18 @@ export const expensesService = {
     const form = new FormData();
     form.append("image", file);
     if (notes) form.append("notes", notes);
+    // Sprint 228 #15: usa adapter XHR per-request pro upload. Combinação
+    // `adapter: "fetch"` (instância) + FormData + onUploadProgress fazia o
+    // body virar ReadableStream (createMultipartBody axios) que requer
+    // HTTP/2 upload streaming — Render free tier termina em HTTP/1.1, o
+    // request abortava antes do backend validar o JWT e o erro aparecia
+    // como "Token ausente" pro user. XHR adapter: progress nativo +
+    // Authorization header preservada + compat universal. Content-Type
+    // omitido pro browser derivar boundary (pattern S102 import.service).
     const { data } = await api.post<
       Envelope<{ jobId: string; receiptId: string; status: string }>
     >("/receipts", form, {
-      headers: { "Content-Type": "multipart/form-data" },
+      adapter: "xhr",
       onUploadProgress: (event) => {
         if (!onProgress || !event.total) return;
         onProgress(Math.round((event.loaded / event.total) * 100));
