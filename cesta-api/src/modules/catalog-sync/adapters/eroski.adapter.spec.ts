@@ -215,7 +215,9 @@ describe('EroskiAdapter', () => {
     );
   });
 
-  it('filtra URLs não-categorias do sitemap', async () => {
+  it('filtra URLs não-categorias do sitemap (lvl >= 3)', async () => {
+    // Sprint 220: filtro passou de lvl>=2 (1613 URLs) pra lvl>=3 (1317 URLs).
+    // Hubs lvl2 raramente SSR-rendem tiles — gera ruído no dropout counter.
     const fetchMock = jest.fn((url: string) => {
       if (url.endsWith('/sitemap.xml'))
         return Promise.resolve(
@@ -223,13 +225,14 @@ describe('EroskiAdapter', () => {
             <url><loc>https://supermercado.eroski.es/es/login/</loc></url>
             <url><loc>https://supermercado.eroski.es/es/supermercado/2059698-frescos/</loc></url>
             <url><loc>https://supermercado.eroski.es/es/supermercado/2059698-frescos/2059700-naranjas/</loc></url>
+            <url><loc>https://supermercado.eroski.es/es/supermercado/2059698-frescos/2059699-frutas/2059700-naranjas-y-otros-citricos/</loc></url>
           </urlset>`),
         );
       return Promise.resolve(mockBareResponse('', 404));
     });
     global.fetch = fetchMock as unknown as typeof fetch;
     mockedPoliteFetchRaw.mockImplementation((url: string) => {
-      if (url.includes('naranjas'))
+      if (url.includes('naranjas-y-otros-citricos'))
         return Promise.resolve({ body: NARANJAS_HTML, status: 200, setCookie: [] }) as any;
       return Promise.resolve({ body: '', status: 404, setCookie: [] }) as any;
     });
@@ -237,17 +240,87 @@ describe('EroskiAdapter', () => {
     await adapter.fetchProducts();
 
     const politeFetchCalls = mockedPoliteFetchRaw.mock.calls.map((c) => c[0]);
-    // politeFetchRaw só chamado pra páginas de categoria (não sitemap)
+    // politeFetchRaw só chamado pra folha lvl>=3 (não login, não lvl1, não lvl2 hub)
     expect(politeFetchCalls.some((u) => u.includes('/login/'))).toBe(false);
-    expect(politeFetchCalls.some((u) => u.includes('2059700-naranjas'))).toBe(
-      true,
-    );
+    expect(
+      politeFetchCalls.some(
+        (u) => u.endsWith('2059698-frescos/') || u.endsWith('2059700-naranjas/'),
+      ),
+    ).toBe(false);
+    expect(
+      politeFetchCalls.some((u) => u.includes('naranjas-y-otros-citricos')),
+    ).toBe(true);
     // sitemap via bareFetch (global.fetch)
     expect(
       fetchMock.mock.calls.some((c) =>
         (c[0] as string).endsWith('/sitemap.xml'),
       ),
     ).toBe(true);
+  });
+
+  it('loga dropout counters por causa (S220 observability)', async () => {
+    const logSpy = jest.spyOn((adapter as any).logger, 'log').mockImplementation(() => {});
+
+    // Sitemap com 1 folha lvl3+
+    const fetchMock = jest.fn(() => Promise.resolve(mockBareResponse(SITEMAP_XML)));
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    // HTML com tiles cobrindo cada causa de dropout:
+    //   - 1 tile bom
+    //   - 1 tile data-metrics JSON malformado (tileParseFail)
+    //   - 1 tile sem item em ecommerce.items (tileNoItem)
+    //   - 1 tile sem item_id (tileNoId)
+    //   - 1 tile sem item_name (tileNoName)
+    //   - 1 tile com price NaN (tileBadPrice)
+    //   - 1 tile duplicado do bom (tileDuplicate)
+    const goodItem = {
+      ecommerce: {
+        items: [
+          { price: 1.5, item_name: 'Good', item_id: 'good-1' },
+        ],
+      },
+    };
+    const noItemBlock = { ecommerce: { items: [] } };
+    const noIdItem = { ecommerce: { items: [{ price: 1, item_name: 'NoId' }] } };
+    const noNameItem = { ecommerce: { items: [{ price: 1, item_id: 'x' }] } };
+    const badPriceItem = {
+      ecommerce: {
+        items: [{ price: 'nope', item_name: 'BadPrice', item_id: 'bp-1' }],
+      },
+    };
+    const DROPOUT_HTML = `<html><body>
+      <a class="product-title-link" data-metrics="${metricsEncode(goodItem)}"></a>
+      <a class="product-title-link" data-metrics="broken{json"></a>
+      <a class="product-title-link" data-metrics="${metricsEncode(noItemBlock)}"></a>
+      <a class="product-title-link" data-metrics="${metricsEncode(noIdItem)}"></a>
+      <a class="product-title-link" data-metrics="${metricsEncode(noNameItem)}"></a>
+      <a class="product-title-link" data-metrics="${metricsEncode(badPriceItem)}"></a>
+      <a class="product-title-link" data-metrics="${metricsEncode(goodItem)}"></a>
+    </body></html>`;
+
+    mockedPoliteFetchRaw.mockImplementation((url: string) => {
+      if (url.includes('naranjas'))
+        return Promise.resolve({ body: DROPOUT_HTML, status: 200, setCookie: [] }) as any;
+      if (url.includes('leches'))
+        return Promise.resolve({ body: '', status: 404, setCookie: [] }) as any;
+      return Promise.resolve({ body: '', status: 404, setCookie: [] }) as any;
+    });
+
+    const products = await adapter.fetchProducts();
+    expect(products.length).toBe(1); // só o good tile sobrevive, dup pulado
+
+    const summaryCall = logSpy.mock.calls.find((call) =>
+      String(call[0] ?? '').includes('produtos coletados'),
+    );
+    expect(summaryCall).toBeDefined();
+    const line = String(summaryCall![0]);
+    expect(line).toContain('parse=1');
+    expect(line).toContain('noitem=1');
+    expect(line).toContain('noid=1');
+    expect(line).toContain('noname=1');
+    expect(line).toContain('badprice=1');
+    expect(line).toContain('dup=1');
+    expect(line).toContain('fetch=1'); // leches 404 → categoryFetchFail
   });
 
   it('não aborta quando categoria HTML retorna 404', async () => {
