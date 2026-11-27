@@ -111,7 +111,7 @@ Para rollback zero-erro, usar PITR Neon (restore point ou branch) como fonte de 
 - **Backfill opt-in em vez de runtime**: cron Mercadona permanece ~1h (não fica 2-4h). Admin roda `--apply --limit 200` quando quiser empurrar enriquecimento. Progressive: limit 200/run × 20 runs = 4000 produtos cobertos.
 - **4 adapters sem EAN dependem 100% de G3**: pg_trgm `brand + normalized_name + size_unit` será a ponte. G3 já é escopo próximo (`feat/s229-g3-trigram-match-no-ean` em paralelo).
 - **Probe bloqueado em DIA/LIDL/Eroski**: audit estático supre, mas **recomendação**: rodar `scripts/audit-adapter-ean-sources.mjs` desde Render prod (IP ES) ou proxy BR→ES pra confirmar findings. Tracking como follow-up P3 S230.
-- **Mercadona ID extraído de `imageUrl`**: dependência frágil (R2/Vercel Blob podem reescrever URLs). Alternativa robusta seria `Product.externalId` ou um novo campo `mercadonaId`. Deixado como P3 follow-up se a extração via URL cair em prod.
+- **Mercadona ID extraído de `imageUrl`** (pré-S230): dependência frágil. **Observado em prod S230 (Boss finding 2026-11-27 18:40Z)**: dry-run `--limit 30` retornou 27/30 "no mercadona id" porque `imageUrl` migrou pra R2 pós-S213+S216 (`cesta-products.<account>.r2.dev/mercadona/<slug>.jpg`) — regex Mercadona imgix não bate. **Fix S230** no script: lê **apenas** `sourceImageUrl` (URL original persistida pós-S224 ADR 0032). Produtos pré-S224 têm `sourceImageUrl = NULL` e são skippados com contador `noSourceUrl` separado (aguardam próximo cron S224 populate). Alternativa robusta `Product.externalId`/`mercadonaId` field permanece P3 follow-up se cobertura não crescer.
 
 ## Consequências
 
@@ -119,3 +119,16 @@ Para rollback zero-erro, usar PITR Neon (restore point ou branch) como fonte de 
 - ADR 0038 documenta decisão explícita per adapter → G3 sabe exatamente onde apostar.
 - G2 `linkSupermarketDuplicate` continua silencioso até G3 popular `normalizedName` cross-mercado.
 - Nenhuma mudança nos cron atuais.
+
+## Updates
+
+### 2026-11-27 (S230 fix · Boss finding 18:40Z)
+
+- Backfill script S229 G1b quebrou no dry-run `--limit 30` em worktree: 27/30 `no mercadona id · sem image_url padrão` · 3/30 `http fail` · 0 ean found.
+- Root cause: `imageUrl` migrou pra R2 (S213+S216); script caía em `imageUrl` quando `sourceImageUrl` NULL.
+- Fix PR `fix/s230-mercadona-backfill-id-source`:
+  1. Script lê **apenas** `sourceImageUrl` (não cai em `imageUrl`).
+  2. Novos contadores separados: `noSourceUrl` (legacy pré-S224) × `noIdInUrl` (URL presente mas regex não bate).
+  3. HTTP failures logam `status`, `retry-after`, `cf-ray`, `x-request-id` (sample 10 primeiras) pra Boss diagnosticar rate-limit/UA ban Mercadona.
+  4. Rollback atualizado: coluna `source` **nunca existiu** no schema; reforço de PITR Neon preferido + SQL por `updated_at > <timestamp UTC>` secundário (script imprime timestamp `date -u` no `--apply`).
+- Procedimento validação Boss: rerun dry-run `--limit 30` pós-fix → `ean_found > 0` se `sourceImageUrl` cobre amostra; senão escalar `noSourceUrl` count (aguarda cron S224 populate).
