@@ -43,10 +43,10 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import process from 'node:process';
 import {
-  effectiveSize,
   extractBrand,
 } from './lib/brand-normalize.mjs';
 import {
+  canonicalSize,
   classifyTypeKey,
   equivalentGroupKey,
   sizeCanon,
@@ -83,22 +83,23 @@ function parseArgs() {
 }
 
 async function fetchCandidates(prisma, limit) {
-  // Apenas canonicals ativos com algum price. Sem filtro de categoria (type
-  // pattern + classify decide piloto). Note: equivalent_group_id ainda não
-  // existe no Prisma client enquanto generate estiver bloqueado · usamos
-  // raw query pra lidar com isso.
+  // Apenas canonicals ativos com pelo menos 1 price. Sprint 245b: inclui
+  // supermarkets presentes (array) pro métrica groups-with-2+-supers no
+  // relatório. Mercadona é identificada por supermarket.slug='mercadona'
+  // (sanity check Boss métrica groups-with-Mercadona).
   return prisma.$queryRawUnsafe(
     `
-    SELECT p.id, p.name, p.brand, p.package_size, p.package_unit, p.equivalent_group_id
+    SELECT p.id, p.name, p.brand, p.package_size, p.package_unit,
+           p.equivalent_group_id,
+           array_agg(DISTINCT s.slug) FILTER (WHERE s.slug IS NOT NULL) AS super_slugs
     FROM products p
+    JOIN product_prices pp ON pp.product_id = p.id
+      AND pp.is_available = true AND pp.deleted_at IS NULL
+    JOIN supermarkets s ON s.id = pp.supermarket_id AND s.is_active = true
     WHERE p.deleted_at IS NULL
       AND p.canonical_product_id IS NULL
-      AND EXISTS (
-        SELECT 1 FROM product_prices pp
-        WHERE pp.product_id = p.id
-          AND pp.is_available = true
-          AND pp.deleted_at IS NULL
-      )
+    GROUP BY p.id, p.name, p.brand, p.package_size, p.package_unit,
+             p.equivalent_group_id, p.created_at
     ORDER BY p.created_at ASC, p.id ASC
     LIMIT $1
     `,
@@ -106,26 +107,50 @@ async function fetchCandidates(prisma, limit) {
   );
 }
 
+// Sprint 245c (Boss bug 3): ovos têm package size ambíguo (packageSize=1
+// UNIT no DB para a maioria; "12 un" fica só no nome). Para a família
+// huevos, o size canonical é CONSTANTE `{value:1, unit:'un', pack:1}` e
+// a quantidade (6/12/30), grade (S/M/L/XL) e cría (suelo/camperos/
+// ecologicos) vão todas no `variantKey` — é lá que o agrupamento
+// discrimina. Sem essa normalização, Mercadona e Dia nunca caem no
+// mesmo bucket porque `packageSize` difere.
+const HUEVO_CANONICAL_SIZE = { value: 1, unit: 'un', pack: 1 };
+
 function bucketize(rows) {
   const buckets = new Map();
   let classified = 0;
-  let unclassified = 0;
+  let droppedByType = 0;
+  let droppedBySize = 0;
   for (const r of rows) {
     const brand = r.brand ?? extractBrand(r.name);
     const typeKey = classifyTypeKey(r.name, brand);
     if (!typeKey) {
-      unclassified += 1;
+      droppedByType += 1;
       continue;
     }
+    // Sprint 245c (Boss rule 3): ovos ignoram sizeCanon do DB — toda a
+    // discriminação vai pro variantKey (qty + grade + cría).
+    let size;
+    if (typeKey === 'huevos') {
+      size = HUEVO_CANONICAL_SIZE;
+    } else {
+      // Sprint 245b (Boss rule 6): size AUTORITATIVA vem de
+      // Product.packageSize+packageUnit; fallback ao parse do nome.
+      // Null → produto FORA do piloto (não inferir).
+      size = canonicalSize(r.name, r.package_size, r.package_unit);
+      if (!size) {
+        droppedBySize += 1;
+        continue;
+      }
+    }
     classified += 1;
-    const size = effectiveSize(r.name, r.package_size, r.package_unit);
     const key = equivalentGroupKey(typeKey, size, r.name);
     if (!buckets.has(key)) {
       buckets.set(key, {
         key,
         typeKey,
         sizeStr: sizeCanon(size),
-        variantKey: variantCanon(r.name),
+        variantKey: variantCanon(r.name, typeKey),
         members: [],
       });
     }
@@ -133,10 +158,11 @@ function bucketize(rows) {
       id: r.id,
       name: r.name,
       brand,
+      superSlugs: r.super_slugs ?? [],
       existing_group: r.equivalent_group_id,
     });
   }
-  return { buckets, classified, unclassified };
+  return { buckets, classified, droppedByType, droppedBySize };
 }
 
 function filterGroups(buckets) {
@@ -148,7 +174,17 @@ function filterGroups(buckets) {
     );
     // Boss rule: equivalente exige 2+ brands distintas.
     if (brands.size < 2) continue;
-    groups.push({ ...b, brands: [...brands] });
+    // Sprint 245b: coleta supermarkets distintos do grupo (any member's price)
+    // pra métrica Boss groups-with-2+-supers e groups-with-Mercadona.
+    const supers = new Set();
+    for (const m of b.members) {
+      for (const s of m.superSlugs ?? []) supers.add(s);
+    }
+    groups.push({
+      ...b,
+      brands: [...brands],
+      supers: [...supers],
+    });
   }
   return groups;
 }
@@ -177,9 +213,10 @@ async function main() {
     console.log(`Candidates: ${rows.length}`);
 
     console.log('\n[2/4] Classify + bucketize...');
-    const { buckets, classified, unclassified } = bucketize(rows);
-    console.log(`Classified (dentro piloto): ${classified}`);
-    console.log(`Unclassified (fora piloto): ${unclassified}`);
+    const { buckets, classified, droppedByType, droppedBySize } = bucketize(rows);
+    console.log(`Classified (dentro piloto + size válido): ${classified}`);
+    console.log(`Dropped typeKey (fora piloto): ${droppedByType}`);
+    console.log(`Dropped size (sem packageSize + sem size no nome): ${droppedBySize}`);
     console.log(`Buckets únicos: ${buckets.size}`);
 
     console.log('\n[3/4] Filter groups >=2 members + 2+ brands...');
@@ -187,8 +224,18 @@ async function main() {
       (a, b) => b.members.length - a.members.length,
     );
     const totalMembers = groups.reduce((s, g) => s + g.members.length, 0);
-    console.log(`Groups: ${groups.length}`);
-    console.log(`Total members a linkar: ${totalMembers}`);
+
+    // Sprint 245b (Boss rule 7): métricas críticas pro PR body.
+    const groupsMultiSuper = groups.filter((g) => g.supers.length >= 2).length;
+    const groupsWithMercadona = groups.filter((g) =>
+      g.supers.includes('mercadona'),
+    ).length;
+
+    console.log('\n=== MÉTRICAS S245b (Boss) ===');
+    console.log(`Groups total:                ${groups.length}`);
+    console.log(`Total members:               ${totalMembers}`);
+    console.log(`Groups com 2+ supermarkets:  ${groupsMultiSuper}  ← crítica`);
+    console.log(`Groups com Mercadona:        ${groupsWithMercadona}`);
 
     // Histogram por typeKey
     const byType = new Map();
@@ -200,19 +247,47 @@ async function main() {
       }
     }
 
-    // Amostra
-    const SAMPLE = parseInt(process.env.SAMPLE_GROUPS ?? '30', 10);
-    console.log(`\nSample groups (${Math.min(SAMPLE, groups.length)}/${groups.length}):`);
-    console.log('-'.repeat(72));
-    for (const g of groups.slice(0, SAMPLE)) {
+    // Sprint 245c (Boss bug 4): diagnose leite Hacendado missing — dumpa
+    // todos os candidatos Mercadona cujo classifier retornou leche-* mas
+    // que não formaram grupo com DIA. Se vazio: Mercadona catalog real
+    // não tem Hacendado leche ativo (canonical linked OR price inactive).
+    console.log('\n=== DIAGNOSTIC S245c (bug 4) — Mercadona leche candidates ===');
+    let mercLecheCount = 0;
+    for (const r of rows) {
+      const brand = r.brand ?? extractBrand(r.name);
+      const typeKey = classifyTypeKey(r.name, brand);
+      if (!typeKey || !typeKey.startsWith('leche-')) continue;
+      const supers = r.super_slugs ?? [];
+      if (!supers.includes('mercadona')) continue;
+      mercLecheCount += 1;
+      const size = canonicalSize(r.name, r.package_size, r.package_unit);
       console.log(
-        `  [${g.typeKey} · ${g.sizeStr}${g.variantKey ? ` · ${g.variantKey}` : ''}] members=${g.members.length} brands=${g.brands.join(',')}`,
+        `  "${r.name}" [${brand ?? '∅'}] pkg=${r.package_size}/${r.package_unit} canonSize=${size ? `${size.value}${size.unit}×${size.pack}` : 'NULL'} supers=${supers.join(',')} typeKey=${typeKey}`,
       );
-      for (const m of g.members.slice(0, 5)) {
-        console.log(`     → "${m.name.slice(0, 60)}" [${m.brand ?? '∅'}]`);
-      }
-      if (g.members.length > 5) {
-        console.log(`     ... +${g.members.length - 5} mais`);
+    }
+    if (mercLecheCount === 0) {
+      console.log('  (zero candidates — Mercadona catalog não tem leche classificável ou prices inativos)');
+    } else {
+      console.log(`  Total Mercadona leche candidatos: ${mercLecheCount}`);
+    }
+
+    // Sprint 245b (Boss rule 9): dry-run imprime TODOS os membros full name
+    // + supermercados (SEM slice). Boss lê o relatório inteiro antes de
+    // autorizar --apply. Sample env preservado como opt-in truncate.
+    const SAMPLE = parseInt(process.env.SAMPLE_GROUPS ?? String(groups.length), 10);
+    const sampleCount = Math.min(SAMPLE, groups.length);
+    console.log(`\n=== GROUPS (${sampleCount}/${groups.length}) ===`);
+    console.log('-'.repeat(72));
+    for (const g of groups.slice(0, sampleCount)) {
+      console.log(
+        `\n[${g.typeKey} · ${g.sizeStr}${g.variantKey ? ` · ${g.variantKey}` : ''}]`,
+      );
+      console.log(
+        `  members=${g.members.length} brands=${g.brands.length} (${g.brands.join('|')}) supers=${g.supers.length} (${g.supers.join('|')})`,
+      );
+      for (const m of g.members) {
+        const supers = (m.superSlugs ?? []).join(',');
+        console.log(`    → "${m.name}" [${m.brand ?? '∅'}] @${supers || '∅'}`);
       }
     }
 
