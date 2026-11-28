@@ -6,7 +6,7 @@ import { server } from "@/mocks/server";
 import { renderWithProviders } from "@/test-utils";
 import { AdminUserCard } from "./admin-user-card";
 
-const API = "http://localhost:3001/api/v1";
+const API = "http://localhost:3000/api/v1";
 
 const routerRefresh = vi.fn();
 vi.mock("next/navigation", () => ({

@@ -59,43 +59,48 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  // Sprint 243c (ADR 0045): auth transport first-party.
+  // Sprint 243c (ADR 0045 · Boss AJUSTE 2026-11-28): auth transport
+  // first-party via Next rewrite.
   //
   // Problema: cesta-web.vercel.app + cesta-gsvc.onrender.com são sites
   // DIFERENTES na Public Suffix List. Browser trata requests do front pro
-  // backend como cross-site. Refresh cookie setado pelo backend com
-  // SameSite='lax' + Secure + httpOnly NÃO é incluído em XHR cross-site
-  // (nem em iPhone Safari que tem ITP agressivo além do SameSite). Pós
-  // expiração dos 15min do access token, `fetch(/auth/refresh,
-  // credentials: 'include')` chega ao backend sem cookie → 401 → user
-  // é deslogado e qualquer ação logada retorna "Token ausente" em
+  // backend como cross-site. Refresh cookie `SameSite=lax` NÃO é incluído
+  // em XHR cross-site (iPhone Safari ITP bloqueia mesmo None+Secure). Pós
+  // 15min do access token, `fetch(/auth/refresh, credentials: 'include')`
+  // chega sem cookie → 401 → user deslogado → "Token ausente" no
   // `jwt-auth.guard.ts:34`.
   //
   // Fix: proxy transparente /api/v1/:path* via Next rewrite. Browser passa
-  // a enxergar a API como mesmo origin (cesta-web.vercel.app/api/v1/...).
-  // Refresh cookie é setado pelo backend sem `Domain=` attribute → Next
-  // repassa Set-Cookie → browser atribui ao domínio do request
-  // (vercel.app) → cookie fica first-party → SameSite=lax funciona + ITP
-  // Safari deixa passar.
+  // a enxergar a API como mesmo origin. Refresh cookie setado sem `Domain=`
+  // vira first-party no vercel.app → SameSite=lax funciona + ITP passa.
   //
-  // API_UPSTREAM é server-side only (sem prefix NEXT_PUBLIC) — não
-  // vaza upstream pro client bundle. SSR em `receipt.server.ts` continua
-  // chamando direto o upstream via `API_URL` (server-to-server, sem
-  // sentido rotear via Vercel edge).
+  // Fonte única da verdade (Boss replace-in-place rule · claude-geral-
+  // consolidado): rewrite deriva destino do próprio NEXT_PUBLIC_API_URL
+  // (já setado em Production = https://cesta-gsvc.onrender.com/api/v1).
+  // Sem novo env var API_UPSTREAM — 8 fetchers SSR (page.tsx home,
+  // product.server, compare.server, list.server, receipt.server,
+  // admin.server, opengraph-image, receipt-detail-body) continuam lendo
+  // NEXT_PUBLIC_API_URL absoluto; só o CLIENT axios/fetch passa a usar
+  // `/api/v1` relativo (ver lib/api.ts).
   //
-  // Latency extra: 1 hop cdg1 (Vercel edge) → oregon (Render). Medido
-  // em S243c (anotado PR body). Aceito como trade-off vs sessão quebrada
-  // a cada 15min.
+  // Latency extra: 1 hop cdg1 (Vercel edge) → oregon (Render), ~150-250ms
+  // RTT. Trade-off aceito vs sessão quebrada a cada 15min.
   //
-  // Rollback: remover o bloco de rewrites + reverter baseURL em
-  // lib/api.ts. Deploy do Vercel rolls back automatic via revert do commit.
+  // Rollback: `git revert <sha>` + push → Vercel auto-deploy reverte. Zero
+  // env change necessária.
   async rewrites() {
-    const upstream = process.env.API_UPSTREAM?.replace(/\/+$/, "");
-    if (!upstream) return [];
+    const raw = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "");
+    if (!raw) return [];
+    // NEXT_PUBLIC_API_URL já contém /api/v1 (convenção .env.example). O
+    // `source` do rewrite também contém /api/v1 — destination precisa do
+    // host origin SEM esse suffix. Strip, mas só se o suffix existe (caso
+    // valor venha relativo tipo "/api/v1" dev legacy, pula rewrite).
+    const base = raw.replace(/\/api\/v1$/, "");
+    if (!base || base === raw) return [];
     return [
       {
         source: "/api/v1/:path*",
-        destination: `${upstream}/api/v1/:path*`,
+        destination: `${base}/api/v1/:path*`,
       },
     ];
   },

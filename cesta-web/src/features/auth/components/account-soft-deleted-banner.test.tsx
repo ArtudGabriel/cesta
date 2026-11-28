@@ -6,7 +6,7 @@ import { server } from "@/mocks/server";
 import { renderWithProviders } from "@/test-utils";
 import { AccountSoftDeletedBanner } from "./account-soft-deleted-banner";
 
-const API = "http://localhost:3001/api/v1";
+const API = "http://localhost:3000/api/v1";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),

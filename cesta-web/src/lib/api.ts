@@ -6,15 +6,28 @@ import * as Sentry from "@sentry/nextjs";
 // precisa de folga. Timeout mais baixo quebra GETs legítimos nesse cenário.
 export const API_TIMEOUT_MS = 45000;
 
-// Sprint 243c (ADR 0045): baseURL relativo pro proxy Next rewrite
-// (/api/v1 mesmo-origin). Preserva o default local http://localhost:3001
-// por desenvolvedores que ainda não rodam Next em modo rewrite, mas em
-// prod o default `/api/v1` casa com o rewrite de next.config.ts.
-const DEFAULT_API_BASE_URL =
-  process.env.NODE_ENV === "production" ? "/api/v1" : "http://localhost:3001/api/v1";
+// Sprint 243c (ADR 0045 · Boss AJUSTE 2026-11-28): client axios + fetch
+// refresh sempre same-origin via Next rewrite (next.config.ts). Fonte única
+// da verdade: `NEXT_PUBLIC_API_URL` continua a ser consumido APENAS pelos
+// fetchers SSR; o client ignora o valor e usa path relativo pro proxy.
+//
+// `CLIENT_API_BASE_URL` é o path relativo canônico pro proxy. O axios
+// instance usa um baseURL ABSOLUTO equivalente (window.location.origin +
+// path) apenas pra que o Node native fetch — usado em jsdom tests + SSR
+// edge-cases — consiga parsear a URL (`new URL("/api/v1")` sem base lança
+// TypeError). No browser real o origin é sempre o host do app (vercel.app),
+// então same-origin é preservado.
+export const CLIENT_API_BASE_URL = "/api/v1";
+
+function resolveClientBaseURL(): string {
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return `${window.location.origin}${CLIENT_API_BASE_URL}`;
+  }
+  return CLIENT_API_BASE_URL;
+}
 
 export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_BASE_URL,
+  baseURL: resolveClientBaseURL(),
   timeout: API_TIMEOUT_MS,
   headers: { "Content-Type": "application/json" },
   // fetch adapter garante intercept por MSW (setupServer/fetch) em testes jsdom.
@@ -125,7 +138,11 @@ let refreshPromise: Promise<string | null> | null = null;
 async function performRefresh(): Promise<string | null> {
   try {
     // Chamada crua (sem axios interceptor pra evitar loop infinito em 401).
-    const res = await fetch(`${api.defaults.baseURL ?? ""}/auth/refresh`, {
+    // Sprint 243c (ADR 0045): same-origin via Next rewrite. Prefer baseURL
+    // absoluto (jsdom tests/node fetch requer); fallback pro path relativo
+    // puro em edge-cases (sem window, sem baseURL).
+    const base = api.defaults.baseURL ?? CLIENT_API_BASE_URL;
+    const res = await fetch(`${base}/auth/refresh`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },

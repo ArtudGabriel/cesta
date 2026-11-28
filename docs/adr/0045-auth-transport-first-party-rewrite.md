@@ -26,28 +26,33 @@ Boss diagnosticou prod 2026-11-28 ao testar iPhone Safari. "Token ausente" no `/
 
 ### Proxy transparente via Next rewrite
 
-`next.config.ts` ganha `rewrites()`:
+`next.config.ts` ganha `rewrites()` derivando o upstream do próprio `NEXT_PUBLIC_API_URL` (fonte única da verdade · Boss replace-in-place, sem novo env var):
+
 ```ts
 async rewrites() {
-  const upstream = process.env.API_UPSTREAM?.replace(/\/+$/, "");
-  if (!upstream) return [];
+  const raw = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "");
+  if (!raw) return [];
+  const base = raw.replace(/\/api\/v1$/, "");
+  if (!base || base === raw) return [];
   return [
-    { source: "/api/v1/:path*", destination: `${upstream}/api/v1/:path*` },
+    { source: "/api/v1/:path*", destination: `${base}/api/v1/:path*` },
   ];
 }
 ```
 
-- `API_UPSTREAM` é **server-side only** (sem `NEXT_PUBLIC_`). Em prod = `https://cesta-gsvc.onrender.com`. Em dev vazio → rewrite é no-op.
-- `source` já contém `/api/v1`. `destination` reconstrói o full path no upstream.
+- `NEXT_PUBLIC_API_URL` já é consumido por 8 fetchers SSR (product.server, receipt.server, etc.) e vale `https://cesta-gsvc.onrender.com/api/v1` em prod. Rewrite strip-a o sufixo `/api/v1` pra montar `destination`. Dev local: `http://localhost:3001/api/v1` → upstream `http://localhost:3001`.
+- Sem `API_UPSTREAM` env novo. Zero ação user em Vercel settings (Boss veto 2026-11-28: unset/change de env derruba os 8 SSR fetchers).
 
-Frontend (`lib/api.ts`) passa a usar `baseURL` relativo:
+Frontend (`lib/api.ts`) passa a usar `baseURL` **hardcoded** relativo:
+
 ```ts
-const DEFAULT_API_BASE_URL =
-  process.env.NODE_ENV === "production" ? "/api/v1" : "http://localhost:3001/api/v1";
-baseURL: process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_BASE_URL,
+export const CLIENT_API_BASE_URL = "/api/v1";
+export const api = axios.create({ baseURL: CLIENT_API_BASE_URL, ... });
 ```
 
-Browser vê todas as calls como mesmo origin `cesta-web.vercel.app`. XHR não é mais cross-site.
+- Client axios + fetch refresh (`performRefresh` usa `api.defaults.baseURL`) ignoram `NEXT_PUBLIC_API_URL` → sempre same-origin.
+- Browser vê todas as calls como `cesta-web.vercel.app/api/v1/...`. Next rewrite proxia pro upstream. XHR não é mais cross-site.
+- SSR fetchers continuam absolutos (inalterados).
 
 ### Set-Cookie passthrough
 
