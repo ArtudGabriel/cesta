@@ -64,5 +64,12 @@ export default defineConfig({
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
     },
+    // Sprint 243c (ADR 0045): WebKit iPhone pra validar refresh cookie
+    // first-party sob ITP. Specs opt-in via grep `@webkit-iphone`.
+    {
+      name: "webkit-iphone",
+      use: { ...devices["iPhone 13"] },
+      grep: /@webkit-iphone/,
+    },
   ],
 });

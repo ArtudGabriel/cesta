@@ -1,6 +1,11 @@
 import { http, HttpResponse } from "msw";
 
-const API = "http://localhost:3001/api/v1";
+// Sprint 243c (ADR 0045): o axios client passou a usar `window.location.origin`
+// como base (same-origin via Next rewrite). Em jsdom tests isso vale
+// `http://localhost:3000` em vez do legacy `http://localhost:3001`. MSW v2 casa
+// pela URL exata do request — deixar `API` em `http://localhost:3001` fazia
+// todos os handlers errarem silenciosamente. Alinha com a origin de teste.
+const API = "http://localhost:3000/api/v1";
 
 // Envelope { data: T, meta?: ... } — espelha response shape backend (Sprint 2).
 function envelope<T>(data: T) {

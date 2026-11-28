@@ -59,6 +59,51 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // Sprint 243c (ADR 0045 · Boss AJUSTE 2026-11-28): auth transport
+  // first-party via Next rewrite.
+  //
+  // Problema: cesta-web.vercel.app + cesta-gsvc.onrender.com são sites
+  // DIFERENTES na Public Suffix List. Browser trata requests do front pro
+  // backend como cross-site. Refresh cookie `SameSite=lax` NÃO é incluído
+  // em XHR cross-site (iPhone Safari ITP bloqueia mesmo None+Secure). Pós
+  // 15min do access token, `fetch(/auth/refresh, credentials: 'include')`
+  // chega sem cookie → 401 → user deslogado → "Token ausente" no
+  // `jwt-auth.guard.ts:34`.
+  //
+  // Fix: proxy transparente /api/v1/:path* via Next rewrite. Browser passa
+  // a enxergar a API como mesmo origin. Refresh cookie setado sem `Domain=`
+  // vira first-party no vercel.app → SameSite=lax funciona + ITP passa.
+  //
+  // Fonte única da verdade (Boss replace-in-place rule · claude-geral-
+  // consolidado): rewrite deriva destino do próprio NEXT_PUBLIC_API_URL
+  // (já setado em Production = https://cesta-gsvc.onrender.com/api/v1).
+  // Sem novo env var API_UPSTREAM — 8 fetchers SSR (page.tsx home,
+  // product.server, compare.server, list.server, receipt.server,
+  // admin.server, opengraph-image, receipt-detail-body) continuam lendo
+  // NEXT_PUBLIC_API_URL absoluto; só o CLIENT axios/fetch passa a usar
+  // `/api/v1` relativo (ver lib/api.ts).
+  //
+  // Latency extra: 1 hop cdg1 (Vercel edge) → oregon (Render), ~150-250ms
+  // RTT. Trade-off aceito vs sessão quebrada a cada 15min.
+  //
+  // Rollback: `git revert <sha>` + push → Vercel auto-deploy reverte. Zero
+  // env change necessária.
+  async rewrites() {
+    const raw = process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "");
+    if (!raw) return [];
+    // NEXT_PUBLIC_API_URL já contém /api/v1 (convenção .env.example). O
+    // `source` do rewrite também contém /api/v1 — destination precisa do
+    // host origin SEM esse suffix. Strip, mas só se o suffix existe (caso
+    // valor venha relativo tipo "/api/v1" dev legacy, pula rewrite).
+    const base = raw.replace(/\/api\/v1$/, "");
+    if (!base || base === raw) return [];
+    return [
+      {
+        source: "/api/v1/:path*",
+        destination: `${base}/api/v1/:path*`,
+      },
+    ];
+  },
 };
 
 export default withSentryConfig(withAnalyzer(withNextIntl(nextConfig)), {

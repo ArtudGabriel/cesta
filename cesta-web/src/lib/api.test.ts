@@ -4,7 +4,7 @@ import {
   AxiosHeaders,
   type InternalAxiosRequestConfig,
 } from "axios";
-import { refreshAccessToken, shouldRetryOnNetworkError } from "./api";
+import { CLIENT_API_BASE_URL, api, refreshAccessToken, shouldRetryOnNetworkError } from "./api";
 
 function makeConfig(
   partial: Partial<InternalAxiosRequestConfig> & { _networkRetried?: boolean },
@@ -178,5 +178,38 @@ describe("refreshAccessToken (Sprint 87 singleflight)", () => {
     expect(await refreshAccessToken()).toBe("t1");
     expect(await refreshAccessToken()).toBe("t2");
     expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+});
+
+// Sprint 243c (ADR 0045 · Boss AJUSTE): client axios + fetch refresh
+// usam SEMPRE o mesmo host do app (same-origin). NEXT_PUBLIC_API_URL
+// (quando setado = https://cesta-gsvc.onrender.com/api/v1) NÃO vaza pro
+// client; serve apenas aos fetchers SSR. Prova: axios.defaults.baseURL
+// nunca aponta pro host upstream `cesta-gsvc.onrender.com`.
+describe("client baseURL same-origin (Sprint 243c ADR 0045)", () => {
+  it("CLIENT_API_BASE_URL exportado é /api/v1", () => {
+    expect(CLIENT_API_BASE_URL).toBe("/api/v1");
+  });
+
+  it("axios instance.defaults.baseURL termina em /api/v1 e NÃO aponta pro upstream cesta-gsvc", () => {
+    const baseURL = api.defaults.baseURL ?? "";
+    expect(baseURL.endsWith("/api/v1")).toBe(true);
+    expect(baseURL).not.toContain("cesta-gsvc.onrender.com");
+    expect(baseURL).not.toContain("onrender.com");
+  });
+
+  it("refreshAccessToken bate em path same-origin que termina em /api/v1/auth/refresh", async () => {
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: { tokens: { accessToken: "tok" } } }),
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+    await refreshAccessToken();
+    // URL DEVE ser same-origin (não upstream onrender). Pode ter origin
+    // em jsdom (http://localhost:3000/api/v1/auth/refresh) OU ser
+    // puro relativo /api/v1/auth/refresh — ambos same-origin pro browser.
+    const url = fetchSpy.mock.calls[0]?.[0] as string;
+    expect(url.endsWith("/api/v1/auth/refresh")).toBe(true);
+    expect(url).not.toContain("cesta-gsvc.onrender.com");
   });
 });

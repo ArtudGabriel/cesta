@@ -7,7 +7,7 @@ import { setAccessToken } from "@/lib/api";
 import { renderHookWithProviders, mockAuthUser } from "@/test-utils";
 import { useRecentSearches } from "./use-recent-searches";
 
-const API = "http://localhost:3001/api/v1";
+const API = "http://localhost:3000/api/v1";
 
 function signInMock() {
   setAccessToken("mock-access-token");

@@ -11,7 +11,7 @@ import {
   useImportStatus,
 } from "./use-import";
 
-const API = "http://localhost:3001/api/v1";
+const API = "http://localhost:3000/api/v1";
 
 function signIn() {
   setAccessToken("mock-access-token");
