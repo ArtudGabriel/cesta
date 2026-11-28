@@ -5,15 +5,18 @@
  * Agrupamento por (typeKey, sizeCanon, variantKey) + marcas DIFERENTES
  * forma um grupo equivalente cross-mercado cross-brand.
  *
- * typeKey definitions (regex sobre normalizeNameForMatch):
+ * typeKey definitions (regex sobre normalizeNameForMatch — 7 patterns no
+ * piloto · "pan" fallback foi descartado pra evitar false positives em
+ * produtos genéricos tipo "pan rallado" ou "pan de molde tostado" sem
+ * molde explícito · Reviewer S245 nit P3 2026-11-28):
  *   leche-entera     → "leche entera" (ex: "Leche entera brik 1L")
  *   leche-semi       → "leche semidesnatada" ou "leche semi"
  *   leche-desnatada  → "leche desnatada" ou "leche sin lactosa"
- *   agua-mineral     → "agua mineral" ou "agua"
+ *   agua-mineral     → "agua mineral" ou "agua sin/con gas"
  *   huevos           → "huevos" + opcional categoria (M/L/XL)
- *   aceite-oliva     → "aceite oliva virgen extra" ou "aceite oliva"
+ *   aceite-oliva-ve  → "aceite oliva virgen extra"
+ *   aceite-oliva     → "aceite oliva" (não VE)
  *   pan-molde        → "pan molde" ou "pan de molde"
- *   pan              → "pan" (fallback geral — sem molde/tostado/etc)
  *
  * Fora do piloto 5 categorias: null (produto NÃO entra em grupo equivalente).
  */

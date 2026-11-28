@@ -50,9 +50,12 @@ export function EquivalentBadge({
       title={tooltip}
       aria-label={tooltip}
       className={cn(
-        // Amarelo pra contrastar com o verde do SameProductBadge.
-        // Yellow-400 (bg) + yellow-950 (text) tem contrast ~7.5 (AA+).
-        "inline-flex items-center gap-1 rounded-pill bg-yellow-400 px-2 py-0.5 font-medium text-yellow-950",
+        // Sprint 245 (Reviewer AJUSTE 2026-11-28): token design system
+        // `bg-amber` (#F59E0B) — cesta-identidade-visual.md §3.2 Âmbar
+        // pra "alertas de preço, urgência moderada, destaque", exact
+        // use case do badge equivalente. `text-ink` (#2A2420) contra
+        // amber L*72 → contrast ~9+ (AAA).
+        "inline-flex items-center gap-1 rounded-pill bg-amber px-2 py-0.5 font-medium text-ink",
         size === "sm" ? "text-[10px]" : "text-xs",
         className,
       )}
