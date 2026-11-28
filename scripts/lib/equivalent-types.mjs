@@ -91,22 +91,23 @@ function classifyAceite(norm) {
   return null;
 }
 
-// Aceita sufixo flexional [ao] feminino/masculino espanhol (gasificada / alcalina).
-const AGUA_OUT = /\b(gas|gasificad[ao]?|vitaminad[ao]?|alcalin[ao]?|infusionad[ao]?|aromatizad[ao]?|carbonat[ao]?|sabor)\b/;
+// Sprint 245c (Boss bug 1): água só agrupa quando é ÁGUA MINERAL / MANANTIAL
+// potável para consumo. Expandiu OUT com casos observados no dry-run b:
+// colonia/oxigenada/micelar/destilada/fuerte/plancha/coco/tónica/perfumada/
+// desinfectante/antiséptico. Aceita sufixo flexional [ao] feminino/masculino.
+const AGUA_OUT = /\b(gas|gasificad[ao]?|vitaminad[ao]?|alcalin[ao]?|infusionad[ao]?|aromatizad[ao]?|carbonat[ao]?|sabor|colonia|oxigenad[ao]?|micelar|destilad[ao]?|fuerte|plancha|coco|tonica|perfumad[ao]?|desinfectant[eo]?|antiseptico|limpiahogar)\b/;
+
+const AGUA_REQUIRED = /\b(mineral|manantial)\b/;
 
 function classifyAgua(norm) {
   // Head noun check — "agua" no começo.
   if (!/^agua\b/.test(norm)) return null;
-  // Excluir qualquer variação não-plana. "con gas"/"sin gas" são distintos
-  // mas o Boss decidiu que gas e similar ficam FORA do piloto por enquanto.
+  // Excluir qualquer variação não-plana ou não-potável.
   if (AGUA_OUT.test(norm)) return null;
-  // Aceita "mineral" explícito OR "agua" solo.
-  if (/\bmineral\b/.test(norm) || /^agua\b\s+\d/.test(norm) || /^agua\b\s*$/.test(norm)) {
-    return 'agua-mineral-plana';
-  }
-  // Agua + palavra relevante do catálogo (fuente/manantial) também plana.
-  if (/\b(fuente|manantial|natural)\b/.test(norm)) return 'agua-mineral-plana';
-  return 'agua-mineral-plana'; // default plana se head noun casa
+  // Boss rule 1 S245c: exige "mineral" OR "manantial" — sem isso, produto
+  // é ambíguo (colonia/cosmético/industrial) e sai do piloto.
+  if (!AGUA_REQUIRED.test(norm)) return null;
+  return 'agua-mineral-plana';
 }
 
 const LECHE_OUT = /\b(bebida|batido|cabra|oveja|arroz|soja|coco|almendra|avena|espelta|cereales|chocolate|vainilla|fresa|cafe)\b/;
@@ -187,46 +188,65 @@ export function sizeCanon(size) {
 }
 
 /**
- * Variant key — Sprint 245b: além do extractVariants genérico (S235),
- * incluí tokens enriquecimento/grade/cría específicos do piloto pra
- * discriminar dentro do mesmo typeKey.
+ * Variant key — Sprint 245c: patterns agora SCOPED por typeKey pra evitar
+ * leaks (bug Boss 2: `huevo_l` matchava `1 L` em leche/agua/aceite via
+ * regex `(?:^|\s)l(?:\s|,|$)`). Cada bloco só roda quando o typeKey casa
+ * família correspondente.
+ *
+ * `enriq_proteinas` cobre ambos `proteínas` (com acento) e `protein`
+ * (English; "dinamic protein" em leche Pascual) — bug Boss 5.
  */
-const PILOT_VARIANT_PATTERNS = {
-  // Leche enriquecida — tokens aparecem no nome original (não normalize).
+const LECHE_VARIANT_PATTERNS = {
   enriq_calcio: /\bcalcio\b/i,
   enriq_omega: /\bomega(\s*-?\s*3)?\b/i,
-  enriq_proteinas: /\bproteinas?\b/i,
+  enriq_proteinas: /\bprote[ií]nas?\b|\bprotein\b/i,
   enriq_fibra: /\bfibra\b/i,
   enriq_vitaminas: /\bvitaminas?\b/i,
-  // Ovos — classe + cría.
-  huevo_xl: /\bxl\b/i,
-  huevo_l: /(?:^|\s)l(?:\s|,|$)|\bgrande(?!s)\b|\bgrandes\b/i,
-  huevo_m: /(?:^|\s)m(?:\s|,|$)|\bmediano\b|\bmedianos\b/i,
-  huevo_s: /(?:^|\s)s(?:\s|,|$)|\bpequeno\b/i,
+};
+
+const HUEVO_VARIANT_PATTERNS = {
+  huevo_xl: /\bxl\b|\bsuper\s+grandes?\b/i,
+  huevo_l: /(?:^|[\s,])l(?=[\s,]|$)|\bgrande(?!s)\b|\bgrandes\b/i,
+  huevo_m: /(?:^|[\s,])m(?=[\s,]|$)|\bmedianos?\b/i,
+  huevo_s: /(?:^|[\s,])s(?=[\s,]|$)|\bpequen[oa]s?\b/i,
   huevo_camperos: /\bcamperos?\b/i,
   huevo_ecologicos: /\becologico/i,
   huevo_suelo: /\bsuelo\b/i,
   huevo_jaula: /\bjaula\b/i,
-  huevo_qty_6: /\b6\s*(?:un|unidades?)\b/i,
-  huevo_qty_12: /\b12\s*(?:un|unidades?)\b/i,
+  huevo_qty_6: /\b6\s*(?:un|unidades?)\b|\bmedia\s+docena\b/i,
+  huevo_qty_12: /\b12\s*(?:un|unidades?)\b|\bdocena\b/i,
   huevo_qty_30: /\b30\s*(?:un|unidades?)\b/i,
-  // Pão molde
+};
+
+const PAN_VARIANT_PATTERNS = {
   pan_blanco: /\bblanco\b/i,
   pan_integral: /\bintegral\b/i,
   pan_cereales: /\b(?:cereales|multicereal|centeno|espelta|avena|maiz|espigas)\b/i,
-  pan_proteinas: /\bproteinas?\b/i,
-  // Aceite grau detalhe (dentro do refinado).
+  pan_proteinas: /\bprote[ií]nas?\b/i,
+};
+
+const ACEITE_VARIANT_PATTERNS = {
   aceite_suave: /\bsuave\b/i,
   aceite_intenso: /\bintenso\b/i,
 };
 
-export function variantCanon(name) {
+function variantPatternsFor(typeKey) {
+  if (!typeKey) return null;
+  if (typeKey.startsWith('leche-')) return LECHE_VARIANT_PATTERNS;
+  if (typeKey === 'huevos') return HUEVO_VARIANT_PATTERNS;
+  if (typeKey === 'pan-molde') return PAN_VARIANT_PATTERNS;
+  if (typeKey.startsWith('aceite-')) return ACEITE_VARIANT_PATTERNS;
+  return null;
+}
+
+export function variantCanon(name, typeKey = null) {
   const tokens = new Set();
-  // Tokens genéricos S235 (zero/golden/horno/men/mujer/etc.)
+  // Tokens genéricos S235 (zero/golden/horno/men/mujer/etc.) sempre aplicam.
   for (const t of extractVariants(name)) tokens.add(t);
-  // Tokens S245b piloto-específicos.
-  if (name) {
-    for (const [key, re] of Object.entries(PILOT_VARIANT_PATTERNS)) {
+  // Tokens S245c piloto-específicos — SÓ do typeKey correspondente.
+  const patterns = variantPatternsFor(typeKey);
+  if (name && patterns) {
+    for (const [key, re] of Object.entries(patterns)) {
       if (re.test(name)) tokens.add(key);
     }
   }
@@ -235,7 +255,8 @@ export function variantCanon(name) {
 
 /**
  * Chave composta de agrupamento: typeKey + sizeCanon + variantCanon.
+ * Sprint 245c: variantCanon agora recebe typeKey pra scoped patterns.
  */
 export function equivalentGroupKey(typeKey, size, name) {
-  return `${typeKey}|${sizeCanon(size)}|${variantCanon(name)}`;
+  return `${typeKey}|${sizeCanon(size)}|${variantCanon(name, typeKey)}`;
 }

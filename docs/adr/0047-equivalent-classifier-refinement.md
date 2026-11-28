@@ -138,3 +138,66 @@ UPDATE products SET equivalent_group_id = NULL
 - Mercadona (Hacendado dominante) continua representada se estiver nos grupos restantes.
 - Catálogo piloto efetivo menor (ovos XL ≠ L ≠ M por exemplo) mas semanticamente correto.
 - Boss pode rodar --apply com confiança pós triplo-OK.
+
+---
+
+## Amend S245c (2026-11-28 pós 2ª dry-run Boss)
+
+Dry-run S245b (44 grupos, 160 membros) teve 5 erros = **11%** vs limite ≤5%. Boss documentou em `C:/Users/gabri/Dev/cesta-review-dry-s245b.txt`. Correções S245c no mesmo PR #230 (commit novo):
+
+### Bug 1 — Água permissiva demais
+
+`classifyAgua` default fallthrough `'agua-mineral-plana'` casou com qualquer `^agua` → incluiu colonia, oxigenada, micelar, destilada, fuerte, plancha, coco, tónica, perfumada no bucket.
+
+**Fix**: `AGUA_REQUIRED` regex `\b(mineral|manantial)\b` — SEM essas palavras-chave, produto sai do piloto. `AGUA_OUT` expandido com 11 outliers novos.
+
+### Bug 2 — `huevo_l` leak em outros typeKeys
+
+`PILOT_VARIANT_PATTERNS.huevo_l` incluía `(?:^|\s)l(?:\s|,|$)` que casava `" L "` em "Leche entera 1 L", "Aceite virgen extra 1 L", "Agua mineral 1 L". Todo grupo não-huevos carregou `huevo_l` no variantKey → poluiu chave.
+
+**Fix**: `variantCanon(name, typeKey)` agora scopa as patterns por typeKey:
+- `LECHE_VARIANT_PATTERNS` (enriquecidos) — só pra `leche-*`.
+- `HUEVO_VARIANT_PATTERNS` (grade/cría/qty) — só pra `huevos`.
+- `PAN_VARIANT_PATTERNS` (blanco/integral/cereales/proteinas) — só pra `pan-molde`.
+- `ACEITE_VARIANT_PATTERNS` (suave/intenso) — só pra `aceite-*`.
+- Tokens genéricos S235 (zero/golden/horno/men/mujer) mantidos globais.
+
+### Bug 3 — Ovos ZERO grupos
+
+`canonicalSize` DB-first retornava size diferente por supermarket (Mercadona packageSize=1 UNIT vs DIA packageSize=12 UNIT). Grupos por size → cada combinação em bucket próprio, raramente com 2+ brands.
+
+**Fix**: para `typeKey === 'huevos'`, `sizeCanon` é CONSTANTE `{value:1, unit:'un', pack:1}`. Toda discriminação vai pro variantKey (`huevo_qty_12`, `huevo_l`, `huevo_camperos`). `HUEVO_VARIANT_PATTERNS.huevo_qty_12` agora aceita `"docena"`; `huevo_qty_6` aceita `"media docena"`.
+
+### Bug 4 — Leite Hacendado missing (diagnose)
+
+Nenhum grupo leche no dry-run S245b tinha Mercadona. Hipótese: Hacendado leche com `canonical_product_id` NOT NULL (linkados pelo S244) OR prices inativos.
+
+**Fix**: script `match-equivalent.mjs` agora emite seção `DIAGNOSTIC S245c (bug 4) — Mercadona leche candidates` listando TODOS produtos Mercadona cujo `classifyTypeKey` retornou `leche-*` com seus `canonicalSize` e supers. Boss lê essa seção pra entender se é bug de dados (Hacendado linked wrong) ou bug de código.
+
+### Bug 5 — `enriq_proteinas` falha com acento + English
+
+Regex original `\bproteinas?\b/i` NÃO casava:
+- `"proteínas"` (com acento agudo) — accent não strip-ada em variantCanon.
+- `"dinamic protein"` (English, Pascual).
+
+**Fix**: regex `\bprote[ií]nas?\b|\bprotein\b`. Agora "sin lactosa alta en proteínas" e "sin lactosa dinamic protein" variantKey distinto de "sin lactosa" regular.
+
+### Specs S245c adicionais
+
+- `agua colonia/oxigenada/micelar/destilada/fuerte/plancha/coco/tónica/perfumada` → `null`.
+- `agua grande` sem "mineral"/"manantial" → `null`.
+- `variantCanon` leche/aceite/agua 1L **NÃO** carrega `huevo_l`.
+- `huevo_qty_12` aceita `docena`; `huevo_qty_6` aceita `media docena`.
+- `enriq_proteinas` match `proteínas` (acento) e `protein` (English); não match em "sin lactosa" sozinho.
+- `pan_blanco` presente em pan molde; `huevo_l` NÃO presente.
+
+**Total specs S245c**: **45/45 pass** (vs 38 S245b).
+
+### DoD S245c
+
+- [x] Fixtures cada bug (bugs 1-5).
+- [ ] Dry-run full novo erro ≤5%.
+- [ ] Ovos ≥1 grupo.
+- [ ] Leite Hacendado em grupo com DIA (OR diagnose explicar por que não).
+
+Os 3 últimos exigem Boss rodar dry-run pós merge do commit S245c neste PR.

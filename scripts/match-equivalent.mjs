@@ -107,6 +107,15 @@ async function fetchCandidates(prisma, limit) {
   );
 }
 
+// Sprint 245c (Boss bug 3): ovos têm package size ambíguo (packageSize=1
+// UNIT no DB para a maioria; "12 un" fica só no nome). Para a família
+// huevos, o size canonical é CONSTANTE `{value:1, unit:'un', pack:1}` e
+// a quantidade (6/12/30), grade (S/M/L/XL) e cría (suelo/camperos/
+// ecologicos) vão todas no `variantKey` — é lá que o agrupamento
+// discrimina. Sem essa normalização, Mercadona e Dia nunca caem no
+// mesmo bucket porque `packageSize` difere.
+const HUEVO_CANONICAL_SIZE = { value: 1, unit: 'un', pack: 1 };
+
 function bucketize(rows) {
   const buckets = new Map();
   let classified = 0;
@@ -119,13 +128,20 @@ function bucketize(rows) {
       droppedByType += 1;
       continue;
     }
-    // Sprint 245b (Boss rule 6): size AUTORITATIVA vem de
-    // Product.packageSize+packageUnit; fallback ao parse do nome. Null
-    // → produto FORA do piloto (não inferir).
-    const size = canonicalSize(r.name, r.package_size, r.package_unit);
-    if (!size) {
-      droppedBySize += 1;
-      continue;
+    // Sprint 245c (Boss rule 3): ovos ignoram sizeCanon do DB — toda a
+    // discriminação vai pro variantKey (qty + grade + cría).
+    let size;
+    if (typeKey === 'huevos') {
+      size = HUEVO_CANONICAL_SIZE;
+    } else {
+      // Sprint 245b (Boss rule 6): size AUTORITATIVA vem de
+      // Product.packageSize+packageUnit; fallback ao parse do nome.
+      // Null → produto FORA do piloto (não inferir).
+      size = canonicalSize(r.name, r.package_size, r.package_unit);
+      if (!size) {
+        droppedBySize += 1;
+        continue;
+      }
     }
     classified += 1;
     const key = equivalentGroupKey(typeKey, size, r.name);
@@ -134,7 +150,7 @@ function bucketize(rows) {
         key,
         typeKey,
         sizeStr: sizeCanon(size),
-        variantKey: variantCanon(r.name),
+        variantKey: variantCanon(r.name, typeKey),
         members: [],
       });
     }
@@ -229,6 +245,30 @@ async function main() {
       for (const [tk, n] of [...byType.entries()].sort((a, b) => b[1] - a[1])) {
         console.log(`  ${tk}: ${n}`);
       }
+    }
+
+    // Sprint 245c (Boss bug 4): diagnose leite Hacendado missing — dumpa
+    // todos os candidatos Mercadona cujo classifier retornou leche-* mas
+    // que não formaram grupo com DIA. Se vazio: Mercadona catalog real
+    // não tem Hacendado leche ativo (canonical linked OR price inactive).
+    console.log('\n=== DIAGNOSTIC S245c (bug 4) — Mercadona leche candidates ===');
+    let mercLecheCount = 0;
+    for (const r of rows) {
+      const brand = r.brand ?? extractBrand(r.name);
+      const typeKey = classifyTypeKey(r.name, brand);
+      if (!typeKey || !typeKey.startsWith('leche-')) continue;
+      const supers = r.super_slugs ?? [];
+      if (!supers.includes('mercadona')) continue;
+      mercLecheCount += 1;
+      const size = canonicalSize(r.name, r.package_size, r.package_unit);
+      console.log(
+        `  "${r.name}" [${brand ?? '∅'}] pkg=${r.package_size}/${r.package_unit} canonSize=${size ? `${size.value}${size.unit}×${size.pack}` : 'NULL'} supers=${supers.join(',')} typeKey=${typeKey}`,
+      );
+    }
+    if (mercLecheCount === 0) {
+      console.log('  (zero candidates — Mercadona catalog não tem leche classificável ou prices inativos)');
+    } else {
+      console.log(`  Total Mercadona leche candidatos: ${mercLecheCount}`);
     }
 
     // Sprint 245b (Boss rule 9): dry-run imprime TODOS os membros full name

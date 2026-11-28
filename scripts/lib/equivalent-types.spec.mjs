@@ -93,6 +93,26 @@ test('agua vitaminada / sabor / alcalina FORA', () => {
   assert.equal(classifyTypeKey('Agua con sabor limón Font Vella 50cl', null), null);
   assert.equal(classifyTypeKey('Agua alcalina Ursu9 1,5L', null), null);
 });
+test('S245c bug 1: colonia/oxigenada/micelar/destilada/fuerte/plancha/coco/tónica/perfumada FORA', () => {
+  assert.equal(classifyTypeKey('Agua de colonia Floral Infusion Deliplus', null), null);
+  assert.equal(classifyTypeKey('Agua de colonia familiar lavanda Imaqe 750 ml', 'Imaqe'), null);
+  assert.equal(classifyTypeKey('Agua oxigenada Deliplus desinfectante antiséptico', null), null);
+  assert.equal(classifyTypeKey('Agua oxigenada Dia Botikit 250 ml', 'Dia Botikit'), null);
+  assert.equal(classifyTypeKey('Agua micelar con extracto de pétalos de rosa Imaqe 250 ml', 'Imaqe'), null);
+  assert.equal(classifyTypeKey('Agua destilada Dia Super Paco 2 L', 'Dia Super Paco'), null);
+  assert.equal(classifyTypeKey('Agua fuerte Dia Super Paco 1 L', 'Dia'), null);
+  assert.equal(classifyTypeKey('Agua de plancha Dia Super Paco 1 L', 'Dia Super Paco'), null);
+  assert.equal(classifyTypeKey('Agua de coco Thai coco 1 L', 'Thai coco'), null);
+  assert.equal(classifyTypeKey('Agua tónica Schweppes 1 L', 'Schweppes'), null);
+  assert.equal(classifyTypeKey('Agua perfumada Nenuco 500 ml', 'Nenuco'), null);
+});
+test('S245c bug 1: agua precisa de "mineral" OR "manantial" — sem isso FORA', () => {
+  // Sem palavra-chave potável explícita, "agua" genérica sai do piloto.
+  assert.equal(classifyTypeKey('Agua grande 5L', null), null);
+  // Com "mineral" OR "manantial" passa.
+  assert.equal(classifyTypeKey('Agua mineral Bezoya 1,5L', 'Bezoya'), 'agua-mineral-plana');
+  assert.equal(classifyTypeKey('Agua de manantial Lanjarón 1,5L', 'Lanjarón'), 'agua-mineral-plana');
+});
 
 console.log('\nclassifyTypeKey — huevos (rule 4)');
 test('huevos happy path', () => {
@@ -164,33 +184,43 @@ test('produtos outros → null', () => {
 // variantCanon — enriquecidos / grade / cría / grau aceite
 // ────────────────────────────────────────────────────────────
 
-console.log('\nvariantCanon — enriquecidos leite (Boss rule 3)');
+console.log('\nvariantCanon — enriquecidos leite (Boss rule 3 · scoped S245c)');
 test('leche regular vs calcio → variants distintos', () => {
-  const regular = variantCanon('Leche entera Dia Láctea 1L');
-  const calcio = variantCanon('Leche entera calcio Dia Láctea 1L');
+  const regular = variantCanon('Leche entera Dia Láctea 1L', 'leche-entera');
+  const calcio = variantCanon('Leche entera calcio Dia Láctea 1L', 'leche-entera');
   assert.notEqual(regular, calcio);
   assert.ok(calcio.includes('enriq_calcio'));
 });
 test('leche regular vs omega-3 → variants distintos', () => {
-  const regular = variantCanon('Leche desnatada Puleva 1L');
-  const omega = variantCanon('Leche desnatada omega 3 Puleva 1L');
+  const regular = variantCanon('Leche desnatada Puleva 1L', 'leche-desnatada');
+  const omega = variantCanon('Leche desnatada omega 3 Puleva 1L', 'leche-desnatada');
   assert.notEqual(regular, omega);
   assert.ok(omega.includes('enriq_omega'));
 });
 test('leche fibra/proteinas/vitaminas', () => {
-  const fibra = variantCanon('Leche semidesnatada fibra Asturiana 1L');
-  const prot = variantCanon('Leche semidesnatada proteinas Pascual 1L');
-  const vit = variantCanon('Leche semidesnatada vitaminas Dia 1L');
+  const fibra = variantCanon('Leche semidesnatada fibra Asturiana 1L', 'leche-semi');
+  const prot = variantCanon('Leche semidesnatada proteinas Pascual 1L', 'leche-semi');
+  const vit = variantCanon('Leche semidesnatada vitaminas Dia 1L', 'leche-semi');
   assert.ok(fibra.includes('enriq_fibra'));
   assert.ok(prot.includes('enriq_proteinas'));
   assert.ok(vit.includes('enriq_vitaminas'));
 });
+test('S245c bug 5: enriq_proteinas match "proteínas" (acento) E "protein" (English)', () => {
+  const comAcento = variantCanon('Leche desnatada sin lactosa alta en proteínas Dia Láctea 1L', 'leche-desnatada');
+  const protein = variantCanon('Leche desnatada sin lactosa dinamic protein Pascual 1L', 'leche-desnatada');
+  const regular = variantCanon('Leche desnatada sin lactosa Pascual 1L', 'leche-desnatada');
+  assert.ok(comAcento.includes('enriq_proteinas'));
+  assert.ok(protein.includes('enriq_proteinas'));
+  assert.ok(!regular.includes('enriq_proteinas'));
+  assert.notEqual(comAcento, regular);
+  assert.notEqual(protein, regular);
+});
 
-console.log('\nvariantCanon — huevos grade/cría/qtd (Boss rule 4)');
+console.log('\nvariantCanon — huevos grade/cría/qtd (Boss rule 4 · scoped S245c)');
 test('huevos XL vs M vs L grade DISTINTOS', () => {
-  const xl = variantCanon('Huevos super grandes XL Dia 12 unidades');
-  const l = variantCanon('Huevos grandes L Dia 12 unidades');
-  const m = variantCanon('Huevos medianos M Dia 12 unidades');
+  const xl = variantCanon('Huevos super grandes XL Dia 12 unidades', 'huevos');
+  const l = variantCanon('Huevos grandes L Dia 12 unidades', 'huevos');
+  const m = variantCanon('Huevos medianos M Dia 12 unidades', 'huevos');
   assert.ok(xl.includes('huevo_xl'));
   assert.ok(l.includes('huevo_l'));
   assert.ok(m.includes('huevo_m'));
@@ -198,40 +228,63 @@ test('huevos XL vs M vs L grade DISTINTOS', () => {
   assert.notEqual(l, m);
 });
 test('huevos camperos vs suelo vs ecologicos cría DISTINTA', () => {
-  const camperos = variantCanon('Huevos camperos L Pazo de Vilane 12 un');
-  const suelo = variantCanon('Huevos grandes L de gallinas criadas en suelo Dia 12 un');
-  const eco = variantCanon('Huevos ecologicos M pack 6');
+  const camperos = variantCanon('Huevos camperos L Pazo de Vilane 12 un', 'huevos');
+  const suelo = variantCanon('Huevos grandes L de gallinas criadas en suelo Dia 12 un', 'huevos');
+  const eco = variantCanon('Huevos ecologicos M pack 6', 'huevos');
   assert.ok(camperos.includes('huevo_camperos'));
   assert.ok(suelo.includes('huevo_suelo'));
   assert.ok(eco.includes('huevo_ecologicos'));
   assert.notEqual(camperos, suelo);
   assert.notEqual(suelo, eco);
 });
-test('huevos 6 vs 12 vs 30 unidades qtd DISTINTA', () => {
-  const q6 = variantCanon('Huevos L Dia 6 unidades');
-  const q12 = variantCanon('Huevos L Dia 12 unidades');
-  const q30 = variantCanon('Huevos L Dia 30 unidades');
+test('huevos 6 vs 12 vs 30 unidades qtd DISTINTA (aceita docena/media docena)', () => {
+  const q6 = variantCanon('Huevos L Dia 6 unidades', 'huevos');
+  const q12 = variantCanon('Huevos L Dia 12 unidades', 'huevos');
+  const q30 = variantCanon('Huevos L Dia 30 unidades', 'huevos');
   assert.ok(q6.includes('huevo_qty_6'));
   assert.ok(q12.includes('huevo_qty_12'));
   assert.ok(q30.includes('huevo_qty_30'));
-  assert.notEqual(q6, q12);
-  assert.notEqual(q12, q30);
+  const docena = variantCanon('Huevos L Dia docena', 'huevos');
+  assert.ok(docena.includes('huevo_qty_12'));
+  const media = variantCanon('Huevos L Dia media docena', 'huevos');
+  assert.ok(media.includes('huevo_qty_6'));
 });
 
-console.log('\nvariantCanon — aceite grau (Boss rule 1)');
+console.log('\nvariantCanon — S245c bug 2: huevo_l NÃO LEAK em outros typeKeys');
+test('leche 1L não ganha huevo_l', () => {
+  const v = variantCanon('Leche entera Dia Láctea 1 L', 'leche-entera');
+  assert.ok(!v.includes('huevo_l'));
+  assert.ok(v.includes('entera'));
+});
+test('aceite 1L não ganha huevo_l', () => {
+  const v = variantCanon('Aceite de oliva virgen extra Carbonell 1 L', 'aceite-oliva-ve');
+  assert.ok(!v.includes('huevo_l'));
+});
+test('agua 1L não ganha huevo_l', () => {
+  const v = variantCanon('Agua mineral Font Vella 1 L', 'agua-mineral-plana');
+  assert.ok(!v.includes('huevo_l'));
+});
+test('pan 820g não ganha huevo_l por "grande" ambíguo (typeKey scope)', () => {
+  const v = variantCanon('Pan de molde blanco familiar Hacendado', 'pan-molde');
+  assert.ok(!v.includes('huevo_l'));
+  // pan_blanco deve estar presente
+  assert.ok(v.includes('pan_blanco'));
+});
+
+console.log('\nvariantCanon — aceite grau (Boss rule 1 · scoped S245c)');
 test('aceite suave vs intenso dentro de refinado → variant DISTINTO', () => {
-  const suave = variantCanon('Aceite de oliva suave Carbonell 1L');
-  const intenso = variantCanon('Aceite de oliva intenso Carbonell 1L');
+  const suave = variantCanon('Aceite de oliva suave Carbonell 1L', 'aceite-oliva-refinado');
+  const intenso = variantCanon('Aceite de oliva intenso Carbonell 1L', 'aceite-oliva-refinado');
   assert.ok(suave.includes('aceite_suave'));
   assert.ok(intenso.includes('aceite_intenso'));
   assert.notEqual(suave, intenso);
 });
 
-console.log('\nvariantCanon — pão molde variantes');
+console.log('\nvariantCanon — pão molde variantes (scoped S245c)');
 test('pan blanco vs integral vs cereales → variantes distintos', () => {
-  const blanco = variantCanon('Pan de molde blanco Bimbo 460g');
-  const integral = variantCanon('Pan de molde integral Bimbo 460g');
-  const cereales = variantCanon('Pan de molde cereales Bimbo 500g');
+  const blanco = variantCanon('Pan de molde blanco Bimbo 460g', 'pan-molde');
+  const integral = variantCanon('Pan de molde integral Bimbo 460g', 'pan-molde');
+  const cereales = variantCanon('Pan de molde cereales Bimbo 500g', 'pan-molde');
   assert.ok(blanco.includes('pan_blanco'));
   assert.ok(integral.includes('pan_integral'));
   assert.ok(cereales.includes('pan_cereales'));
