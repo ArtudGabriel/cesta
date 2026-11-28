@@ -128,6 +128,17 @@ export class ProductResponseDto {
   @ApiProperty({ enum: Object.values(MeasureUnit) }) packageUnit: string;
   @ApiProperty({ enum: Object.values(MeasureUnit) }) comparisonUnit: string;
 
+  // Sprint 244 (ADR 0044): read path agrega preços do grupo canônico.
+  // `canonicalProductId` é SEMPRE null quando o endpoint retorna o
+  // canônico (findById resolve child→canonical antes); o campo existe
+  // pro contrato OpenAPI mas não deve bater valor na prática via API.
+  // `canonicalGroupSize` = 1 (standalone) ou N quando há duplicates
+  // linkados. `isSameProduct` = shortcut pro badge verde no front.
+  @ApiProperty({ type: String, nullable: true })
+  canonicalProductId: string | null;
+  @ApiProperty({ example: 1, minimum: 1 }) canonicalGroupSize: number;
+  @ApiProperty() isSameProduct: boolean;
+
   // Nutrição
   @ApiProperty({ type: Number, nullable: true }) calories: number | null;
   @ApiProperty({ type: Number, nullable: true }) protein: number | null;
@@ -171,6 +182,12 @@ export class ProductResponseDto {
     product: Product & {
       prices?: (ProductPrice & { supermarket: Supermarket })[];
       category?: Category | null;
+      // Sprint 244 (ADR 0044): duplicates do grupo canônico com seus
+      // prices. Loaded via include em repositórios que fazem read path
+      // canônico. Preços agregados + dedupe por supermarketId.
+      duplicates?: (Product & {
+        prices?: (ProductPrice & { supermarket: Supermarket })[];
+      })[];
     },
   ): ProductResponseDto {
     const dto = new ProductResponseDto();
@@ -182,6 +199,7 @@ export class ProductResponseDto {
     dto.packageSize = Number(product.packageSize);
     dto.packageUnit = product.packageUnit;
     dto.comparisonUnit = product.comparisonUnit;
+    dto.canonicalProductId = product.canonicalProductId ?? null;
     dto.calories = product.calories ? Number(product.calories) : null;
     dto.protein = product.protein ? Number(product.protein) : null;
     dto.fat = product.fat ? Number(product.fat) : null;
@@ -208,7 +226,30 @@ export class ProductResponseDto {
     dto.isGlutenFree = product.isGlutenFree;
     dto.isLactoseFree = product.isLactoseFree;
 
-    const prices = (product.prices ?? []).map((p) =>
+    // Sprint 244 (ADR 0044): merge prices do canonical + duplicates.
+    // Cluster rule S232 garante super_ids DISJUNTOS entre membros, mas
+    // dedupe por supermarketId defende contra legado S228 pré-G3.
+    // Tiebreak: lastSyncedAt DESC (preço mais fresco vence).
+    const duplicates = product.duplicates ?? [];
+    const rawPrices = [
+      ...(product.prices ?? []),
+      ...duplicates.flatMap((d) => d.prices ?? []),
+    ];
+    const pricesBySuper = new Map<
+      string,
+      ProductPrice & { supermarket: Supermarket }
+    >();
+    for (const p of rawPrices) {
+      const existing = pricesBySuper.get(p.supermarketId);
+      if (!existing) {
+        pricesBySuper.set(p.supermarketId, p);
+        continue;
+      }
+      const ea = new Date(existing.lastSyncedAt).getTime();
+      const na = new Date(p.lastSyncedAt).getTime();
+      if (na > ea) pricesBySuper.set(p.supermarketId, p);
+    }
+    const prices = [...pricesBySuper.values()].map((p) =>
       mapPrice(
         p,
         Number(product.packageSize),
@@ -217,6 +258,8 @@ export class ProductResponseDto {
       ),
     );
     dto.prices = prices;
+    dto.canonicalGroupSize = 1 + duplicates.length;
+    dto.isSameProduct = dto.canonicalGroupSize > 1;
 
     const availablePrices = prices.filter((p) => p.isAvailable);
     if (availablePrices.length > 0) {

@@ -166,6 +166,35 @@ test('ambos sem variants → match (set vazio vs vazio)', () => {
   const v2 = extractVariants('Pan molde integral 460 g');
   assert.equal(variantMatch(v1, v2), true);
 });
+test('Sprint 244: Nivea Black and White Invisible MEN ≠ MUJER', () => {
+  const vm = extractVariants('Nivea Black and White Invisible Men 200ml');
+  const vw = extractVariants('Nivea Black and White Invisible Mujer 200ml');
+  assert.equal(vm.has('men'), true);
+  assert.equal(vw.has('mujer'), true);
+  assert.equal(variantMatch(vm, vw), false);
+});
+test('Sprint 244: Roll-on Nivea Men 50ml ≠ Roll-on Nivea 50ml', () => {
+  const vm = extractVariants('Desodorante roll-on Nivea Men 50ml');
+  const vr = extractVariants('Desodorante roll-on Nivea 50ml');
+  assert.equal(vm.has('men'), true);
+  assert.equal(vr.has('men'), false);
+  assert.equal(variantMatch(vm, vr), false);
+});
+test('Sprint 244: hombre == men (sinonímia não normalizada, variant tokens distintos ≠ match)', () => {
+  // Decisão explícita ADR 0044: os dois tokens ficam SEPARADOS no set
+  // (não normalizamos). Match exato exige ambos lados usando mesmo token.
+  const v1 = extractVariants('Gel baño Nivea Hombre 500ml');
+  const v2 = extractVariants('Gel baño Nivea Men 500ml');
+  assert.equal(v1.has('hombre'), true);
+  assert.equal(v2.has('men'), true);
+  assert.equal(variantMatch(v1, v2), false);
+});
+test('Sprint 244: kids/infantil/bebe discriminam público-alvo', () => {
+  const vk = extractVariants('Pasta dientes Oral-B Kids fresa 75ml');
+  const va = extractVariants('Pasta dientes Oral-B Pro Expert 75ml');
+  assert.equal(vk.has('kids'), true);
+  assert.equal(variantMatch(vk, va), false);
+});
 
 console.log(`\n${pass} pass · ${fail} fail`);
 process.exit(fail > 0 ? 1 : 0);

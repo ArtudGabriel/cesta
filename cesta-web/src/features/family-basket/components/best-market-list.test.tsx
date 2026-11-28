@@ -62,6 +62,9 @@ function makeItem(
       cheapestPrice: prices[0]?.price ?? null,
       cheapestUnitPrice: null,
       isStale: false,
+      canonicalProductId: null,
+      canonicalGroupSize: 1,
+      isSameProduct: false,
     },
   };
 }

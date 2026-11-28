@@ -180,3 +180,94 @@ describe('ProductResponseDto.isStale top-level', () => {
     expect(dto.cheapestPrice).toBeNull();
   });
 });
+
+// Sprint 244 (ADR 0044) — canonical group aggregation
+describe('ProductResponseDto.fromEntity — canonical group (S244 ADR 0044)', () => {
+  const t0 = new Date('2026-11-27T00:00:00Z');
+  const t1 = new Date('2026-11-28T00:00:00Z');
+
+  function makeChild(
+    id: string,
+    supermarketId: string,
+    slug: string,
+    price: number,
+    lastSyncedAt: Date,
+  ) {
+    return {
+      id,
+      name: `Child ${id}`,
+      canonicalProductId: 'canonical-1',
+      prices: [
+        {
+          supermarketId,
+          productId: id,
+          currentPrice: price as unknown as any,
+          previousPrice: null,
+          onPromotion: false,
+          isAvailable: true,
+          isStale: false,
+          lastSyncedAt,
+          confidenceScore: 1 as unknown as any,
+          supermarket: {
+            id: supermarketId,
+            slug,
+            name: slug.toUpperCase(),
+            color: null,
+          },
+        },
+      ],
+    };
+  }
+
+  it('standalone product → canonicalGroupSize=1, isSameProduct=false, canonicalProductId=null', () => {
+    const product = makeProduct([
+      { price: 1.5, isAvailable: true, lastSyncedAt: t1, slug: 'mercadona' },
+    ]);
+    const dto = ProductResponseDto.fromEntity(product as any);
+    expect(dto.canonicalGroupSize).toBe(1);
+    expect(dto.isSameProduct).toBe(false);
+    expect(dto.canonicalProductId).toBeNull();
+  });
+
+  it('canonical + 2 duplicates → size=3, isSameProduct=true, prices mergeados cross-mercado', () => {
+    const product = {
+      ...makeProduct([
+        { price: 1.8, isAvailable: true, lastSyncedAt: t1, slug: 'mercadona' },
+      ]),
+      id: 'canonical-1',
+      duplicates: [
+        makeChild('dup-dia', 'sm-dia', 'dia', 1.7, t1),
+        makeChild('dup-carrefour', 'sm-carr', 'carrefour', 1.6, t1),
+      ],
+    };
+    const dto = ProductResponseDto.fromEntity(product as any);
+    expect(dto.canonicalGroupSize).toBe(3);
+    expect(dto.isSameProduct).toBe(true);
+    expect(dto.prices).toHaveLength(3);
+    const slugs = dto.prices.map((p) => p.supermarketSlug).sort();
+    expect(slugs).toEqual(['carrefour', 'dia', 'mercadona']);
+    // cheapest é carrefour (1.6)
+    expect(dto.cheapestSupermarketSlug).toBe('carrefour');
+    expect(dto.cheapestPrice).toBe(1.6);
+  });
+
+  it('dedupe por supermarketId: price mais recente (lastSyncedAt DESC) vence', () => {
+    // Canonical tem price Mercadona stale; duplicate também tem Mercadona fresh.
+    // Cluster rule S232 proíbe isso por construção, mas DTO defende contra
+    // legado S228 — prefere lastSyncedAt mais recente.
+    const product = {
+      ...makeProduct([
+        { price: 2.0, isAvailable: true, lastSyncedAt: t0, slug: 'mercadona' },
+      ]),
+      id: 'canonical-1',
+      duplicates: [
+        {
+          ...makeChild('dup-legacy', 'sm0', 'mercadona', 1.5, t1), // sm0 = mesmo supermarketId que makeProduct emite ('sm0')
+        },
+      ],
+    };
+    const dto = ProductResponseDto.fromEntity(product as any);
+    expect(dto.prices).toHaveLength(1);
+    expect(dto.prices[0].price).toBe(1.5); // fresh venceu
+  });
+});

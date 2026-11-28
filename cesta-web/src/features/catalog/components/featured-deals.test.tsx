@@ -70,6 +70,9 @@ function makeProduct(
     cheapestPrice: prices.length > 0 ? Math.min(...prices.map((p) => p.price)) : null,
     cheapestUnitPrice: null,
     isStale: false,
+    canonicalProductId: null,
+    canonicalGroupSize: 1,
+    isSameProduct: false,
   };
 }
 
