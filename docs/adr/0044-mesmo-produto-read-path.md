@@ -66,7 +66,7 @@ Expectativa: `extractVariants` extrai `{men}` e `{mujer}` em pares; `variantMatc
 | 5 | Rollback documentado | Read path: feature flag OFF → comportamento S243b volta. Script: UPDATE products SET canonical_product_id = NULL WHERE updated_at > '<ts>' (herdado G3). |
 | 6 | Strict variant tokens | `VARIANT_TOKENS` + `extractVariants` + `variantMatch` gate. S244 adiciona 7 tokens público-alvo. |
 | 7 | Amostra 30 pré-apply | `SAMPLE_CLUSTERS=30` env no script dry-run (herdado G3). QA review visual. |
-| 8 | G0 archive pointers | docs/archive/pendente-note-2026-11-28-s243b.md já existe (merged S243b). S244 PR só anexa ponteiro se note crescer > 40 KB novamente. |
+| 8 | G0 archive pointers | Snapshots `docs/archive/pendente-note-2026-11-28-s244.md` + `docs/archive/sprints-note-2026-11-28-s244.md` adicionados no PR. Ponteiros inseridos nas notas live `Cesta — Pendente` (topo) + `Cesta — Sprints` (seção Histórico) via `maestri note edit` (Reviewer gate 3 AJUSTE 2026-11-28). |
 
 ## Rollback
 
