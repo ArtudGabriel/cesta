@@ -233,6 +233,15 @@ model Product {
   // `canonicalProductId IS NULL` em sprint G4.
   canonicalProductId String? @map("canonical_product_id")
 
+  // Sprint 245 (ADR 0046): "produto equivalente" piloto 5 categorias
+  // (leche/agua/huevos/aceite/pan). Agrupa produtos de MARCAS DIFERENTES
+  // porém mesmo typeKey + sizeCanon + variantKey. Diferente do canonical
+  // (mesmo produto exato), equivalente é "serve pro mesmo propósito".
+  // Column nullable · group id é cuid gerado pelo script match-equivalent.mjs
+  // · todos os membros do grupo compartilham o mesmo valor. @@index pro
+  // read path agregar por grupo em O(log n).
+  equivalentGroupId String? @map("equivalent_group_id")
+
   category     Category?          @relation(fields: [categoryId], references: [id])
   canonical    Product?           @relation("ProductCanonical", fields: [canonicalProductId], references: [id])
   duplicates   Product[]          @relation("ProductCanonical")
@@ -251,6 +260,7 @@ model Product {
   @@index([categoryId, deletedAt])
   @@index([brand])
   @@index([canonicalProductId])
+  @@index([equivalentGroupId])
   @@map("products")
 }
 

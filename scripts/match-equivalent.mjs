@@ -1,0 +1,254 @@
+#!/usr/bin/env node
+/* eslint-disable no-console */
+/**
+ * Sprint 245 (ADR 0046) — "produto equivalente" piloto 5 categorias.
+ *
+ * Diferente do match-cluster (S232) que agrupa "MESMO produto" (brand
+ * igual · size igual · variant igual · nome similar), este script agrupa
+ * "PRODUTO EQUIVALENTE": mesmo typeKey (leche entera, agua mineral, etc.)
+ * + mesmo sizeCanon + marcas DIFERENTES. "Leche entera 1L" de Hacendado
+ * (Mercadona), Dia Láctea (Dia), Milsani (Dia), Pascual (Carrefour) forma
+ * 1 grupo equivalente → UI mostra selo amarelo "equivalente desde X€".
+ *
+ * Pipeline:
+ *   1. SELECT produtos ativos (prices.some isAvailable deletedAt null)
+ *      com canonical_product_id IS NULL (apenas canonicals).
+ *   2. Para cada produto: classifyTypeKey → se null (fora piloto) skip.
+ *   3. Calcula effectiveSize + variantCanon.
+ *   4. Agrupa por equivalentGroupKey(typeKey, size, name).
+ *   5. Descarta grupos size < 2 OU grupos sem 2+ brands distintas
+ *      (Boss rule: equivalente exige marcas DIFERENTES).
+ *   6. Gera cuid por grupo · UPDATE products SET equivalent_group_id
+ *      WHERE id IN (membros) (idempotente: só mexe em quem está NULL
+ *      OR grupo mudou).
+ *
+ * Boss guards (ADR 0046):
+ *   - Migration ADITIVA (coluna equivalent_group_id nullable · S245 migration SQL).
+ *   - LIGA não apaga (UPDATE apenas · zero DELETE).
+ *   - PITR Neon antes --apply (timestamp UTC impresso).
+ *   - Dry-run default · --apply opt-in.
+ *   - Strict categoria + size · 2+ brands distintas.
+ *   - Amostra 30 pré-apply (SAMPLE_GROUPS env default 30).
+ *
+ * Uso:
+ *   node scripts/match-equivalent.mjs                     # dry-run full
+ *   node scripts/match-equivalent.mjs --apply             # grava
+ *   node scripts/match-equivalent.mjs --limit=500         # subset pra debug
+ *   SAMPLE_GROUPS=50 node scripts/match-equivalent.mjs    # mais amostra
+ */
+import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import process from 'node:process';
+import {
+  effectiveSize,
+  extractBrand,
+} from './lib/brand-normalize.mjs';
+import {
+  classifyTypeKey,
+  equivalentGroupKey,
+  sizeCanon,
+  variantCanon,
+} from './lib/equivalent-types.mjs';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const require_ = createRequire(
+  resolve(__dirname, '..', 'cesta-api', 'package.json'),
+);
+const { PrismaClient } = require_('@prisma/client');
+
+function loadDatabaseUrl() {
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+  const raw = readFileSync(resolve(__dirname, '..', 'cesta-api', '.env'), 'utf8');
+  const m = raw.match(/^DATABASE_URL=(.+)$/m);
+  if (m) return m[1].replace(/^"|"$/g, '').trim();
+  throw new Error('DATABASE_URL not found');
+}
+
+function parseArgs() {
+  const args = process.argv.slice(2);
+  const getFlag = (name, def) => {
+    const prefix = `--${name}=`;
+    const found = args.find((a) => a.startsWith(prefix));
+    if (!found) return def;
+    const parsed = parseFloat(found.slice(prefix.length));
+    return Number.isFinite(parsed) ? parsed : def;
+  };
+  return {
+    apply: args.includes('--apply'),
+    limit: Math.round(getFlag('limit', 20000)),
+  };
+}
+
+async function fetchCandidates(prisma, limit) {
+  // Apenas canonicals ativos com algum price. Sem filtro de categoria (type
+  // pattern + classify decide piloto). Note: equivalent_group_id ainda não
+  // existe no Prisma client enquanto generate estiver bloqueado · usamos
+  // raw query pra lidar com isso.
+  return prisma.$queryRawUnsafe(
+    `
+    SELECT p.id, p.name, p.brand, p.package_size, p.package_unit, p.equivalent_group_id
+    FROM products p
+    WHERE p.deleted_at IS NULL
+      AND p.canonical_product_id IS NULL
+      AND EXISTS (
+        SELECT 1 FROM product_prices pp
+        WHERE pp.product_id = p.id
+          AND pp.is_available = true
+          AND pp.deleted_at IS NULL
+      )
+    ORDER BY p.created_at ASC, p.id ASC
+    LIMIT $1
+    `,
+    limit,
+  );
+}
+
+function bucketize(rows) {
+  const buckets = new Map();
+  let classified = 0;
+  let unclassified = 0;
+  for (const r of rows) {
+    const brand = r.brand ?? extractBrand(r.name);
+    const typeKey = classifyTypeKey(r.name, brand);
+    if (!typeKey) {
+      unclassified += 1;
+      continue;
+    }
+    classified += 1;
+    const size = effectiveSize(r.name, r.package_size, r.package_unit);
+    const key = equivalentGroupKey(typeKey, size, r.name);
+    if (!buckets.has(key)) {
+      buckets.set(key, {
+        key,
+        typeKey,
+        sizeStr: sizeCanon(size),
+        variantKey: variantCanon(r.name),
+        members: [],
+      });
+    }
+    buckets.get(key).members.push({
+      id: r.id,
+      name: r.name,
+      brand,
+      existing_group: r.equivalent_group_id,
+    });
+  }
+  return { buckets, classified, unclassified };
+}
+
+function filterGroups(buckets) {
+  const groups = [];
+  for (const b of buckets.values()) {
+    if (b.members.length < 2) continue;
+    const brands = new Set(
+      b.members.map((m) => (m.brand ?? '').toLowerCase()).filter(Boolean),
+    );
+    // Boss rule: equivalente exige 2+ brands distintas.
+    if (brands.size < 2) continue;
+    groups.push({ ...b, brands: [...brands] });
+  }
+  return groups;
+}
+
+async function main() {
+  const { apply, limit } = parseArgs();
+  process.env.DATABASE_URL = loadDatabaseUrl();
+  const prisma = new PrismaClient();
+
+  try {
+    console.log('='.repeat(72));
+    console.log('Sprint 245 (ADR 0046) — match-equivalent 5 categorias piloto');
+    console.log('='.repeat(72));
+    console.log(`Mode: ${apply ? 'APPLY' : 'DRY-RUN'}`);
+    console.log(`Limit base produtos: ${limit}`);
+    if (apply) {
+      const nowUtc = new Date().toISOString();
+      console.log('\n⚠️  Boss guard: snapshot Neon ANTES de continuar.');
+      console.log(`   PITR timestamp (cole no PR): ${nowUtc}`);
+      console.log(`   Rollback SQL: UPDATE products SET equivalent_group_id = NULL`);
+      console.log(`     WHERE equivalent_group_id IS NOT NULL AND updated_at > '${nowUtc}';`);
+    }
+
+    console.log('\n[1/4] Fetch candidates...');
+    const rows = await fetchCandidates(prisma, limit);
+    console.log(`Candidates: ${rows.length}`);
+
+    console.log('\n[2/4] Classify + bucketize...');
+    const { buckets, classified, unclassified } = bucketize(rows);
+    console.log(`Classified (dentro piloto): ${classified}`);
+    console.log(`Unclassified (fora piloto): ${unclassified}`);
+    console.log(`Buckets únicos: ${buckets.size}`);
+
+    console.log('\n[3/4] Filter groups >=2 members + 2+ brands...');
+    const groups = filterGroups(buckets).sort(
+      (a, b) => b.members.length - a.members.length,
+    );
+    const totalMembers = groups.reduce((s, g) => s + g.members.length, 0);
+    console.log(`Groups: ${groups.length}`);
+    console.log(`Total members a linkar: ${totalMembers}`);
+
+    // Histogram por typeKey
+    const byType = new Map();
+    for (const g of groups) byType.set(g.typeKey, (byType.get(g.typeKey) ?? 0) + 1);
+    if (byType.size > 0) {
+      console.log('\nHistogram typeKey → #groups:');
+      for (const [tk, n] of [...byType.entries()].sort((a, b) => b[1] - a[1])) {
+        console.log(`  ${tk}: ${n}`);
+      }
+    }
+
+    // Amostra
+    const SAMPLE = parseInt(process.env.SAMPLE_GROUPS ?? '30', 10);
+    console.log(`\nSample groups (${Math.min(SAMPLE, groups.length)}/${groups.length}):`);
+    console.log('-'.repeat(72));
+    for (const g of groups.slice(0, SAMPLE)) {
+      console.log(
+        `  [${g.typeKey} · ${g.sizeStr}${g.variantKey ? ` · ${g.variantKey}` : ''}] members=${g.members.length} brands=${g.brands.join(',')}`,
+      );
+      for (const m of g.members.slice(0, 5)) {
+        console.log(`     → "${m.name.slice(0, 60)}" [${m.brand ?? '∅'}]`);
+      }
+      if (g.members.length > 5) {
+        console.log(`     ... +${g.members.length - 5} mais`);
+      }
+    }
+
+    if (!apply) {
+      console.log('\n--dry-run: nenhuma mudança gravada. Para aplicar: --apply');
+      return;
+    }
+
+    console.log('\n[4/4] APPLY — assignar equivalent_group_id...');
+    let linked = 0;
+    for (const g of groups) {
+      // Reusa o group_id existente se qualquer member já tiver um atribuído
+      // (idempotência: re-run não troca o id). Caso contrário gera novo cuid-like.
+      const existing = g.members
+        .map((m) => m.existing_group)
+        .find((x) => x);
+      const groupId = existing ?? `eq_${randomUUID().replace(/-/g, '').slice(0, 24)}`;
+      const toUpdate = g.members
+        .filter((m) => m.existing_group !== groupId)
+        .map((m) => m.id);
+      if (toUpdate.length === 0) continue;
+      const result = await prisma.$executeRawUnsafe(
+        `UPDATE products SET equivalent_group_id = $1, updated_at = NOW()
+         WHERE id = ANY($2::text[])`,
+        groupId,
+        toUpdate,
+      );
+      linked += result;
+    }
+    console.log(`\n✅ Apply concluído. ${linked} produtos linkados em ${groups.length} grupos equivalentes.`);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

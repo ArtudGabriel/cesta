@@ -139,6 +139,36 @@ export class ProductResponseDto {
   @ApiProperty({ example: 1, minimum: 1 }) canonicalGroupSize: number;
   @ApiProperty() isSameProduct: boolean;
 
+  // Sprint 245 (ADR 0046): "produto equivalente" piloto 5 categorias.
+  // `equivalentGroupId` liga produtos de marcas DIFERENTES pelo mesmo
+  // typeKey + sizeCanon. `equivalentCount` conta membros do grupo (1 =
+  // standalone, 2+ = equivalente cross-mercado cross-brand existe).
+  // `cheapestEquivalent` carrega o membro OUTRO (≠ este produto) mais
+  // barato do grupo — preço + supermarketSlug + brand — pro badge
+  // amarelo "Equivalente desde X€" no card.
+  @ApiProperty({ type: String, nullable: true })
+  equivalentGroupId: string | null;
+  @ApiProperty({ example: 1, minimum: 1 }) equivalentCount: number;
+  @ApiProperty({
+    type: 'object',
+    nullable: true,
+    properties: {
+      price: { type: 'number' },
+      supermarketSlug: { type: 'string' },
+      supermarketName: { type: 'string' },
+      brand: { type: 'string', nullable: true },
+      productId: { type: 'string' },
+    },
+    required: ['price', 'supermarketSlug', 'supermarketName', 'productId'],
+  })
+  cheapestEquivalent: {
+    price: number;
+    supermarketSlug: string;
+    supermarketName: string;
+    brand: string | null;
+    productId: string;
+  } | null;
+
   // Nutrição
   @ApiProperty({ type: Number, nullable: true }) calories: number | null;
   @ApiProperty({ type: Number, nullable: true }) protein: number | null;
@@ -260,6 +290,26 @@ export class ProductResponseDto {
     dto.prices = prices;
     dto.canonicalGroupSize = 1 + duplicates.length;
     dto.isSameProduct = dto.canonicalGroupSize > 1;
+
+    // Sprint 245 (ADR 0046): equivalent group fields. `equivalentCount` +
+    // `cheapestEquivalent` são populados pela repository em query separada
+    // (findById agrega) — DTO só carrega o que já veio. Defaults seguros
+    // pra endpoints que ainda não agregam equivalente.
+    const equivalentMeta = (product as unknown as {
+      equivalentMeta?: {
+        count: number;
+        cheapest: {
+          price: number;
+          supermarketSlug: string;
+          supermarketName: string;
+          brand: string | null;
+          productId: string;
+        } | null;
+      };
+    }).equivalentMeta;
+    dto.equivalentGroupId = product.equivalentGroupId ?? null;
+    dto.equivalentCount = equivalentMeta?.count ?? 1;
+    dto.cheapestEquivalent = equivalentMeta?.cheapest ?? null;
 
     const availablePrices = prices.filter((p) => p.isAvailable);
     if (availablePrices.length > 0) {

@@ -55,6 +55,8 @@ function makeProduct(overrides: Partial<Product> = {}): Product {
     canonicalProductId: null,
     canonicalGroupSize: 1,
     isSameProduct: false,
+    equivalentGroupId: null,
+    equivalentCount: 1,
     ...overrides,
   };
 }

@@ -1,0 +1,104 @@
+openapi: 3.0.3
+info:
+  title: Cesta Products API — "produto equivalente" piloto 5 categorias
+  description: |
+    Sprint 245 (ADR 0046) — "produto equivalente" piloto. Novos campos
+    em `ProductResponseDto` populados por `attachEquivalentMeta` no
+    repository.
+
+    **Diferença conceitual vs S244 "mismo producto"**:
+      - "Mismo producto" (canonicalProductId) = mesma marca + mesmo size +
+        mesmo nome, só diferem em supermercado (ex: Hellmann's 450ml em
+        Mercadona vs Carrefour). Badge VERDE.
+      - "Produto equivalente" (equivalentGroupId) = marcas DIFERENTES com
+        mesmo typeKey (leche entera, agua mineral, etc.) + mesmo size.
+        Serve ao mesmo propósito (ex: Leche entera Hacendado vs Pascual vs
+        Dia Láctea, todos 1L). Badge AMARELO "equivalente desde X€".
+
+    **Piloto 5 categorias** (ADR 0046):
+      - leche-entera, leche-semi, leche-desnatada
+      - agua-mineral
+      - huevos
+      - aceite-oliva-ve, aceite-oliva
+      - pan-molde
+
+    Produtos fora do piloto têm `equivalentGroupId: null`, `equivalentCount: 1`,
+    `cheapestEquivalent: null`. Frontend só renderiza badge quando
+    `cheapestEquivalent !== null && equivalentCount > 1`.
+  version: "1.0.0"
+servers:
+  - url: https://cesta-gsvc.onrender.com/api/v1
+    description: Production
+  - url: http://localhost:3001/api/v1
+    description: Local dev
+
+tags:
+  - name: Products
+
+components:
+  schemas:
+    ProductResponseEquivalentFields:
+      type: object
+      description: |
+        Campos novos adicionados ao ProductResponseDto em S245. Carried
+        em TODO retorno (`/products/:id`, `/products`, `/products/compare`),
+        populados por `ProductsRepository.attachEquivalentMeta`.
+      required: [equivalentGroupId, equivalentCount]
+      properties:
+        equivalentGroupId:
+          type: string
+          nullable: true
+          description: |
+            Cuid-like gerado pelo `match-equivalent.mjs --apply`. Todos
+            os membros do grupo compartilham o mesmo valor. `null` quando
+            produto está fora do piloto 5 categorias ou quando o match
+            encontrou size < 2 OR marcas < 2.
+        equivalentCount:
+          type: integer
+          minimum: 1
+          description: |
+            Count de membros vivos (deletedAt IS NULL) no grupo
+            equivalente. `1` quando standalone; `2+` quando existe
+            equivalente cross-brand. Frontend usa `> 1 && cheapestEquivalent`
+            pra decidir render do badge.
+        cheapestEquivalent:
+          type: object
+          nullable: true
+          description: |
+            Membro OUTRO (`productId !== este produto.id`) do grupo com
+            preço ativo mais barato. `null` quando grupo tem apenas este
+            produto com price ativo OR quando grupo é standalone.
+          required: [price, supermarketSlug, supermarketName, productId]
+          properties:
+            price:
+              type: number
+              minimum: 0
+              multipleOf: 0.01
+            supermarketSlug:
+              type: string
+            supermarketName:
+              type: string
+            brand:
+              type: string
+              nullable: true
+            productId:
+              type: string
+
+    EquivalentGroupClassification:
+      type: string
+      description: |
+        typeKey canônico do grupo equivalente (alimenta ADR 0046 piloto).
+        Enum documenta apenas valores vigentes; novas categorias chegam em
+        sprints futuras pós medição métrica.
+      enum:
+        - leche-entera
+        - leche-semi
+        - leche-desnatada
+        - agua-mineral
+        - huevos
+        - aceite-oliva-ve
+        - aceite-oliva
+        - pan-molde
+
+paths: {}  # Endpoints em products-search.yaml + products-canonical.yaml; este
+           # spec define apenas os schema fragments adicionados em S245.
