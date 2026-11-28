@@ -91,7 +91,8 @@ function classifyAceite(norm) {
   return null;
 }
 
-const AGUA_OUT = /\b(gas|gasificad|vitaminad|sabor|alcalin|infusionad|aromatizad|carbonat)\b/;
+// Aceita sufixo flexional [ao] feminino/masculino espanhol (gasificada / alcalina).
+const AGUA_OUT = /\b(gas|gasificad[ao]?|vitaminad[ao]?|alcalin[ao]?|infusionad[ao]?|aromatizad[ao]?|carbonat[ao]?|sabor)\b/;
 
 function classifyAgua(norm) {
   // Head noun check — "agua" no começo.
