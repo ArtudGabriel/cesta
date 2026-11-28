@@ -10,6 +10,19 @@ import { PrismaService } from '../../database/prisma.service';
 import { ProductFiltersDto } from './dtos/product-filters.dto';
 import { scorePhraseMatch } from './match-score.util';
 
+export type EquivalentCheapest = {
+  price: number;
+  supermarketSlug: string;
+  supermarketName: string;
+  brand: string | null;
+  productId: string;
+};
+
+export type EquivalentMeta = {
+  count: number;
+  cheapest: EquivalentCheapest | null;
+};
+
 export type ProductWithPrices = Product & {
   prices: (ProductPrice & { supermarket: Supermarket })[];
   category: Category | null;
@@ -18,6 +31,10 @@ export type ProductWithPrices = Product & {
   duplicates?: (Product & {
     prices: (ProductPrice & { supermarket: Supermarket })[];
   })[];
+  // Sprint 245 (ADR 0046): equivalent group aggregate (opcional ·
+  // populado via `attachEquivalentMeta` em read path endpoints que
+  // precisam do badge amarelo).
+  equivalentMeta?: EquivalentMeta;
 };
 
 const PRICE_WHERE = {
@@ -108,6 +125,10 @@ export class ProductsRepository {
       this.prisma.product.count({ where }),
     ]);
 
+    // Sprint 245 (ADR 0046): listagem card-de-busca precisa do badge
+    // amarelo "equivalente desde X€" — attach meta via 1 query batched.
+    await this.attachEquivalentMeta(items as ProductWithPrices[]);
+
     return { items, total };
   }
 
@@ -124,16 +145,23 @@ export class ProductsRepository {
     });
     if (!self) return null;
     const canonicalId = self.canonicalProductId ?? self.id;
-    return this.prisma.product.findFirst({
+    const canonical = await this.prisma.product.findFirst({
       where: { id: canonicalId, deletedAt: null },
       include: CANONICAL_INCLUDE,
     });
+    if (!canonical) return null;
+    // Sprint 245 (ADR 0046): detalhe de produto sempre carrega meta
+    // equivalente (1 query extra barata quando produto está em grupo
+    // piloto; no-op quando não está).
+    await this.attachEquivalentMeta([canonical as ProductWithPrices]);
+    return canonical as ProductWithPrices;
   }
 
   /**
    * Sprint 244 (ADR 0044): resolve cada id ao canonical do grupo, dedupe,
    * e carrega todos os canonicals com duplicates agregados. Usado por
    * /products/compare — 2 ids no mesmo cluster viram 1 row.
+   * Sprint 245 (ADR 0046): compare também agrega equivalent meta.
    */
   async findManyByIds(ids: string[]): Promise<ProductWithPrices[]> {
     if (ids.length === 0) return [];
@@ -145,10 +173,122 @@ export class ProductsRepository {
       new Set(resolved.map((r) => r.canonicalProductId ?? r.id)),
     );
     if (canonicalIds.length === 0) return [];
-    return this.prisma.product.findMany({
+    const canonicals = await this.prisma.product.findMany({
       where: { id: { in: canonicalIds }, deletedAt: null },
       include: CANONICAL_INCLUDE,
     });
+    await this.attachEquivalentMeta(canonicals as ProductWithPrices[]);
+    return canonicals as ProductWithPrices[];
+  }
+
+  /**
+   * Sprint 245 (ADR 0046): batched equivalent group aggregator.
+   *
+   * Dado um array de produtos, coleta os equivalentGroupId não-nulos e
+   * executa 1 raw query pra agregar count + cheapest member por grupo.
+   * Attach o resultado em `product.equivalentMeta`. Produtos fora do
+   * piloto (equivalentGroupId=null) ficam com meta undefined (DTO
+   * usa defaults seguros).
+   *
+   * Exclui o próprio produto do "cheapest" — o badge amarelo mostra
+   * "equivalente mais barato que ESTE" (outro produto do grupo).
+   * Quando o próprio produto JÁ é o mais barato (ou único com price
+   * ativo), cheapest=null e count=1.
+   */
+  async attachEquivalentMeta(products: ProductWithPrices[]): Promise<void> {
+    const groupIds = Array.from(
+      new Set(
+        products
+          .map((p) => p.equivalentGroupId)
+          .filter((x): x is string => typeof x === 'string' && x.length > 0),
+      ),
+    );
+    if (groupIds.length === 0) return;
+
+    // Carrega todos os membros vivos dos grupos com seus prices (cheapest).
+    // Single query raw-safe: usa Prisma findMany com include selectivo.
+    const groupMembers = await this.prisma.product.findMany({
+      where: {
+        equivalentGroupId: { in: groupIds },
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        brand: true,
+        equivalentGroupId: true,
+        prices: {
+          where: {
+            isAvailable: true,
+            supermarket: { isActive: true },
+            deletedAt: null,
+          },
+          orderBy: { currentPrice: 'asc' },
+          take: 1,
+          select: {
+            currentPrice: true,
+            supermarket: {
+              select: { slug: true, name: true },
+            },
+          },
+        },
+      },
+    });
+
+    // groupId → list of {productId, brand, bestPrice | null}
+    const byGroup = new Map<
+      string,
+      {
+        productId: string;
+        brand: string | null;
+        best: {
+          price: number;
+          supermarketSlug: string;
+          supermarketName: string;
+        } | null;
+      }[]
+    >();
+    for (const m of groupMembers) {
+      if (!m.equivalentGroupId) continue;
+      const list = byGroup.get(m.equivalentGroupId) ?? [];
+      const p = m.prices[0];
+      list.push({
+        productId: m.id,
+        brand: m.brand,
+        best: p
+          ? {
+              price: Number(p.currentPrice),
+              supermarketSlug: p.supermarket.slug,
+              supermarketName: p.supermarket.name,
+            }
+          : null,
+      });
+      byGroup.set(m.equivalentGroupId, list);
+    }
+
+    for (const product of products) {
+      const gid = product.equivalentGroupId;
+      if (!gid) continue;
+      const members = byGroup.get(gid) ?? [];
+      // Cheapest OUTRO (!== product.id) com price ativo.
+      let cheapest: EquivalentCheapest | null = null;
+      for (const m of members) {
+        if (m.productId === product.id) continue;
+        if (!m.best) continue;
+        if (!cheapest || m.best.price < cheapest.price) {
+          cheapest = {
+            price: m.best.price,
+            supermarketSlug: m.best.supermarketSlug,
+            supermarketName: m.best.supermarketName,
+            brand: m.brand,
+            productId: m.productId,
+          };
+        }
+      }
+      product.equivalentMeta = {
+        count: members.length,
+        cheapest,
+      };
+    }
   }
 
   /**

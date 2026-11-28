@@ -55,6 +55,8 @@ function makeProduct(id: string, name: string, prices: Array<{ slug: string; nam
     canonicalProductId: null,
     canonicalGroupSize: 1,
     isSameProduct: false,
+    equivalentGroupId: null,
+    equivalentCount: 1,
   };
 }
 

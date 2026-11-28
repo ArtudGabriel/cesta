@@ -71,6 +71,8 @@ function makeItem(overrides: Partial<BasketItem> & { subtotal: number }): Basket
       canonicalProductId: null,
       canonicalGroupSize: 1,
       isSameProduct: false,
+    equivalentGroupId: null,
+    equivalentCount: 1,
     },
   };
   return { ...base, ...overrides };

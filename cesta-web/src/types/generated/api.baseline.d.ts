@@ -1836,6 +1836,16 @@ export interface components {
             /** @example 1 */
             canonicalGroupSize: number;
             isSameProduct: boolean;
+            equivalentGroupId: string | null;
+            /** @example 1 */
+            equivalentCount: number;
+            cheapestEquivalent?: {
+                price: number;
+                supermarketSlug: string;
+                supermarketName: string;
+                brand?: string | null;
+                productId: string;
+            } | null;
             calories: number | null;
             protein: number | null;
             fat: number | null;

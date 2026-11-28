@@ -8,6 +8,7 @@ import { formatUnitPrice } from "../utils/format-unit-price";
 import { calculateDiscount } from "../utils/discount";
 import { useLocale } from "@/hooks/use-locale";
 import { DiscountBadge } from "./discount-badge";
+import { EquivalentBadge } from "./equivalent-badge";
 import { HighlightedText } from "./highlighted-text";
 import { NutriScoreBadge } from "./nutri-score-badge";
 import { ProductImage } from "./product-image";
@@ -137,6 +138,14 @@ export function ProductCard({
                       size="sm"
                     />
                   )}
+                  {product.cheapestEquivalent &&
+                    product.equivalentCount > 1 && (
+                      <EquivalentBadge
+                        cheapest={product.cheapestEquivalent}
+                        count={product.equivalentCount}
+                        size="sm"
+                      />
+                    )}
                 </div>
               </>
             )}

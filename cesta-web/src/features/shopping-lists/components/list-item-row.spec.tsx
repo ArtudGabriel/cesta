@@ -62,6 +62,8 @@ function makeItem(
       canonicalProductId: null,
       canonicalGroupSize: 1,
       isSameProduct: false,
+    equivalentGroupId: null,
+    equivalentCount: 1,
       ...overrides,
     },
   };
