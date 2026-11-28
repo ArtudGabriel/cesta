@@ -59,6 +59,46 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // Sprint 243c (ADR 0045): auth transport first-party.
+  //
+  // Problema: cesta-web.vercel.app + cesta-gsvc.onrender.com são sites
+  // DIFERENTES na Public Suffix List. Browser trata requests do front pro
+  // backend como cross-site. Refresh cookie setado pelo backend com
+  // SameSite='lax' + Secure + httpOnly NÃO é incluído em XHR cross-site
+  // (nem em iPhone Safari que tem ITP agressivo além do SameSite). Pós
+  // expiração dos 15min do access token, `fetch(/auth/refresh,
+  // credentials: 'include')` chega ao backend sem cookie → 401 → user
+  // é deslogado e qualquer ação logada retorna "Token ausente" em
+  // `jwt-auth.guard.ts:34`.
+  //
+  // Fix: proxy transparente /api/v1/:path* via Next rewrite. Browser passa
+  // a enxergar a API como mesmo origin (cesta-web.vercel.app/api/v1/...).
+  // Refresh cookie é setado pelo backend sem `Domain=` attribute → Next
+  // repassa Set-Cookie → browser atribui ao domínio do request
+  // (vercel.app) → cookie fica first-party → SameSite=lax funciona + ITP
+  // Safari deixa passar.
+  //
+  // API_UPSTREAM é server-side only (sem prefix NEXT_PUBLIC) — não
+  // vaza upstream pro client bundle. SSR em `receipt.server.ts` continua
+  // chamando direto o upstream via `API_URL` (server-to-server, sem
+  // sentido rotear via Vercel edge).
+  //
+  // Latency extra: 1 hop cdg1 (Vercel edge) → oregon (Render). Medido
+  // em S243c (anotado PR body). Aceito como trade-off vs sessão quebrada
+  // a cada 15min.
+  //
+  // Rollback: remover o bloco de rewrites + reverter baseURL em
+  // lib/api.ts. Deploy do Vercel rolls back automatic via revert do commit.
+  async rewrites() {
+    const upstream = process.env.API_UPSTREAM?.replace(/\/+$/, "");
+    if (!upstream) return [];
+    return [
+      {
+        source: "/api/v1/:path*",
+        destination: `${upstream}/api/v1/:path*`,
+      },
+    ];
+  },
 };
 
 export default withSentryConfig(withAnalyzer(withNextIntl(nextConfig)), {

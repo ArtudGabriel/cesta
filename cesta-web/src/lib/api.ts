@@ -6,15 +6,24 @@ import * as Sentry from "@sentry/nextjs";
 // precisa de folga. Timeout mais baixo quebra GETs legítimos nesse cenário.
 export const API_TIMEOUT_MS = 45000;
 
+// Sprint 243c (ADR 0045): baseURL relativo pro proxy Next rewrite
+// (/api/v1 mesmo-origin). Preserva o default local http://localhost:3001
+// por desenvolvedores que ainda não rodam Next em modo rewrite, mas em
+// prod o default `/api/v1` casa com o rewrite de next.config.ts.
+const DEFAULT_API_BASE_URL =
+  process.env.NODE_ENV === "production" ? "/api/v1" : "http://localhost:3001/api/v1";
+
 export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api/v1",
+  baseURL: process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_BASE_URL,
   timeout: API_TIMEOUT_MS,
   headers: { "Content-Type": "application/json" },
   // fetch adapter garante intercept por MSW (setupServer/fetch) em testes jsdom.
   // Em browser real axios escolhe XHR — zero diff funcional.
   adapter: "fetch",
-  // Refresh token httpOnly (Sprint 54) — browser precisa incluir cookie em
-  // cross-origin calls (web 3000, api 3001). Backend CORS já credentials:true.
+  // Sprint 243c (ADR 0045): same-origin via Next rewrite — withCredentials
+  // ainda é necessário pra garantir que o browser INCLUA o cookie first-party
+  // nos XHRs (axios/fetch não envia cookies por default mesmo same-origin).
+  // Refresh token httpOnly (Sprint 54 · set pelo backend sem Domain attr).
   withCredentials: true,
 });
 
