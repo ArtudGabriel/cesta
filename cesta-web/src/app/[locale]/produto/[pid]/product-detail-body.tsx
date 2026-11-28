@@ -12,6 +12,7 @@ import { PackageInfoStrip } from "@/features/catalog/components/package-info-str
 import { PriceComparisonGrid } from "@/features/catalog/components/price-comparison-grid";
 import { PriceHistoryChart } from "@/features/catalog/components/price-history-chart";
 import { ProductImage } from "@/features/catalog/components/product-image";
+import { SameProductBadge } from "@/features/catalog/components/same-product-badge";
 import { StaleBadge } from "@/features/catalog/components/stale-badge";
 import { useSupermarkets } from "@/features/catalog/hooks/use-catalog";
 import { useLocale } from "@/hooks/use-locale";
@@ -119,9 +120,14 @@ export function ProductDetailBody({ product }: { product: Product }) {
       </div>
 
       <section className="px-4 py-4">
-        <h3 className="mb-3 font-display text-lg font-bold text-ink">
-          {t("pricesHeader")}
-        </h3>
+        <div className="mb-3 flex items-center gap-2">
+          <h3 className="font-display text-lg font-bold text-ink">
+            {t("pricesHeader")}
+          </h3>
+          {product.isSameProduct && (
+            <SameProductBadge count={product.canonicalGroupSize} size="md" />
+          )}
+        </div>
         <PriceComparisonGrid prices={product.prices} />
       </section>
 

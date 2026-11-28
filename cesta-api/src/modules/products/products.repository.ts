@@ -13,17 +13,43 @@ import { scorePhraseMatch } from './match-score.util';
 export type ProductWithPrices = Product & {
   prices: (ProductPrice & { supermarket: Supermarket })[];
   category: Category | null;
+  // Sprint 244 (ADR 0044): duplicates do grupo canônico (opcional ·
+  // populado via CANONICAL_INCLUDE em read path endpoints).
+  duplicates?: (Product & {
+    prices: (ProductPrice & { supermarket: Supermarket })[];
+  })[];
 };
+
+const PRICE_WHERE = {
+  supermarket: { isActive: true },
+  deletedAt: null,
+} as const;
 
 const PRICE_INCLUDE = {
   prices: {
     include: { supermarket: true },
     // Sprint 234 G3 recall fix (ADR 0041): filtra soft-deleted seed prices.
-    where: { supermarket: { isActive: true }, deletedAt: null },
+    where: PRICE_WHERE,
   },
   // Sprint 61: category.slug alimenta o mapping de variante Nutri-Score em
   // `ProductResponseDto.fromEntity`.
   category: true,
+} as const;
+
+// Sprint 244 (ADR 0044): include canonical group — PRICE_INCLUDE + duplicates
+// (non-deleted) com suas prices. Usado em read path endpoints que precisam
+// agregar preços cross-mercado dentro do cluster.
+const CANONICAL_INCLUDE = {
+  ...PRICE_INCLUDE,
+  duplicates: {
+    where: { deletedAt: null },
+    include: {
+      prices: {
+        include: { supermarket: true },
+        where: PRICE_WHERE,
+      },
+    },
+  },
 } as const;
 
 /**
@@ -74,7 +100,7 @@ export class ProductsRepository {
     const [items, total] = await Promise.all([
       this.prisma.product.findMany({
         where,
-        include: PRICE_INCLUDE,
+        include: CANONICAL_INCLUDE,
         orderBy,
         skip: filters.skip,
         take: filters.limit,
@@ -85,17 +111,43 @@ export class ProductsRepository {
     return { items, total };
   }
 
-  findById(id: string): Promise<ProductWithPrices | null> {
-    return this.prisma.product.findFirst({
+  /**
+   * Sprint 244 (ADR 0044): se `id` é child (canonicalProductId != null),
+   * resolve ao canonical. Retorna o canonical com `duplicates[]` loaded
+   * pra agregação no DTO. Null quando id não existe ou canonical foi
+   * soft-deleted.
+   */
+  async findById(id: string): Promise<ProductWithPrices | null> {
+    const self = await this.prisma.product.findFirst({
       where: { id, deletedAt: null },
-      include: PRICE_INCLUDE,
+      select: { id: true, canonicalProductId: true },
+    });
+    if (!self) return null;
+    const canonicalId = self.canonicalProductId ?? self.id;
+    return this.prisma.product.findFirst({
+      where: { id: canonicalId, deletedAt: null },
+      include: CANONICAL_INCLUDE,
     });
   }
 
-  findManyByIds(ids: string[]): Promise<ProductWithPrices[]> {
-    return this.prisma.product.findMany({
+  /**
+   * Sprint 244 (ADR 0044): resolve cada id ao canonical do grupo, dedupe,
+   * e carrega todos os canonicals com duplicates agregados. Usado por
+   * /products/compare — 2 ids no mesmo cluster viram 1 row.
+   */
+  async findManyByIds(ids: string[]): Promise<ProductWithPrices[]> {
+    if (ids.length === 0) return [];
+    const resolved = await this.prisma.product.findMany({
       where: { id: { in: ids }, deletedAt: null },
-      include: PRICE_INCLUDE,
+      select: { id: true, canonicalProductId: true },
+    });
+    const canonicalIds = Array.from(
+      new Set(resolved.map((r) => r.canonicalProductId ?? r.id)),
+    );
+    if (canonicalIds.length === 0) return [];
+    return this.prisma.product.findMany({
+      where: { id: { in: canonicalIds }, deletedAt: null },
+      include: CANONICAL_INCLUDE,
     });
   }
 
@@ -115,10 +167,13 @@ export class ProductsRepository {
    * janela, section FeaturedDeals ficava vazia.
    */
   async findManyWithPrices(cap = 500): Promise<ProductWithPrices[]> {
+    // Sprint 244 (ADR 0044): filtra canonical (canonicalProductId IS NULL);
+    // duplicates do grupo entram via include pra agregação de prices.
     const [withPromo, recent] = await Promise.all([
       this.prisma.product.findMany({
         where: {
           deletedAt: null,
+          canonicalProductId: null,
           prices: {
             some: {
               isAvailable: true,
@@ -127,15 +182,16 @@ export class ProductsRepository {
             },
           },
         },
-        include: PRICE_INCLUDE,
+        include: CANONICAL_INCLUDE,
         take: cap,
       }),
       this.prisma.product.findMany({
         where: {
           deletedAt: null,
+          canonicalProductId: null,
           prices: { some: { isAvailable: true, deletedAt: null } },
         },
-        include: PRICE_INCLUDE,
+        include: CANONICAL_INCLUDE,
         take: cap,
         orderBy: { updatedAt: 'desc' },
       }),
@@ -164,11 +220,31 @@ export class ProductsRepository {
     // Sprint 243b: exige >=1 price ativo (isAvailable=true, deletedAt=null).
     // Produtos seed limpos (189 rows soft-del em 2026-11-27 23:02:43Z UTC)
     // sem catálogo real saem da busca.
+    // Sprint 244 (ADR 0044): dedupe canonical — WHERE canonicalProductId IS
+    // NULL. Price agregado inclui duplicates' prices pra cheapestUnitPrice
+    // refletir o grupo inteiro (price pode vir de um child doutro mercado).
+    // AND wrapping: name/brand OR + price-existence OR não podem colidir na
+    // mesma key `OR`. Prisma trata AND[] como interseção (via `where.AND`).
     const where: Prisma.ProductWhereInput = {
       deletedAt: null,
-      // Sprint 228 #7: multi-token tokenize AND-of-OR (vide helper).
-      ...buildMultiTokenNameBrandWhere(q),
-      prices: { some: { isAvailable: true, deletedAt: null } },
+      canonicalProductId: null,
+      AND: [
+        // Sprint 228 #7: multi-token tokenize AND-of-OR (vide helper).
+        buildMultiTokenNameBrandWhere(q),
+        {
+          OR: [
+            { prices: { some: { isAvailable: true, deletedAt: null } } },
+            {
+              duplicates: {
+                some: {
+                  deletedAt: null,
+                  prices: { some: { isAvailable: true, deletedAt: null } },
+                },
+              },
+            },
+          ],
+        },
+      ],
     };
 
     const sampleSize = Math.min(limit * 3, 40);
@@ -191,19 +267,40 @@ export class ProductsRepository {
             take: 1,
             select: { currentPrice: true },
           },
+          duplicates: {
+            where: { deletedAt: null },
+            select: {
+              prices: {
+                where: {
+                  isAvailable: true,
+                  supermarket: { isActive: true },
+                  deletedAt: null,
+                },
+                orderBy: { currentPrice: 'asc' },
+                take: 1,
+                select: { currentPrice: true },
+              },
+            },
+          },
         },
       }),
       this.prisma.product.count({ where }),
     ]);
 
-    const scored = rows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      imageUrl: r.imageUrl,
-      cheapestUnitPrice: r.prices[0]
-        ? Number(r.prices[0].currentPrice)
-        : null,
-    }));
+    const scored = rows.map((r) => {
+      const selfMin = r.prices[0] ? Number(r.prices[0].currentPrice) : null;
+      let groupMin = selfMin;
+      for (const d of r.duplicates ?? []) {
+        const dp = d.prices[0] ? Number(d.prices[0].currentPrice) : null;
+        if (dp != null && (groupMin == null || dp < groupMin)) groupMin = dp;
+      }
+      return {
+        id: r.id,
+        name: r.name,
+        imageUrl: r.imageUrl,
+        cheapestUnitPrice: groupMin,
+      };
+    });
 
     scored.sort((a, b) => {
       const ap = a.cheapestUnitPrice ?? Number.POSITIVE_INFINITY;
@@ -226,13 +323,30 @@ export class ProductsRepository {
     // startsWith prefere, depois contains. Prisma nao tem relevance score;
     // buscamos (limit*2) e priorizamos startsWith no sort em memoria.
     // Sprint 243b: exige >=1 price ativo (isAvailable=true, deletedAt=null).
+    // Sprint 244 (ADR 0044): canonical-only + union com duplicates' prices
+    // pro cheapest refletir grupo cross-mercado.
     const take = Math.min(limit * 2, 40);
     const rows = await this.prisma.product.findMany({
       where: {
         deletedAt: null,
-        // Sprint 228 #7: multi-token tokenize AND-of-OR (vide helper).
-        ...buildMultiTokenNameBrandWhere(q),
-        prices: { some: { isAvailable: true, deletedAt: null } },
+        canonicalProductId: null,
+        AND: [
+          // Sprint 228 #7: multi-token tokenize AND-of-OR (vide helper).
+          buildMultiTokenNameBrandWhere(q),
+          {
+            OR: [
+              { prices: { some: { isAvailable: true, deletedAt: null } } },
+              {
+                duplicates: {
+                  some: {
+                    deletedAt: null,
+                    prices: { some: { isAvailable: true, deletedAt: null } },
+                  },
+                },
+              },
+            ],
+          },
+        ],
       },
       take,
       select: {
@@ -253,7 +367,48 @@ export class ProductsRepository {
             supermarket: true,
           },
         },
+        duplicates: {
+          where: { deletedAt: null },
+          select: {
+            prices: {
+              where: {
+                isAvailable: true,
+                supermarket: { isActive: true },
+                deletedAt: null,
+              },
+              orderBy: { currentPrice: 'asc' },
+              take: 1,
+              select: {
+                currentPrice: true,
+                supermarket: true,
+              },
+            },
+          },
+        },
       },
+    });
+
+    // Sprint 244 (ADR 0044): merge duplicates' cheapest price na view
+    // de suggestion. Se grupo tem price mais barato em um child doutro
+    // mercado, suggestion exibe esse (evitar mostrar preço canonical
+    // enquanto cross-mercado tem oferta melhor).
+    const rowsWithGroupCheapest = rows.map((r) => {
+      let best: { currentPrice: Prisma.Decimal; supermarket: Supermarket } | null =
+        r.prices[0] ?? null;
+      for (const d of r.duplicates ?? []) {
+        const dp = d.prices[0];
+        if (!dp) continue;
+        if (!best || Number(dp.currentPrice) < Number(best.currentPrice)) {
+          best = dp;
+        }
+      }
+      return {
+        id: r.id,
+        name: r.name,
+        brand: r.brand,
+        imageUrl: r.imageUrl,
+        prices: best ? [best] : [],
+      };
     });
 
     // Sprint 180 fuzzy fallback: ILIKE zero matches → tenta pg_trgm similarity.
@@ -304,15 +459,29 @@ export class ProductsRepository {
       // Sprint 243b: trigram fallback também exige >=1 price ativo.
       // EXISTS correlated subquery (product_prices.product_id = products.id
       // AND is_available = true AND deleted_at IS NULL).
+      // Sprint 244 (ADR 0044): trigram fallback também filtra canonical-only
+      // (canonical_product_id IS NULL) + aceita price em qualquer membro do
+      // grupo (canonical OR duplicate).
       const trgmIds = await this.prisma.$queryRaw<Array<{ id: string }>>`
         SELECT "id"
         FROM "products"
         WHERE "deleted_at" IS NULL
-          AND EXISTS (
-            SELECT 1 FROM "product_prices" pp
-            WHERE pp."product_id" = "products"."id"
-              AND pp."is_available" = true
-              AND pp."deleted_at" IS NULL
+          AND "canonical_product_id" IS NULL
+          AND (
+            EXISTS (
+              SELECT 1 FROM "product_prices" pp
+              WHERE pp."product_id" = "products"."id"
+                AND pp."is_available" = true
+                AND pp."deleted_at" IS NULL
+            )
+            OR EXISTS (
+              SELECT 1 FROM "products" d
+              JOIN "product_prices" pp ON pp."product_id" = d."id"
+              WHERE d."canonical_product_id" = "products"."id"
+                AND d."deleted_at" IS NULL
+                AND pp."is_available" = true
+                AND pp."deleted_at" IS NULL
+            )
           )
           AND (
             word_similarity(${q}, "name") > 0.3
@@ -368,6 +537,25 @@ export class ProductsRepository {
                 supermarket: true,
               },
             },
+            // Sprint 244 (ADR 0044): include duplicates cheapest no trgm path.
+            duplicates: {
+              where: { deletedAt: null },
+              select: {
+                prices: {
+                  where: {
+                    isAvailable: true,
+                    supermarket: { isActive: true },
+                    deletedAt: null,
+                  },
+                  orderBy: { currentPrice: 'asc' },
+                  take: 1,
+                  select: {
+                    currentPrice: true,
+                    supermarket: true,
+                  },
+                },
+              },
+            },
           },
         });
         // Preserva ordem similaridade DESC retornada pelo raw query
@@ -375,6 +563,28 @@ export class ProductsRepository {
         return trgmIds
           .map((t) => byId.get(t.id))
           .filter((r): r is NonNullable<typeof r> => r !== undefined)
+          .map((r) => {
+            let best:
+              | { currentPrice: Prisma.Decimal; supermarket: Supermarket }
+              | null = r.prices[0] ?? null;
+            for (const d of r.duplicates ?? []) {
+              const dp = d.prices[0];
+              if (!dp) continue;
+              if (
+                !best ||
+                Number(dp.currentPrice) < Number(best.currentPrice)
+              ) {
+                best = dp;
+              }
+            }
+            return {
+              id: r.id,
+              name: r.name,
+              brand: r.brand,
+              imageUrl: r.imageUrl,
+              prices: best ? [best] : [],
+            };
+          })
           .slice(0, limit);
       }
     }
@@ -384,7 +594,9 @@ export class ProductsRepository {
     // cheapestPrice ASC (preserva comportamento anterior pra empates dentro
     // do mesmo tier). Reintroduz determinismo que Fuse.js re-rank no front
     // (useFuzzySuggestions) estava borrando pra buscas de frase exata.
-    const scored = rows.map((r) => {
+    // Sprint 244 (ADR 0044): usa rowsWithGroupCheapest — prices[0] já é o
+    // menor preço do grupo canônico (canonical + duplicates).
+    const scored = rowsWithGroupCheapest.map((r) => {
       const cheapest = r.prices[0]
         ? Number(r.prices[0].currentPrice)
         : Number.POSITIVE_INFINITY;
@@ -403,31 +615,44 @@ export class ProductsRepository {
   }
 
   private async buildWhere(filters: ProductFiltersDto): Promise<Prisma.ProductWhereInput> {
-    const where: Prisma.ProductWhereInput = { deletedAt: null };
+    // Sprint 244 (ADR 0044): listagens canonical-only (canonicalProductId
+    // IS NULL); duplicates entram via CANONICAL_INCLUDE pra agregação.
+    const where: Prisma.ProductWhereInput = {
+      deletedAt: null,
+      canonicalProductId: null,
+    };
+    const andClauses: Prisma.ProductWhereInput[] = [];
 
     if (filters.search) {
       // Sprint 228 #7: multi-token search com normalizedName fallback.
       // Mesmo pattern do helper mas inclui normalizedName no OR (campo
       // lowercased pré-stemmer do catalog-sync). normalizedName não
       // precisa `mode: 'insensitive'` porque já é lowercase.
+      // Sprint 244 (ADR 0044): tokens vão em AND[] pra não colidir com o
+      // price-union OR adicionado abaixo.
       const tokens = filters.search
         .trim()
         .split(/\s+/)
         .filter((t) => t.length > 0);
       if (tokens.length === 1) {
-        where.OR = [
-          { name: { contains: tokens[0], mode: 'insensitive' } },
-          { brand: { contains: tokens[0], mode: 'insensitive' } },
-          { normalizedName: { contains: tokens[0].toLowerCase() } },
-        ];
-      } else if (tokens.length >= 2) {
-        where.AND = tokens.map((t) => ({
+        andClauses.push({
           OR: [
-            { name: { contains: t, mode: 'insensitive' } },
-            { brand: { contains: t, mode: 'insensitive' } },
-            { normalizedName: { contains: t.toLowerCase() } },
+            { name: { contains: tokens[0], mode: 'insensitive' } },
+            { brand: { contains: tokens[0], mode: 'insensitive' } },
+            { normalizedName: { contains: tokens[0].toLowerCase() } },
           ],
-        }));
+        });
+      } else if (tokens.length >= 2) {
+        for (const t of tokens) {
+          const tokenClause: Prisma.ProductWhereInput = {
+            OR: [
+              { name: { contains: t, mode: 'insensitive' } },
+              { brand: { contains: t, mode: 'insensitive' } },
+              { normalizedName: { contains: t.toLowerCase() } },
+            ],
+          };
+          andClauses.push(tokenClause);
+        }
       }
     }
 
@@ -475,9 +700,25 @@ export class ProductsRepository {
       }
       priceFilters.currentPrice = priceRange;
     }
-    // Sempre exige >=1 price que satisfaça o filtro (default isAvailable=true +
-    // deletedAt=null). Filtros adicionais do caller apertam, nunca relaxam.
-    where.prices = { some: priceFilters };
+    // Sempre exige >=1 price que satisfaça o filtro (default isAvailable=true
+    // + deletedAt=null). Filtros adicionais do caller apertam, nunca relaxam.
+    // Sprint 244 (ADR 0044): aceita price também vindo de duplicate do grupo
+    // canônico (cross-mercado via cluster S232).
+    andClauses.push({
+      OR: [
+        { prices: { some: priceFilters } },
+        {
+          duplicates: {
+            some: {
+              deletedAt: null,
+              prices: { some: priceFilters },
+            },
+          },
+        },
+      ],
+    });
+
+    if (andClauses.length > 0) where.AND = andClauses;
 
     if (filters.isVegan) where.isVegan = true;
     if (filters.isVegetarian) where.isVegetarian = true;

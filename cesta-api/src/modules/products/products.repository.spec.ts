@@ -235,7 +235,7 @@ describe('ProductsRepository multi-token tokenize (Sprint 228 #7)', () => {
     repo = new ProductsRepository(prisma as unknown as PrismaService);
   });
 
-  it('findSuggestions "coca zero": tokenize → AND com 2 tokens; cada token OR(name,brand)', async () => {
+  it('findSuggestions "coca zero": tokenize → AND com 2 tokens; cada token OR(name,brand) [S244 nested AND]', async () => {
     prisma.product.findMany.mockResolvedValueOnce([
       {
         id: 'p-coca',
@@ -243,26 +243,29 @@ describe('ProductsRepository multi-token tokenize (Sprint 228 #7)', () => {
         brand: 'Coca-Cola',
         imageUrl: null,
         prices: [],
+        duplicates: [],
       },
     ]);
     const res = await repo.findSuggestions('coca zero', 8);
     expect(res).toHaveLength(1);
     expect(res[0].id).toBe('p-coca');
-    // Verifica shape do where passado pro Prisma:
+    // S244 (ADR 0044): outer AND = [tokens-wrapper, price-existence-OR].
+    // tokens-wrapper = {AND: [{OR: tok1}, {OR: tok2}]} pro multi-token.
     const call = prisma.product.findMany.mock.calls[0][0];
     expect(call.where.AND).toHaveLength(2);
-    expect(call.where.AND[0].OR).toEqual([
+    expect(call.where.AND[0].AND).toHaveLength(2);
+    expect(call.where.AND[0].AND[0].OR).toEqual([
       { name: { contains: 'coca', mode: 'insensitive' } },
       { brand: { contains: 'coca', mode: 'insensitive' } },
     ]);
-    expect(call.where.AND[1].OR).toEqual([
+    expect(call.where.AND[0].AND[1].OR).toEqual([
       { name: { contains: 'zero', mode: 'insensitive' } },
       { brand: { contains: 'zero', mode: 'insensitive' } },
     ]);
     expect(prisma.$queryRaw).not.toHaveBeenCalled();
   });
 
-  it('findSuggestions "coca": single-token → legado OR(name,brand) preservado', async () => {
+  it('findSuggestions "coca": single-token → legado OR(name,brand) preservado dentro de AND[0] (S244)', async () => {
     prisma.product.findMany.mockResolvedValueOnce([
       {
         id: 'p-coca',
@@ -270,15 +273,17 @@ describe('ProductsRepository multi-token tokenize (Sprint 228 #7)', () => {
         brand: 'Coca-Cola',
         imageUrl: null,
         prices: [],
+        duplicates: [],
       },
     ]);
     await repo.findSuggestions('coca', 8);
     const call = prisma.product.findMany.mock.calls[0][0];
-    expect(call.where.OR).toEqual([
+    // S244 (ADR 0044): name/brand OR fica em AND[0]; price-existence OR em AND[1].
+    expect(call.where.AND).toHaveLength(2);
+    expect(call.where.AND[0].OR).toEqual([
       { name: { contains: 'coca', mode: 'insensitive' } },
       { brand: { contains: 'coca', mode: 'insensitive' } },
     ]);
-    expect(call.where.AND).toBeUndefined();
   });
 
   it('findSuggestions "  coca   zero  milka  ": trim + split por whitespace múltiplos tokens', async () => {
@@ -286,14 +291,17 @@ describe('ProductsRepository multi-token tokenize (Sprint 228 #7)', () => {
     prisma.$queryRaw.mockResolvedValueOnce([]);
     await repo.findSuggestions('  coca   zero  milka  ', 8);
     const call = prisma.product.findMany.mock.calls[0][0];
-    expect(call.where.AND).toHaveLength(3);
-    expect(call.where.AND[0].OR[0]).toEqual({
+    // S244 (ADR 0044): tokens wrapped em AND[0].AND (helper retorna AND
+    // multi-token); price-existence OR em AND[1].
+    expect(call.where.AND).toHaveLength(2);
+    expect(call.where.AND[0].AND).toHaveLength(3);
+    expect(call.where.AND[0].AND[0].OR[0]).toEqual({
       name: { contains: 'coca', mode: 'insensitive' },
     });
-    expect(call.where.AND[1].OR[0]).toEqual({
+    expect(call.where.AND[0].AND[1].OR[0]).toEqual({
       name: { contains: 'zero', mode: 'insensitive' },
     });
-    expect(call.where.AND[2].OR[0]).toEqual({
+    expect(call.where.AND[0].AND[2].OR[0]).toEqual({
       name: { contains: 'milka', mode: 'insensitive' },
     });
   });
@@ -305,6 +313,7 @@ describe('ProductsRepository multi-token tokenize (Sprint 228 #7)', () => {
         name: 'Coca-Cola Zero Azucar 2L',
         imageUrl: null,
         prices: [{ currentPrice: 1.89 }],
+        duplicates: [],
       },
     ]);
     prisma.product.count.mockResolvedValueOnce(1);
@@ -313,7 +322,9 @@ describe('ProductsRepository multi-token tokenize (Sprint 228 #7)', () => {
     expect(res.items[0].id).toBe('p-coca');
     expect(res.total).toBe(1);
     const call = prisma.product.findMany.mock.calls[0][0];
+    // S244: AND[0] = {AND: [token1, token2]}, AND[1] = price-existence OR.
     expect(call.where.AND).toHaveLength(2);
+    expect(call.where.AND[0].AND).toHaveLength(2);
     expect(call.where.deletedAt).toBeNull();
   });
 
@@ -322,21 +333,31 @@ describe('ProductsRepository multi-token tokenize (Sprint 228 #7)', () => {
     const res = await repo.findSuggestions('', 8);
     expect(res).toEqual([]);
     const call = prisma.product.findMany.mock.calls[0][0];
-    expect(call.where.id).toBe('__none__');
+    // S244: helper retorna {id: '__none__'} wrapped em AND[0].
+    expect(call.where.AND[0].id).toBe('__none__');
   });
 
-  describe('Sprint 243b: exclui produto sem price ativo (public endpoints)', () => {
-    it('findForSearch: where carrega prices.some { isAvailable, deletedAt null }', async () => {
+  describe('Sprint 243b + 244: exclui produto sem price ativo (public endpoints)', () => {
+    it('findForSearch: where.AND[1].OR union (self prices OR duplicates prices) + canonical-only (S244 ADR 0044)', async () => {
       prisma.product.findMany.mockResolvedValueOnce([]);
       prisma.product.count.mockResolvedValueOnce(0);
       await repo.findForSearch('leche', 10);
       const call = prisma.product.findMany.mock.calls[0][0];
-      expect(call.where.prices).toEqual({
-        some: { isAvailable: true, deletedAt: null },
-      });
+      expect(call.where.canonicalProductId).toBeNull();
+      expect(call.where.AND[1].OR).toEqual([
+        { prices: { some: { isAvailable: true, deletedAt: null } } },
+        {
+          duplicates: {
+            some: {
+              deletedAt: null,
+              prices: { some: { isAvailable: true, deletedAt: null } },
+            },
+          },
+        },
+      ]);
     });
 
-    it('findSuggestions: where carrega prices.some { isAvailable, deletedAt null }', async () => {
+    it('findSuggestions: where.AND[1].OR union + canonical-only (S244 ADR 0044)', async () => {
       // ILIKE primeiro path (rows > 0) — evita cair no trgm raw query.
       prisma.product.findMany.mockResolvedValueOnce([
         {
@@ -345,16 +366,26 @@ describe('ProductsRepository multi-token tokenize (Sprint 228 #7)', () => {
           brand: 'Hacendado',
           imageUrl: null,
           prices: [],
+          duplicates: [],
         },
       ]);
       await repo.findSuggestions('leche', 8);
       const call = prisma.product.findMany.mock.calls[0][0];
-      expect(call.where.prices).toEqual({
-        some: { isAvailable: true, deletedAt: null },
-      });
+      expect(call.where.canonicalProductId).toBeNull();
+      expect(call.where.AND[1].OR).toEqual([
+        { prices: { some: { isAvailable: true, deletedAt: null } } },
+        {
+          duplicates: {
+            some: {
+              deletedAt: null,
+              prices: { some: { isAvailable: true, deletedAt: null } },
+            },
+          },
+        },
+      ]);
     });
 
-    it('findMany sem filtros adicionais: where.prices.some { isAvailable, deletedAt null }', async () => {
+    it('findMany sem filtros adicionais: where.AND[0].OR union + canonical-only (S244 ADR 0044)', async () => {
       prisma.product.findMany.mockResolvedValueOnce([]);
       prisma.product.count.mockResolvedValueOnce(0);
       await repo.findMany({
@@ -363,12 +394,21 @@ describe('ProductsRepository multi-token tokenize (Sprint 228 #7)', () => {
         page: 1,
       } as any);
       const call = prisma.product.findMany.mock.calls[0][0];
-      expect(call.where.prices).toEqual({
-        some: { isAvailable: true, deletedAt: null },
-      });
+      expect(call.where.canonicalProductId).toBeNull();
+      expect(call.where.AND[0].OR).toEqual([
+        { prices: { some: { isAvailable: true, deletedAt: null } } },
+        {
+          duplicates: {
+            some: {
+              deletedAt: null,
+              prices: { some: { isAvailable: true, deletedAt: null } },
+            },
+          },
+        },
+      ]);
     });
 
-    it('findMany com supermarket filter: aperta prices.some (adiciona supermarket.slug sem relaxar isAvailable/deletedAt)', async () => {
+    it('findMany com supermarket filter: aperta price-existence OR (self OR duplicates) mantendo supermarket.slug', async () => {
       prisma.product.findMany.mockResolvedValueOnce([]);
       prisma.product.count.mockResolvedValueOnce(0);
       await repo.findMany({
@@ -378,16 +418,36 @@ describe('ProductsRepository multi-token tokenize (Sprint 228 #7)', () => {
         supermarket: 'mercadona',
       } as any);
       const call = prisma.product.findMany.mock.calls[0][0];
-      expect(call.where.prices).toEqual({
-        some: {
-          isAvailable: true,
-          deletedAt: null,
-          supermarket: { slug: 'mercadona' },
+      // S244 (ADR 0044): OR union em AND[0]; self + duplicates recebem o
+      // mesmo priceFilters (supermarket.slug).
+      expect(call.where.AND[0].OR).toEqual([
+        {
+          prices: {
+            some: {
+              isAvailable: true,
+              deletedAt: null,
+              supermarket: { slug: 'mercadona' },
+            },
+          },
         },
-      });
+        {
+          duplicates: {
+            some: {
+              deletedAt: null,
+              prices: {
+                some: {
+                  isAvailable: true,
+                  deletedAt: null,
+                  supermarket: { slug: 'mercadona' },
+                },
+              },
+            },
+          },
+        },
+      ]);
     });
 
-    it('findMany com onPromotion: aperta prices.some mantendo deletedAt=null', async () => {
+    it('findMany com onPromotion: aperta price-existence OR mantendo onPromotion em ambos lados', async () => {
       prisma.product.findMany.mockResolvedValueOnce([]);
       prisma.product.count.mockResolvedValueOnce(0);
       await repo.findMany({
@@ -397,9 +457,16 @@ describe('ProductsRepository multi-token tokenize (Sprint 228 #7)', () => {
         onPromotion: true,
       } as any);
       const call = prisma.product.findMany.mock.calls[0][0];
-      expect(call.where.prices.some.isAvailable).toBe(true);
-      expect(call.where.prices.some.deletedAt).toBeNull();
-      expect(call.where.prices.some.onPromotion).toBe(true);
+      // S244 (ADR 0044): priceFilters aplicado em self.prices.some E em
+      // duplicates.some.prices.some.
+      const selfBranch = call.where.AND[0].OR[0].prices.some;
+      const dupBranch = call.where.AND[0].OR[1].duplicates.some.prices.some;
+      expect(selfBranch.isAvailable).toBe(true);
+      expect(selfBranch.deletedAt).toBeNull();
+      expect(selfBranch.onPromotion).toBe(true);
+      expect(dupBranch.isAvailable).toBe(true);
+      expect(dupBranch.deletedAt).toBeNull();
+      expect(dupBranch.onPromotion).toBe(true);
     });
 
     it('findById / findManyByIds: NÃO exige price ativo (preserva comportamento debug/admin)', async () => {

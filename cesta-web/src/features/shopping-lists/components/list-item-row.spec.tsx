@@ -59,6 +59,9 @@ function makeItem(
       cheapestPrice: 5.5,
       cheapestUnitPrice: { value: 5.5, unit: "L" },
       isStale: false,
+      canonicalProductId: null,
+      canonicalGroupSize: 1,
+      isSameProduct: false,
       ...overrides,
     },
   };

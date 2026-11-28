@@ -338,6 +338,10 @@ export const VARIANT_TOKENS = [
   'picada', 'fileteada', 'lonchas', 'asado',
   // Papel/higiene
   'blanqueador', 'triple capa', 'doble capa',
+  // Sprint 244: público-alvo (cosméticos/higiene masculino vs feminino vs
+  // kids). Caso prod Boss 2026-11-27: Nivea Black and White Invisible MEN
+  // 200ml vs MUJER 200ml — nome quase igual, variante só no público.
+  'men', 'hombre', 'mujer', 'women', 'kids', 'infantil', 'bebe',
 ];
 
 // Pre-build regex pra cada token (word boundary · multi-word apóia · hyphen flex).

@@ -68,6 +68,9 @@ function makeItem(overrides: Partial<BasketItem> & { subtotal: number }): Basket
       cheapestPrice: null,
       cheapestUnitPrice: null,
       isStale: false,
+      canonicalProductId: null,
+      canonicalGroupSize: 1,
+      isSameProduct: false,
     },
   };
   return { ...base, ...overrides };
